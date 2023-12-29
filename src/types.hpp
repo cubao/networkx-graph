@@ -6,7 +6,9 @@
 #undef __ARM_NEON__
 #endif
 
-#include <rapidjson/document.h>
+#include "rapidjson/document.h"
+#include <map>
+#include <unordered_map>
 #include <vector>
 
 #include "ankerl/unordered_dense.h"

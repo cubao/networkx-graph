@@ -9,6 +9,9 @@ int add(int i, int j) { return i + j; }
 
 namespace py = pybind11;
 
+namespace nano_fmm
+{
+
 struct Node
 {
     double length{0.0};
@@ -25,17 +28,18 @@ struct DiGraph
     unordered_map<int64_t, Node> nodes_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
     unordered_map<std::pair<int64_t, int64_t>, Edge> edges_;
-    mutable nano_fmm::Indexer indexer;
+    mutable Indexer indexer;
 
     using IndexMap = unordered_map<int64_t, int64_t>;
     using DistanceMap = unordered_map<int64_t, double>;
 
     void single_source_upperbound_dijkstra(int64_t source, double distance, //
                                            IndexMap &predecessor_map,
-                                           DistanceMap &distance_map) const {
-
-                                           }
+                                           DistanceMap &distance_map) const
+    {
+    }
 };
+} // namespace nano_fmm
 
 PYBIND11_MODULE(_core, m)
 {
