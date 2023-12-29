@@ -13,7 +13,7 @@ PYBIND11_MODULE(_core, m)
         Pybind11 example plugin
         -----------------------
 
-        .. currentmodule:: scikit_build_example
+        .. currentmodule:: network-graph
 
         .. autosummary::
            :toctree: _generate
