@@ -32,7 +32,9 @@ struct DiGraph
 
     void single_source_upperbound_dijkstra(int64_t source, double distance, //
                                            IndexMap &predecessor_map,
-                                           DistanceMap &distance_map) const;
+                                           DistanceMap &distance_map) const {
+
+                                           }
 };
 
 PYBIND11_MODULE(_core, m)
