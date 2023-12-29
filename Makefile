@@ -22,7 +22,10 @@ force_clean:
 pytest:
 	python3 -m pip install pytest numpy
 	pytest tests # --capture=tee-sys
-.PHONY: test pytest
+clitest:
+	python3 -m networkx_graph add 3 5
+	python3 -m networkx_graph subtract 8 5
+.PHONY: test pytest clitest
 
 docs_build:
 	mkdocs build
