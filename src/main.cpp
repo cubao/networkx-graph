@@ -33,6 +33,20 @@ struct DiGraph
     using IndexMap = unordered_map<int64_t, int64_t>;
     using DistanceMap = unordered_map<int64_t, double>;
 
+    void single_source_dijkstra(
+        const std::string &start, double cutoff,
+        const std::unordered_map<std::string> *sinks = nullptr,
+        std::unordered_map<std::string, std::string> *prevs = nullptr) const
+    {
+    }
+
+    void single_source_dijkstra(
+        int64_t start, double cutoff,
+        const unordered_map<int64_t> &sinks = nullptr,
+        unordered_map<int64_t, int64_t> *prevs = nullptr) const
+    {
+    }
+
     void single_source_upperbound_dijkstra(int64_t source, double distance, //
                                            IndexMap &predecessor_map,
                                            DistanceMap &distance_map) const
