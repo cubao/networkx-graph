@@ -26,6 +26,13 @@ struct Edge
 struct DiGraph
 {
 
+    void single_source_dijkstra(
+        const std::string &start, double cutoff,
+        const std::unordered_set<std::string> *sinks = nullptr,
+        std::unordered_map<std::string, std::string> *prevs = nullptr) const
+    {
+    }
+
   private:
     unordered_map<int64_t, Node> nodes_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
@@ -35,34 +42,32 @@ struct DiGraph
     using IndexMap = unordered_map<int64_t, int64_t>;
     using DistanceMap = unordered_map<int64_t, double>;
 
-    void single_source_dijkstra(
-        const std::string &start, double cutoff,
-        const std::unordered_set<std::string> *sinks = nullptr,
-        std::unordered_map<std::string, std::string> *prevs = nullptr) const
+    void
+    single_source_dijkstra(int64_t start, double cutoff, //
+                           IndexMap &pmap, DistanceMap &dmap,
+                           const unordered_set<int64_t> *sinks = nullptr) const
     {
-    }
-
-    void single_source_dijkstra(
-        int64_t start, double cutoff,
-        const unordered_set<int64_t> *sinks = nullptr,
-        unordered_map<int64_t, int64_t> *prevs = nullptr) const
-    {
-    }
-
-    void single_source_upperbound_dijkstra(int64_t s, double delta, //
-                                           IndexMap &pmap,
-                                           DistanceMap &dmap) const
-    {
+        auto itr = nexts_.find(start);
+        if (itr == nexts_.end()) {
+            return;
+        }
         Heap Q;
-        Q.push(s, -nodes_.at(s).length);
-        pmap.insert({s, s});
-        dmap.insert({s, 0});
+        Q.push(start, 0.0);
+        dmap.emplace(start, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.emplace(next, start);
+            dmap.emplace(next, 0.0);
+        }
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
-            if (node.value > delta)
+            if (node.value > cutoff)
                 break;
             auto u = node.index;
+            if (sinks && sinks->find(u) != sinks->end()) {
+                continue;
+            }
             auto itr = nexts_.find(u);
             if (itr == nexts_.end()) {
                 continue;
@@ -78,7 +83,7 @@ struct DiGraph
                         Q.decrease_key(v, c);
                     };
                 } else {
-                    if (c <= delta) {
+                    if (c <= cutoff) {
                         Q.push(v, c);
                         pmap.insert({v, u});
                         dmap.insert({v, c});
