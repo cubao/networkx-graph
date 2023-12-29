@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import network_graph as m
+import networkx_graph as m
 
 
 def test_version():
