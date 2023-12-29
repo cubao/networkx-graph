@@ -1,8 +1,8 @@
 #pragma once
 
-#include <string>
-#include <optional>
 #include "types.hpp"
+#include <optional>
+#include <string>
 
 #include "spdlog/spdlog.h"
 // fix exposed macro 'GetObject' from wingdi.h (included by spdlog.h) under

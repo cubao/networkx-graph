@@ -6,8 +6,8 @@
 #undef __ARM_NEON__
 #endif
 
-#include <vector>
 #include <rapidjson/document.h>
+#include <vector>
 
 #include "ankerl/unordered_dense.h"
 
