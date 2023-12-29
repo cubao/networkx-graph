@@ -39,14 +39,13 @@ struct DiGraph
     unordered_map<std::pair<int64_t, int64_t>, Edge> edges_;
     mutable Indexer indexer;
 
-    using IndexMap = unordered_map<int64_t, int64_t>;
-    using DistanceMap = unordered_map<int64_t, double>;
-
     void
     single_source_dijkstra(int64_t start, double cutoff, //
-                           IndexMap &pmap, DistanceMap &dmap,
+                           unordered_map<int64_t, int64_t> &pmap,
+                           unordered_map<int64_t, double> &dmap,
                            const unordered_set<int64_t> *sinks = nullptr) const
     {
+        // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         auto itr = nexts_.find(start);
         if (itr == nexts_.end()) {
             return;
