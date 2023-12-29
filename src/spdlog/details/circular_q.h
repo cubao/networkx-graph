@@ -4,13 +4,14 @@
 // circular q view of std::vector.
 #pragma once
 
-#include <vector>
 #include <cassert>
+#include <vector>
 
-namespace spdlog {
-namespace details {
-template<typename T>
-class circular_q
+namespace spdlog
+{
+namespace details
+{
+template <typename T> class circular_q
 {
     size_t max_items_ = 0;
     typename std::vector<T>::size_type head_ = 0;
@@ -18,7 +19,7 @@ class circular_q
     size_t overrun_counter_ = 0;
     std::vector<T> v_;
 
-public:
+  public:
     using value_type = T;
 
     // empty ctor - create a disabled queue with no elements allocated at all
@@ -26,8 +27,10 @@ public:
 
     explicit circular_q(size_t max_items)
         : max_items_(max_items + 1) // one item is reserved as marker for full q
-        , v_(max_items_)
-    {}
+          ,
+          v_(max_items_)
+    {
+    }
 
     circular_q(const circular_q &) = default;
     circular_q &operator=(const circular_q &) = default;
@@ -48,8 +51,7 @@ public:
     // push back, overrun (oldest) item if no room left
     void push_back(T &&item)
     {
-        if (max_items_ > 0)
-        {
+        if (max_items_ > 0) {
             v_[tail_] = std::move(item);
             tail_ = (tail_ + 1) % max_items_;
 
@@ -63,25 +65,16 @@ public:
 
     // Return reference to the front item.
     // If there are no elements in the container, the behavior is undefined.
-    const T &front() const
-    {
-        return v_[head_];
-    }
+    const T &front() const { return v_[head_]; }
 
-    T &front()
-    {
-        return v_[head_];
-    }
+    T &front() { return v_[head_]; }
 
     // Return number of elements actually stored
     size_t size() const
     {
-        if (tail_ >= head_)
-        {
+        if (tail_ >= head_) {
             return tail_ - head_;
-        }
-        else
-        {
+        } else {
             return max_items_ - (head_ - tail_);
         }
     }
@@ -96,37 +89,24 @@ public:
 
     // Pop item from front.
     // If there are no elements in the container, the behavior is undefined.
-    void pop_front()
-    {
-        head_ = (head_ + 1) % max_items_;
-    }
+    void pop_front() { head_ = (head_ + 1) % max_items_; }
 
-    bool empty() const
-    {
-        return tail_ == head_;
-    }
+    bool empty() const { return tail_ == head_; }
 
     bool full() const
     {
         // head is ahead of the tail by 1
-        if (max_items_ > 0)
-        {
+        if (max_items_ > 0) {
             return ((tail_ + 1) % max_items_) == head_;
         }
         return false;
     }
 
-    size_t overrun_counter() const
-    {
-        return overrun_counter_;
-    }
+    size_t overrun_counter() const { return overrun_counter_; }
 
-    void reset_overrun_counter()
-    {
-        overrun_counter_ = 0;
-    }
+    void reset_overrun_counter() { overrun_counter_ = 0; }
 
-private:
+  private:
     // copy from other&& and reset it to disabled state
     void copy_moveable(circular_q &&other) SPDLOG_NOEXCEPT
     {

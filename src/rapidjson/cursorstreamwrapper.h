@@ -1,16 +1,19 @@
-// Tencent is pleased to support the open source community by making RapidJSON available.
+// Tencent is pleased to support the open source community by making RapidJSON
+// available.
 //
 // Copyright (C) 2015 THL A29 Limited, a Tencent company, and Milo Yip.
 //
-// Licensed under the MIT License (the "License"); you may not use this file except
-// in compliance with the License. You may obtain a copy of the License at
+// Licensed under the MIT License (the "License"); you may not use this file
+// except in compliance with the License. You may obtain a copy of the License
+// at
 //
 // http://opensource.org/licenses/MIT
 //
-// Unless required by applicable law or agreed to in writing, software distributed
-// under the License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR
-// CONDITIONS OF ANY KIND, either express or implied. See the License for the
-// specific language governing permissions and limitations under the License.
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
+// WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
+// License for the specific language governing permissions and limitations under
+// the License.
 
 #ifndef RAPIDJSON_CURSORSTREAMWRAPPER_H_
 #define RAPIDJSON_CURSORSTREAMWRAPPER_H_
@@ -24,33 +27,36 @@ RAPIDJSON_DIAG_OFF(effc++)
 
 #if defined(_MSC_VER) && _MSC_VER <= 1800
 RAPIDJSON_DIAG_PUSH
-RAPIDJSON_DIAG_OFF(4702)  // unreachable code
-RAPIDJSON_DIAG_OFF(4512)  // assignment operator could not be generated
+RAPIDJSON_DIAG_OFF(4702) // unreachable code
+RAPIDJSON_DIAG_OFF(4512) // assignment operator could not be generated
 #endif
 
 RAPIDJSON_NAMESPACE_BEGIN
-
 
 //! Cursor stream wrapper for counting line and column number if error exists.
 /*!
     \tparam InputStream     Any stream that implements Stream Concept
 */
-template <typename InputStream, typename Encoding = UTF8<> >
-class CursorStreamWrapper : public GenericStreamWrapper<InputStream, Encoding> {
-public:
+template <typename InputStream, typename Encoding = UTF8<>>
+class CursorStreamWrapper : public GenericStreamWrapper<InputStream, Encoding>
+{
+  public:
     typedef typename Encoding::Ch Ch;
 
-    CursorStreamWrapper(InputStream& is):
-        GenericStreamWrapper<InputStream, Encoding>(is), line_(1), col_(0) {}
+    CursorStreamWrapper(InputStream &is)
+        : GenericStreamWrapper<InputStream, Encoding>(is), line_(1), col_(0)
+    {
+    }
 
     // counting line and column number
-    Ch Take() {
+    Ch Take()
+    {
         Ch ch = this->is_.Take();
-        if(ch == '\n') {
-            line_ ++;
+        if (ch == '\n') {
+            line_++;
             col_ = 0;
         } else {
-            col_ ++;
+            col_++;
         }
         return ch;
     }
@@ -60,9 +66,9 @@ public:
     //! Get the error column number, if error exists.
     size_t GetColumn() const { return col_; }
 
-private:
-    size_t line_;   //!< Current Line
-    size_t col_;    //!< Current Column
+  private:
+    size_t line_; //!< Current Line
+    size_t col_;  //!< Current Column
 };
 
 #if defined(_MSC_VER) && _MSC_VER <= 1800

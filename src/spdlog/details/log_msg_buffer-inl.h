@@ -4,11 +4,13 @@
 #pragma once
 
 #ifndef SPDLOG_HEADER_ONLY
-#    include <spdlog/details/log_msg_buffer.h>
+#include <spdlog/details/log_msg_buffer.h>
 #endif
 
-namespace spdlog {
-namespace details {
+namespace spdlog
+{
+namespace details
+{
 
 SPDLOG_INLINE log_msg_buffer::log_msg_buffer(const log_msg &orig_msg)
     : log_msg{orig_msg}
@@ -26,21 +28,27 @@ SPDLOG_INLINE log_msg_buffer::log_msg_buffer(const log_msg_buffer &other)
     update_string_views();
 }
 
-SPDLOG_INLINE log_msg_buffer::log_msg_buffer(log_msg_buffer &&other) SPDLOG_NOEXCEPT : log_msg{other}, buffer{std::move(other.buffer)}
+SPDLOG_INLINE
+log_msg_buffer::log_msg_buffer(log_msg_buffer &&other) SPDLOG_NOEXCEPT
+    : log_msg{other},
+      buffer{std::move(other.buffer)}
 {
     update_string_views();
 }
 
-SPDLOG_INLINE log_msg_buffer &log_msg_buffer::operator=(const log_msg_buffer &other)
+SPDLOG_INLINE log_msg_buffer &
+log_msg_buffer::operator=(const log_msg_buffer &other)
 {
     log_msg::operator=(other);
     buffer.clear();
-    buffer.append(other.buffer.data(), other.buffer.data() + other.buffer.size());
+    buffer.append(other.buffer.data(),
+                  other.buffer.data() + other.buffer.size());
     update_string_views();
     return *this;
 }
 
-SPDLOG_INLINE log_msg_buffer &log_msg_buffer::operator=(log_msg_buffer &&other) SPDLOG_NOEXCEPT
+SPDLOG_INLINE log_msg_buffer &
+log_msg_buffer::operator=(log_msg_buffer &&other) SPDLOG_NOEXCEPT
 {
     log_msg::operator=(other);
     buffer = std::move(other.buffer);

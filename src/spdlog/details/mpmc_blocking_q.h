@@ -15,17 +15,16 @@
 #include <condition_variable>
 #include <mutex>
 
-namespace spdlog {
-namespace details {
-
-template<typename T>
-class mpmc_blocking_queue
+namespace spdlog
 {
-public:
+namespace details
+{
+
+template <typename T> class mpmc_blocking_queue
+{
+  public:
     using item_type = T;
-    explicit mpmc_blocking_queue(size_t max_items)
-        : q_(max_items)
-    {}
+    explicit mpmc_blocking_queue(size_t max_items) : q_(max_items) {}
 
 #ifndef __MINGW32__
     // try to enqueue and block if no room left
@@ -55,8 +54,8 @@ public:
     {
         {
             std::unique_lock<std::mutex> lock(queue_mutex_);
-            if (!push_cv_.wait_for(lock, wait_duration, [this] { return !this->q_.empty(); }))
-            {
+            if (!push_cv_.wait_for(lock, wait_duration,
+                                   [this] { return !this->q_.empty(); })) {
                 return false;
             }
             popped_item = std::move(q_.front());
@@ -67,8 +66,8 @@ public:
     }
 
 #else
-    // apparently mingw deadlocks if the mutex is released before cv.notify_one(),
-    // so release the mutex at the very end each function.
+    // apparently mingw deadlocks if the mutex is released before
+    // cv.notify_one(), so release the mutex at the very end each function.
 
     // try to enqueue and block if no room left
     void enqueue(T &&item)
@@ -92,8 +91,8 @@ public:
     bool dequeue_for(T &popped_item, std::chrono::milliseconds wait_duration)
     {
         std::unique_lock<std::mutex> lock(queue_mutex_);
-        if (!push_cv_.wait_for(lock, wait_duration, [this] { return !this->q_.empty(); }))
-        {
+        if (!push_cv_.wait_for(lock, wait_duration,
+                               [this] { return !this->q_.empty(); })) {
             return false;
         }
         popped_item = std::move(q_.front());
@@ -122,7 +121,7 @@ public:
         q_.reset_overrun_counter();
     }
 
-private:
+  private:
     std::mutex queue_mutex_;
     std::condition_variable push_cv_;
     std::condition_variable pop_cv_;

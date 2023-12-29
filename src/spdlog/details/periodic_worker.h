@@ -7,33 +7,36 @@
 //
 // RAII over the owned thread:
 //    creates the thread on construction.
-//    stops and joins the thread on destruction (if the thread is executing a callback, wait for it to finish first).
+//    stops and joins the thread on destruction (if the thread is executing a
+//    callback, wait for it to finish first).
 
 #include <chrono>
 #include <condition_variable>
 #include <functional>
 #include <mutex>
 #include <thread>
-namespace spdlog {
-namespace details {
+namespace spdlog
+{
+namespace details
+{
 
 class SPDLOG_API periodic_worker
 {
-public:
-    template<typename Rep, typename Period>
-    periodic_worker(const std::function<void()> &callback_fun, std::chrono::duration<Rep, Period> interval) {
+  public:
+    template <typename Rep, typename Period>
+    periodic_worker(const std::function<void()> &callback_fun,
+                    std::chrono::duration<Rep, Period> interval)
+    {
         active_ = (interval > std::chrono::duration<Rep, Period>::zero());
-        if (!active_)
-        {
+        if (!active_) {
             return;
         }
 
         worker_thread_ = std::thread([this, callback_fun, interval]() {
-            for (;;)
-            {
+            for (;;) {
                 std::unique_lock<std::mutex> lock(this->mutex_);
-                if (this->cv_.wait_for(lock, interval, [this] { return !this->active_; }))
-                {
+                if (this->cv_.wait_for(lock, interval,
+                                       [this] { return !this->active_; })) {
                     return; // active_ == false, so exit this thread
                 }
                 callback_fun();
@@ -45,7 +48,7 @@ public:
     // stop the worker thread and join it
     ~periodic_worker();
 
-private:
+  private:
     bool active_;
     std::thread worker_thread_;
     std::mutex mutex_;
@@ -55,5 +58,5 @@ private:
 } // namespace spdlog
 
 #ifdef SPDLOG_HEADER_ONLY
-#    include "periodic_worker-inl.h"
+#include "periodic_worker-inl.h"
 #endif
