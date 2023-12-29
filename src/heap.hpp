@@ -40,11 +40,11 @@
  * License along with this library.
  */
 
-#include <cstddef>
-#include <math.h>
-#include <limits>
-#include <iostream>
 #include "types.hpp"
+#include <cstddef>
+#include <iostream>
+#include <limits>
+#include <math.h>
 
 namespace nano_fmm
 {
