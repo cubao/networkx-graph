@@ -21,7 +21,7 @@ class DiGraph(DiGraphImpl):
             node = str(node)
         node = super().add_node(node, length=length)
         for k, v in attr.items():
-            setattr(node, k, v)
+            node[k] = v
         return node
 
     def add_edge(self, node0: str, node1: str, **attr):
@@ -31,7 +31,7 @@ class DiGraph(DiGraphImpl):
             node1 = str(node1)
         edge = super().add_edge(node0, node1)
         for k, v in attr.items():
-            setattr(edge, k, v)
+            edge[k] = v
         return edge
 
 

@@ -353,11 +353,11 @@ PYBIND11_MODULE(_core, m)
             "attr_name"_a)
         .def("__setitem__",
              [](Node &self, const std::string &attr_name,
-                const py::object &obj) -> py::object {
+                py::object obj) -> py::object {
                  if (attr_name == "length") {
                      throw py::key_error("length is readonly");
                  }
-                 //  py::attr(attr_name.c_str(), obj);
+                 py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
              })
         //
@@ -378,8 +378,8 @@ PYBIND11_MODULE(_core, m)
             "attr_name"_a)
         .def("__setitem__",
              [](Node &self, const std::string &attr_name,
-                const py::object &obj) -> py::object {
-                 //  py::attr(attr_name.c_str(), obj);
+                py::object obj) -> py::object {
+                 py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
              })
         //
