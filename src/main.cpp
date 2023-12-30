@@ -31,6 +31,26 @@ struct Route
 
 struct DiGraph
 {
+    DiGraph() = default;
+    Node &add_node(const std::string &id, double length) {
+        auto &node = nodes_[indexer_.id(id)];
+        node.length = length;
+        return node;
+    }
+    Edge &add_edge(const std::string &node0, const std::string &node1) {
+        auto idx0 = indexer_.id(node0);
+        auto idx1 = indexer_.id(node1);
+        nexts_[idx0].insert(idx1);
+        prevs_[idx1].insert(idx0);
+        auto &edge = edges_[std::make_pair(idx0, idx1)];
+        return edge;
+    }
+    std::vector<std::string> predecessors(const std::string &id) const {
+        return {};
+    }
+    std::vector<std::string> successors(const std::string &id) const {
+        return {};
+    }
 
     std::vector<std::pair<double, std::string>> single_source_dijkstra(
         const std::string &start, double cutoff,
