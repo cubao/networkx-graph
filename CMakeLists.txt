@@ -30,7 +30,10 @@ elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 endif()
 
-add_compile_options(-Wno-pragmas)
+if(NOT MSVC)
+  add_compile_options(-Wno-pragmas)
+endif()
+
 include_directories(src)
 
 # Find the module development requirements (requires FindPython from 3.17 or

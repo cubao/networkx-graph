@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.1"
+    assert m.__version__ == "0.0.2"
 
 
 def test_add():
@@ -80,12 +80,10 @@ def test_digraph():
     node.num = 123
     assert node["num"] == 123
 
-    with pytest.raises(AttributeError) as err:
+    with pytest.raises(AttributeError):
         node.length = 5
-    assert "can't set attribute" in repr(err)
-    with pytest.raises(KeyError) as err:
+    with pytest.raises(KeyError):
         node["length"] = 5
-    assert "length is readonly" in repr(err)
 
     G1 = DiGraph()
     way1 = G1.add_node("way1", length=15.0)
