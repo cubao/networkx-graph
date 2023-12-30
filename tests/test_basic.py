@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 
 import networkx_graph as m
-from networkx_graph import rapidjson
+from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
@@ -54,3 +54,32 @@ def test_rapidjson():
         '["list", "items"]',
     ]:
         assert rapidjson().loads(text)() == json.loads(text)
+
+
+def test_digraph():
+    # G0 = nx.DiGraph()
+    # G0.add_node()
+
+    node = Node()
+    assert node.length == 1.0
+    node["key"] = "value"
+    node["num"] = 42
+    assert node.key == "value"
+    assert node.num == 42
+    node.key = 3.14
+    assert node["key"] == 3.14
+    node.num = 123
+    assert node["num"] == 123
+
+    G1 = DiGraph()
+    way1 = G1.add_node("way1", length=15.0)
+    way2 = G1.add_node("way2", length=5.0, text="text", number=42, list=[4, 2])
+    assert way1.length == 15.0
+    assert way2.length == 5.0
+    assert way2.text == "text"
+    assert way2.number == 42
+    assert way2.list == [4, 2]
+
+
+test_digraph()
+print()

@@ -31,7 +31,7 @@ namespace nano_fmm
 
 struct Node
 {
-    double length{0.0};
+    double length{1.0};
 };
 
 struct Edge
@@ -47,7 +47,7 @@ struct Route
 struct DiGraph
 {
     DiGraph() = default;
-    Node &add_node(const std::string &id, double length)
+    Node &add_node(const std::string &id, double length = 1.0)
     {
         reset();
         auto &node = nodes_[indexer_.id(id)];
@@ -341,8 +341,10 @@ PYBIND11_MODULE(_core, m)
     py::class_<DiGraph>(m, "DiGraph", py::module_local(), py::dynamic_attr()) //
         .def(py::init<>())
         //
-        .def("add_node", &DiGraph::add_node, "id"_a, "length"_a)
-        .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a)
+        .def("add_node", &DiGraph::add_node, "id"_a, py::kw_only(), "length"_a,
+             rvp::reference_internal)
+        .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
+             rvp::reference_internal)
         //
         .def("nodes", &DiGraph::nodes)
         .def("edges", &DiGraph::edges)
