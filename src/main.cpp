@@ -17,6 +17,13 @@
 #include "indexer.hpp"
 #include "types.hpp"
 
+#include "spdlog/spdlog.h"
+// fix exposed macro 'GetObject' from wingdi.h (included by spdlog.h) under
+// windows, see https://github.com/Tencent/rapidjson/issues/1448
+#ifdef GetObject
+#undef GetObject
+#endif
+
 #define STRINGIFY(x) #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
 
@@ -330,11 +337,51 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         .def_property_readonly("length",
                                [](const Node &self) { return self.length; })
+        .def(
+            "__getitem__",
+            [](Node &self, const std::string &attr_name) -> py::object {
+                if (attr_name == "length") {
+                    return py::float_(self.length);
+                }
+                auto py_obj = py::cast(self);
+                if (!py::hasattr(py_obj, attr_name.c_str())) {
+                    throw py::key_error(
+                        fmt::format("attribute:{} not found", attr_name));
+                }
+                return py_obj.attr(attr_name.c_str());
+            },
+            "attr_name"_a)
+        .def("__setitem__",
+             [](Node &self, const std::string &attr_name,
+                const py::object &obj) -> py::object {
+                 if (attr_name == "length") {
+                     throw py::key_error("length is readonly");
+                 }
+                 //  py::attr(attr_name.c_str(), obj);
+                 return obj;
+             })
         //
         ;
 
     py::class_<Edge>(m, "Edge", py::module_local(), py::dynamic_attr()) //
         .def(py::init<>())
+        .def(
+            "__getitem__",
+            [](Node &self, const std::string &attr_name) -> py::object {
+                auto py_obj = py::cast(self);
+                if (!py::hasattr(py_obj, attr_name.c_str())) {
+                    throw py::key_error(
+                        fmt::format("attribute:{} not found", attr_name));
+                }
+                return py_obj.attr(attr_name.c_str());
+            },
+            "attr_name"_a)
+        .def("__setitem__",
+             [](Node &self, const std::string &attr_name,
+                const py::object &obj) -> py::object {
+                 //  py::attr(attr_name.c_str(), obj);
+                 return obj;
+             })
         //
         ;
 

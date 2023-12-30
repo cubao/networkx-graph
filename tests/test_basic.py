@@ -62,6 +62,13 @@ def test_digraph():
 
     node = Node()
     assert node.length == 1.0
+    node.key = 777
+    assert node.__dict__ == {"key": 777}
+    node.key = [1, 2, 3]
+    assert node["key"] == [1, 2, 3]
+    node.key.append(5)
+    assert node["key"] == [1, 2, 3, 5]
+
     node["key"] = "value"
     node["num"] = 42
     assert node.key == "value"

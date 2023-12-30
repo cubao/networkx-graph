@@ -1,36 +1,7 @@
 from __future__ import annotations
 
 from ._core import DiGraph as DiGraphImpl
-from ._core import Edge as EdgeImpl
-from ._core import Node as NodeImpl
-from ._core import __doc__, __version__, add, rapidjson, subtract
-
-
-class Node(NodeImpl):
-    def __init__(self):
-        super().__init__()
-
-    def __getitem__(self, key: str):
-        if key == "length":
-            return self.length
-        return getattr(self, key)
-
-    def __setitem__(self, key: str, value):
-        assert key != "length", "length is not mutable!"
-        setattr(self, key, value)
-        return value
-
-
-class Edge(EdgeImpl):
-    def __init__(self):
-        super().__init__()
-
-    def __getitem__(self, key: str):
-        return getattr(self, key)
-
-    def __setitem__(self, key: str, value):
-        setattr(self, key, value)
-        return value
+from ._core import Edge, Node, __doc__, __version__, add, rapidjson, subtract
 
 
 class DiGraph(DiGraphImpl):
