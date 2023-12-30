@@ -48,12 +48,12 @@ struct DiGraph
         prevs_[idx1].insert(idx0);
         nodes_[idx0];
         nodes_[idx1];
-        auto &edge = edges_[std::make_pair(idx0, idx1)];
+        auto &edge = edges_[std::make_tuple(idx0, idx1)];
         return edge;
     }
 
     const std::vector<std::string> &nodes() const { return cache().nodes; }
-    const std::vector<std::pair<std::string, std::string>> &edges() const
+    const std::vector<std::tuple<std::string, std::string>> &edges() const
     {
         return cache().edges;
     }
@@ -67,7 +67,7 @@ struct DiGraph
         return __nexts(id, nexts_);
     }
 
-    std::vector<std::pair<double, std::string>> single_source_dijkstra(
+    std::vector<std::tuple<double, std::string>> single_source_dijkstra(
         const std::string &start, double cutoff,
         const std::unordered_set<std::string> *sinks = nullptr,
         std::unordered_map<std::string, std::string> *prevs = nullptr,
@@ -102,14 +102,13 @@ struct DiGraph
                 (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
             }
         }
-        auto ret = std::vector<std::pair<double, std::string>>{};
+        auto ret = std::vector<std::tuple<double, std::string>>{};
         ret.reserve(dmap.size());
         for (auto &pair : dmap) {
-            ret.emplace_back(pair.second, indexer_.id(pair.first));
+            ret.emplace_back(
+                std::make_tuple(pair.second, indexer_.id(pair.first)));
         }
-        std::sort(ret.begin(), ret.end(), [](const auto &p1, const auto &p2) {
-            return p1.first < p2.first;
-        });
+        std::sort(ret.begin(), ret.end());
         return ret;
     }
 
@@ -139,12 +138,12 @@ struct DiGraph
     bool freezed_{false};
     unordered_map<int64_t, Node> nodes_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
-    unordered_map<std::pair<int64_t, int64_t>, Edge> edges_;
+    unordered_map<std::tuple<int64_t, int64_t>, Edge> edges_;
     mutable Indexer indexer_;
     struct Cache
     {
         std::vector<std::string> nodes;
-        std::vector<std::pair<std::string, std::string>> edges;
+        std::vector<std::tuple<std::string, std::string>> edges;
     };
     mutable std::optional<Cache> cache_;
     Cache &cache() const
@@ -154,7 +153,7 @@ struct DiGraph
         }
         // build nodes, edges
         std::vector<std::string> nodes;
-        std::vector<std::pair<std::string, std::string>> edges;
+        std::vector<std::tuple<std::string, std::string>> edges;
 
         cache_ = Cache();
         cache_->nodes = std::move(nodes);
