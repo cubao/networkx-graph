@@ -272,10 +272,11 @@ struct DiGraph
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
-            if (node.value > cutoff)
+            if (node.value > cutoff) {
                 break;
+            }
             auto u = node.index;
-            if (sinks && sinks->find(u) != sinks->end()) {
+            if (sinks && sinks->count(u)) {
                 continue;
             }
             auto itr = jumps.find(u);
@@ -291,12 +292,12 @@ struct DiGraph
                         pmap[v] = u;
                         dmap[v] = c;
                         Q.decrease_key(v, c);
-                    };
+                    }
                 } else {
                     if (c <= cutoff) {
+                        pmap.emplace(v, u);
+                        dmap.emplace(v, c);
                         Q.push(v, c);
-                        pmap.insert({v, u});
-                        dmap.insert({v, c});
                     }
                 }
             }
