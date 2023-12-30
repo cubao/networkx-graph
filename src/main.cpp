@@ -326,6 +326,17 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<Node>(m, "Node", py::module_local(), py::dynamic_attr()) //
+        .def(py::init<>())
+        .def_property_readonly("length", [](const Node &self) { return self.length; })
+        //
+        ;
+
+    py::class_<Node>(m, "Edge", py::module_local()) //
+        .def(py::init<>())
+        //
+        ;
+
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
