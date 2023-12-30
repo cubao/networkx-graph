@@ -333,7 +333,7 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
-    py::class_<Node>(m, "Edge", py::module_local(), py::dynamic_attr()) //
+    py::class_<Edge>(m, "Edge", py::module_local(), py::dynamic_attr()) //
         .def(py::init<>())
         //
         ;
@@ -356,12 +356,11 @@ PYBIND11_MODULE(_core, m)
                                std::unordered_map<std::string, std::string> *,
                                bool>(&DiGraph::single_source_dijkstra,
                                      py::const_),
-             "id"_a, py::kw_only(), "cutoff"_a, "sinks"_a = nullptr,
-             "prevs"_a = nullptr, "reverse"_a = false)
-        //
-        // shit
-        // shit
-
+             "id"_a, py::kw_only(), //
+             "cutoff"_a,            //
+             "sinks"_a = nullptr,   //
+             "prevs"_a = nullptr,   //
+             "reverse"_a = false)
         //
         ;
 
