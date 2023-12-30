@@ -95,7 +95,3 @@ def test_digraph():
     assert way2.text == "text"
     assert way2.number == 42
     assert way2.list == [4, 2]
-
-
-test_digraph()
-print()
