@@ -33,6 +33,42 @@ namespace py = pybind11;
 using rvp = py::return_value_policy;
 using namespace pybind11::literals;
 
+#if NANO_FMM_DISABLE_UNORDERED_DENSE
+template <class T> inline void hash_combine(std::size_t &seed, const T &value)
+{
+    seed ^= std::hash<T>()(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+}
+
+namespace std
+{
+template <typename... T> struct hash<tuple<T...>>
+{
+    size_t operator()(const tuple<T...> &t) const
+    {
+        size_t seed = 0;
+        hash_tuple(seed, t);
+        return seed;
+    }
+
+  private:
+    template <std::size_t I = 0, typename... Ts>
+    inline typename enable_if<I == sizeof...(Ts), void>::type
+    hash_tuple(size_t &seed, const tuple<Ts...> &t) const
+    {
+    }
+
+    template <std::size_t I = 0, typename... Ts>
+        inline typename enable_if <
+        I<sizeof...(Ts), void>::type hash_tuple(size_t &seed,
+                                                const tuple<Ts...> &t) const
+    {
+        hash_combine(seed, get<I>(t));
+        hash_tuple<I + 1, Ts...>(seed, t);
+    }
+};
+} // namespace std
+#endif
+
 namespace nano_fmm
 {
 
