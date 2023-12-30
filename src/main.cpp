@@ -34,12 +34,14 @@ struct DiGraph
     DiGraph() = default;
     Node &add_node(const std::string &id, double length)
     {
+        reset();
         auto &node = nodes_[indexer_.id(id)];
         node.length = length;
         return node;
     }
     Edge &add_edge(const std::string &node0, const std::string &node1)
     {
+        reset();
         auto idx0 = indexer_.id(node0);
         auto idx1 = indexer_.id(node1);
         nexts_[idx0].insert(idx1);
@@ -123,7 +125,18 @@ struct DiGraph
         return to_rapidjson(allocator);
     }
 
+    void freeze() { freezed_ = true; }
+    void build() const {}
+    void reset() const
+    {
+        if (freezed_) {
+            throw std::logic_error("can't reset when freezed");
+        }
+        cache_.reset();
+    }
+
   private:
+    bool freezed_{false};
     unordered_map<int64_t, Node> nodes_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
     unordered_map<std::pair<int64_t, int64_t>, Edge> edges_;
@@ -141,6 +154,7 @@ struct DiGraph
         }
         // build nodes, edges
         std::vector<std::string> nodes;
+        std::vector<std::pair<std::string, std::string>> edges;
 
         cache_ = Cache();
         cache_->nodes = std::move(nodes);
