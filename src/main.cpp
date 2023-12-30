@@ -32,24 +32,37 @@ struct Route
 struct DiGraph
 {
     DiGraph() = default;
-    Node &add_node(const std::string &id, double length) {
+    Node &add_node(const std::string &id, double length)
+    {
         auto &node = nodes_[indexer_.id(id)];
         node.length = length;
         return node;
     }
-    Edge &add_edge(const std::string &node0, const std::string &node1) {
+    Edge &add_edge(const std::string &node0, const std::string &node1)
+    {
         auto idx0 = indexer_.id(node0);
         auto idx1 = indexer_.id(node1);
         nexts_[idx0].insert(idx1);
         prevs_[idx1].insert(idx0);
+        nodes_[idx0];
+        nodes_[idx1];
         auto &edge = edges_[std::make_pair(idx0, idx1)];
         return edge;
     }
-    std::vector<std::string> predecessors(const std::string &id) const {
-        return {};
+
+    const std::vector<std::string> &nodes() const { return cache().nodes; }
+    const std::vector<std::pair<std::string, std::string>> &edges() const
+    {
+        return cache().edges;
     }
-    std::vector<std::string> successors(const std::string &id) const {
-        return {};
+
+    std::vector<std::string> predecessors(const std::string &id) const
+    {
+        return __nexts(id, prevs_);
+    }
+    std::vector<std::string> successors(const std::string &id) const
+    {
+        return __nexts(id, nexts_);
     }
 
     std::vector<std::pair<double, std::string>> single_source_dijkstra(
@@ -92,9 +105,22 @@ struct DiGraph
         for (auto &pair : dmap) {
             ret.emplace_back(pair.second, indexer_.id(pair.first));
         }
-        std::sort(ret.begin(), ret.end(),
-                  [](const auto &p1, const auto &p2) { return p1.first < p2.first; });
+        std::sort(ret.begin(), ret.end(), [](const auto &p1, const auto &p2) {
+            return p1.first < p2.first;
+        });
         return ret;
+    }
+
+    DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
+    RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
+    {
+        RapidjsonValue json(rapidjson::kObjectType);
+        return json;
+    }
+    RapidjsonValue to_rapidjson() const
+    {
+        RapidjsonAllocator allocator;
+        return to_rapidjson(allocator);
     }
 
   private:
@@ -102,6 +128,45 @@ struct DiGraph
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
     unordered_map<std::pair<int64_t, int64_t>, Edge> edges_;
     mutable Indexer indexer_;
+    struct Cache
+    {
+        std::vector<std::string> nodes;
+        std::vector<std::pair<std::string, std::string>> edges;
+    };
+    mutable std::optional<Cache> cache_;
+    Cache &cache() const
+    {
+        if (cache_) {
+            return *cache_;
+        }
+        // build nodes, edges
+        std::vector<std::string> nodes;
+
+        cache_ = Cache();
+        cache_->nodes = std::move(nodes);
+        cache_->edges = std::move(edges);
+        return *cache_;
+    }
+
+    std::vector<std::string>
+    __nexts(const std::string &id,
+            const unordered_map<int64_t, unordered_set<int64_t>> &jumps) const
+    {
+        auto idx = indexer_.get_id(id);
+        if (!idx) {
+            return {};
+        }
+        auto itr = jumps.find(*idx);
+        if (itr == jumps.end()) {
+            return {};
+        }
+        auto nodes = std::vector<std::string>{};
+        nodes.reserve(itr->second.size());
+        for (auto &prev : itr->second) {
+            nodes.push_back(indexer_.id(prev));
+        }
+        return nodes;
+    }
 
     void single_source_dijkstra(
         int64_t start, double cutoff, //

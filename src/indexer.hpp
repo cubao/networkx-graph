@@ -40,9 +40,8 @@ struct Indexer
         return itr->second;
     }
 
-    int64_t id(const std::string &id) const { return str2int_.at(id); }
+    // get str id
     std::string id(int64_t id) const { return int2str_.at(id); }
-
     // get str id (with auto setup)
     std::string id(int64_t id)
     {
@@ -60,6 +59,8 @@ struct Indexer
         index(str_id, id);
         return str_id;
     }
+    // get int id
+    int64_t id(const std::string &id) const { return str2int_.at(id); }
     // get int id (with auto setup)
     int64_t id(const std::string &id)
     {
