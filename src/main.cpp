@@ -333,6 +333,11 @@ PYBIND11_MODULE(_core, m)
 #endif
 }
 
+constexpr const auto RJFLAGS = rapidjson::kParseDefaultFlags |      //
+                               rapidjson::kParseCommentsFlag |      //
+                               rapidjson::kParseFullPrecisionFlag | //
+                               rapidjson::kParseTrailingCommasFlag;
+
 inline RapidjsonValue deepcopy(const RapidjsonValue &json,
                                RapidjsonAllocator &allocator)
 {
@@ -519,8 +524,8 @@ inline bool dump_json(const std::string &path, const RapidjsonValue &json,
         }
     } else {
         Writer<FileWriteStream> writer(os);
-        if (sort_keys) {
-            succ = nano_fmm::sort_keys(json).Accept(writer);
+        if (_sort_keys) {
+            succ = sort_keys(json).Accept(writer);
         } else {
             succ = json.Accept(writer);
         }
@@ -542,10 +547,10 @@ inline RapidjsonValue loads(const std::string &json)
     return RapidjsonValue{std::move(d.Move())};
 }
 inline std::string dumps(const RapidjsonValue &json, bool indent = false,
-                         bool sort_keys = false)
+                         bool _sort_keys = false)
 {
-    if (sort_keys) {
-        return dumps(nano_fmm::sort_keys(json), indent, !sort_keys);
+    if (_sort_keys) {
+        return dumps(sort_keys(json), indent, !sort_keys);
     }
     rapidjson::StringBuffer buffer;
     if (indent) {
