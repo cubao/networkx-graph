@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 import networkx_graph as m
 from networkx_graph import DiGraph, Node, rapidjson
 
@@ -77,6 +79,13 @@ def test_digraph():
     assert node["key"] == 3.14
     node.num = 123
     assert node["num"] == 123
+
+    with pytest.raises(AttributeError) as err:
+        node.length = 5
+    assert "can't set attribute" in repr(err)
+    with pytest.raises(KeyError) as err:
+        node["length"] = 5
+    assert "length is readonly" in repr(err)
 
     G1 = DiGraph()
     way1 = G1.add_node("way1", length=15.0)
