@@ -33,7 +33,6 @@ namespace py = pybind11;
 using rvp = py::return_value_policy;
 using namespace pybind11::literals;
 
-#if NANO_FMM_DISABLE_UNORDERED_DENSE
 template <class T> inline void hash_combine(std::size_t &seed, const T &value)
 {
     seed ^= std::hash<T>()(value) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
@@ -67,7 +66,6 @@ template <typename... T> struct hash<tuple<T...>>
     }
 };
 } // namespace std
-#endif
 
 namespace nano_fmm
 {
@@ -196,9 +194,9 @@ struct DiGraph
 
   private:
     bool freezed_{false};
-    unordered_map<int64_t, Node> nodes_;
+    std::unordered_map<int64_t, Node> nodes_;
+    std::unordered_map<std::tuple<int64_t, int64_t>, Edge> edges_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
-    unordered_map<std::tuple<int64_t, int64_t>, Edge> edges_;
     mutable Indexer indexer_;
     struct Cache
     {
