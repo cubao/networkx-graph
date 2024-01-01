@@ -13,6 +13,9 @@
 #include "rapidjson/prettywriter.h"
 #include "rapidjson/stringbuffer.h"
 
+#define DBG_MACRO_NO_WARNING
+#include "dbg.h"
+
 #include "heap.hpp"
 #include "indexer.hpp"
 #include "types.hpp"
@@ -158,7 +161,7 @@ struct DiGraph
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
                                pmap, dmap, sinks_ptr.get());
         if (prevs) {
-            for (auto pair : pmap) {
+            for (const auto &pair : pmap) {
                 (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
             }
         }
@@ -261,11 +264,11 @@ struct DiGraph
         }
         Heap Q;
         Q.push(start, 0.0);
-        dmap.emplace(start, 0.0);
+        dmap.insert({start, 0.0});
         for (auto next : itr->second) {
             Q.push(next, 0.0);
-            pmap.emplace(next, start);
-            dmap.emplace(next, 0.0);
+            pmap.insert({next, start});
+            dmap.insert({next, 0.0});
         }
         while (!Q.empty()) {
             HeapNode node = Q.top();
@@ -293,8 +296,8 @@ struct DiGraph
                     }
                 } else {
                     if (c <= cutoff) {
-                        pmap.emplace(v, u);
-                        dmap.emplace(v, c);
+                        pmap.insert({v, u});
+                        dmap.insert({v, c});
                         Q.push(v, c);
                     }
                 }
@@ -434,17 +437,16 @@ PYBIND11_MODULE(_core, m)
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
         //
-        .def("single_source_dijkstra",
-             py::overload_cast<const std::string &, double,
-                               const std::unordered_set<std::string> *,
-                               std::unordered_map<std::string, std::string> *,
-                               bool>(&DiGraph::single_source_dijkstra,
-                                     py::const_),
-             "id"_a, py::kw_only(), //
-             "cutoff"_a,            //
-             "sinks"_a = nullptr,   //
-             "prevs"_a = nullptr,   //
-             "reverse"_a = false)
+        .def(
+            "single_source_dijkstra",
+            [](const DiGraph &self, const std::string &id, double cutoff,
+               bool reverse) {
+                return self.single_source_dijkstra(id, cutoff, nullptr, nullptr,
+                                                   reverse);
+            },
+            "id"_a, py::kw_only(), //
+            "cutoff"_a,            //
+            "reverse"_a = false)
         //
         ;
 

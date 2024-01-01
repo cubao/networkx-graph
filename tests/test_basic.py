@@ -130,4 +130,41 @@ def test_digraph():
 
 
 def test_digraph_dijkstra():
-    pass
+    """
+                             --------w3-------------o------------------w4-----------------o
+                            /                                                             | w6
+    o---------w1-----------o-----------------w2-------------o---------------w5------------o------------w7-----o
+
+    """
+    G = DiGraph()
+    G.add_node("w1", length=10.0)
+    G.add_node("w2", length=15.0)
+    G.add_node("w5", length=15.0)
+    G.add_node("w3", length=10.0)
+    G.add_node("w4", length=20.0)
+    G.add_node("w6", length=3.0)
+    G.add_node("w7", length=10.0)
+    G.add_edge("w1", "w2")
+    G.add_edge("w1", "w3")
+    G.add_edge("w2", "w5")
+    G.add_edge("w3", "w4")
+    G.add_edge("w4", "w6")
+    G.add_edge("w6", "w7")
+    G.add_edge("w5", "w7")
+
+    assert set(G.successors("w1")) == {"w2", "w3"}
+    assert set(G.predecessors("w7")) == {"w5", "w6"}
+
+    dists = G.single_source_dijkstra("w1", cutoff=200.0)
+    assert dists == [
+        (0.0, "w1"),
+        (0.0, "w2"),
+        (0.0, "w3"),
+        (10.0, "w4"),
+        (15.0, "w5"),
+        (30.0, "w6"),
+        (30.0, "w7"),
+    ]
+
+
+test_digraph_dijkstra()
