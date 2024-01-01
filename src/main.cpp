@@ -108,8 +108,12 @@ struct DiGraph
         return edge;
     }
 
-    const std::vector<std::string> &nodes() const { return cache().nodes; }
-    const std::vector<std::tuple<std::string, std::string>> &edges() const
+    const std::unordered_map<std::string, Node *> &nodes() const
+    {
+        return cache().nodes;
+    }
+    const std::unordered_map<std::tuple<std::string, std::string>, Edge *> &
+    edges() const
     {
         return cache().edges;
     }
@@ -200,8 +204,8 @@ struct DiGraph
     mutable Indexer indexer_;
     struct Cache
     {
-        std::vector<std::string> nodes;
-        std::vector<std::tuple<std::string, std::string>> edges;
+        std::unordered_map<std::string, Node *> nodes;
+        std::unordered_map<std::tuple<std::string, std::string>, Edge *> edges;
     };
     mutable std::optional<Cache> cache_;
     Cache &cache() const
@@ -209,23 +213,17 @@ struct DiGraph
         if (cache_) {
             return *cache_;
         }
-        // build nodes, edges
-        std::vector<std::string> nodes;
-        nodes.reserve(nodes_.size());
-        for (auto &pair : nodes_) {
-            nodes.push_back(indexer_.id(pair.first));
-        }
-        std::sort(nodes.begin(), nodes.end());
-        std::vector<std::tuple<std::string, std::string>> edges;
-        edges.reserve(edges_.size());
-        for (auto &pair : edges_) {
-            edges.push_back(
-                std::make_tuple(indexer_.id(std::get<0>(pair.first)),
-                                indexer_.id(std::get<1>(pair.first))));
-        }
         cache_ = Cache();
-        cache_->nodes = std::move(nodes);
-        cache_->edges = std::move(edges);
+        for (auto &pair : nodes_) {
+            cache_->nodes.emplace(indexer_.id(pair.first),
+                                  const_cast<Node *>(&pair.second));
+        }
+        for (auto &pair : edges_) {
+            cache_->edges.emplace(
+                std::make_tuple(indexer_.id(std::get<0>(pair.first)),
+                                indexer_.id(std::get<1>(pair.first))),
+                const_cast<Edge *>(&pair.second));
+        }
         return *cache_;
     }
 
@@ -428,8 +426,8 @@ PYBIND11_MODULE(_core, m)
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
              rvp::reference_internal)
         //
-        .def("nodes", &DiGraph::nodes)
-        .def("edges", &DiGraph::edges)
+        .def_property_readonly("nodes", &DiGraph::nodes)
+        .def_property_readonly("edges", &DiGraph::edges)
         //
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
