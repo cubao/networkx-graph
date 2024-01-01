@@ -130,8 +130,4 @@ def test_digraph():
 
 
 def test_digraph_dijkstra():
-    print()
-
-
-test_digraph()
-print()
+    pass
