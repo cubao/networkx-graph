@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.2"
+    assert m.__version__ == "0.0.3"
 
 
 def test_add():
@@ -165,6 +165,3 @@ def test_digraph_dijkstra():
         (30.0, "w6"),
         (30.0, "w7"),
     ]
-
-
-test_digraph_dijkstra()
