@@ -68,6 +68,7 @@ def test_digraph_networkx():
     assert way is None
     G0.add_node("way2", length=5.0, text="text", number=42, list=[4, 2])
     G0.add_node("way3", length=25.0)
+    assert G0.nodes["way2"]["text"] == "text"
     for way in G0.nodes:
         assert isinstance(way, str)
     for way in G0.nodes.keys():  # noqa: SIM118
@@ -84,7 +85,6 @@ def test_digraph_networkx():
     for key, edge in G0.edges.items():
         assert isinstance(key, tuple)
         assert isinstance(edge, dict)
-    print()
 
 
 def test_digraph():
@@ -121,8 +121,12 @@ def test_digraph():
     assert way2.text == "text"
     assert way2.number == 42
     assert way2.list == [4, 2]
+    assert G1.nodes["way1"] is way1
 
-    print()
+    assert not G1.edges
+    edge = G1.add_edge("way1", "way2")
+    assert ("way1", "way2") in G1.edges
+    assert G1.edges[("way1", "way2")] is edge
 
 
 def test_digraph_dijkstra():

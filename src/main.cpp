@@ -426,8 +426,10 @@ PYBIND11_MODULE(_core, m)
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
              rvp::reference_internal)
         //
-        .def_property_readonly("nodes", &DiGraph::nodes)
-        .def_property_readonly("edges", &DiGraph::edges)
+        .def_property_readonly("nodes", &DiGraph::nodes,
+                               rvp::reference_internal)
+        .def_property_readonly("edges", &DiGraph::edges,
+                               rvp::reference_internal)
         //
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
