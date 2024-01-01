@@ -8,27 +8,16 @@ class DiGraph(DiGraphImpl):
     def __init__(self):
         super().__init__()
 
-    @property
-    def nodes(self):
-        return super().nodes()
-
-    @property
-    def edges(self):
-        return super().edges()
-
     def add_node(self, node: str, length: float = 1.0, **attr):
-        if not isinstance(node, str):
-            node = str(node)
+        assert isinstance(node, str), "we only supports str key!"
         node = super().add_node(node, length=length)
         for k, v in attr.items():
             node[k] = v
         return node
 
     def add_edge(self, node0: str, node1: str, **attr):
-        if not isinstance(node0, str):
-            node0 = str(node0)
-        if not isinstance(node1, str):
-            node1 = str(node1)
+        assert isinstance(node0, str), "we only supports str key!"
+        assert isinstance(node1, str), "we only supports str key!"
         edge = super().add_edge(node0, node1)
         for k, v in attr.items():
             edge[k] = v
