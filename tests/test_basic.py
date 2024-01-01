@@ -57,10 +57,34 @@ def test_rapidjson():
     ]:
         assert rapidjson().loads(text)() == json.loads(text)
 
+def test_digraph_networkx():
+    try:
+        import networkx as nx
+    except ImportError:
+        return
+    G0 = nx.DiGraph()
+    way1 = G0.add_node("way1", length=15.0)
+    way2 = G0.add_node("way2", length=5.0, text="text", number=42, list=[4, 2])
+    way3 = G0.add_node("way3", length=25.0)
+    for way in G0.nodes:
+        assert isinstance(way, str)
+    for way in G0.nodes.keys():
+        assert isinstance(way, str)
+    for way in G0.nodes.values():
+        assert isinstance(way, dict)
+        assert way['length'] in (15.0, 5.0, 25.0)
+    for key, way in G0.nodes.items():
+        assert isinstance(key, str)
+        assert isinstance(way, dict)
+    edge1 = G0.add_edge("way1", "way2")
+    edge2 = G0.add_edge("way1", "way3")
+    for key, edge in G0.edges.items():
+        assert isinstance(key, tuple)
+        assert isinstance(edge, dict)
+    print()
 
 def test_digraph():
-    # G0 = nx.DiGraph()
-    # G0.add_node()
+    test_digraph_networkx()
 
     node = Node()
     assert node.length == 1.0
@@ -93,3 +117,11 @@ def test_digraph():
     assert way2.text == "text"
     assert way2.number == 42
     assert way2.list == [4, 2]
+
+    print()
+
+def test_digraph_dijkstra():
+    print()
+
+test_digraph()
+print()
