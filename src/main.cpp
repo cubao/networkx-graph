@@ -82,10 +82,15 @@ struct Edge
 {
 };
 
+struct DiGraph;
+
 struct Route
 {
-    double dist;
-    std::vector<std::string> path;
+    const DiGraph *graph{nullptr};
+    double dist{0.0};
+    std::vector<int64_t> path;
+    std::optional<double> start_offset;
+    std::optional<double> end_offset;
 };
 
 struct DiGraph
@@ -128,6 +133,17 @@ struct DiGraph
     std::vector<std::string> successors(const std::string &id) const
     {
         return __nexts(id, nexts_);
+    }
+
+    std::string __node_id(int64_t node) const { return indexer_.id(node); }
+    std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
+    {
+        std::vector<std::string> ids;
+        ids.reserve(nodes.size());
+        for (auto node : nodes) {
+            ids.push_back(indexer_.id(node));
+        }
+        return ids;
     }
 
     std::vector<std::tuple<double, std::string>> single_source_dijkstra(
@@ -434,6 +450,29 @@ PYBIND11_MODULE(_core, m)
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
              })
+        //
+        ;
+
+    py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
+        .def_property_readonly("graph", [](const Route &self) { return self.graph; }, rvp::reference_internal)
+        .def_property_readonly("dist", [](const Route &self) { return self.dist; })
+        .def_property_readonly(
+            "path",
+            [](const Route &self) { return self.graph->__node_ids(self.path); })
+        .def_property_readonly(
+            "start",
+            [](const Route &self)
+                -> std::tuple<std::string, std::optional<double>> {
+                return std::make_tuple(self.graph->__node_id(self.path.front()),
+                                       self.start_offset);
+            })
+        .def_property_readonly(
+            "end",
+            [](const Route &self)
+                -> std::tuple<std::string, std::optional<double>> {
+                return std::make_tuple(self.graph->__node_id(self.path.back()),
+                                       self.end_offset);
+            })
         //
         ;
 
