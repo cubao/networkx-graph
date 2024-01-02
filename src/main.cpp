@@ -86,6 +86,15 @@ struct DiGraph;
 
 struct Route
 {
+    Route() = default;
+    Route(const DiGraph *graph = nullptr, double dist = 0.0,
+          const std::vector<int64_t> &path = {},
+          std::optional<double> start_offset = {},
+          std::optional<double> end_offset = {})
+        : graph(graph), dist(dist), path(path), start_offset(start_offset),
+          end_offset(end_offset)
+    {
+    }
     const DiGraph *graph{nullptr};
     double dist{0.0};
     std::vector<int64_t> path;
@@ -222,12 +231,46 @@ struct DiGraph
 
         if (offset) {
             offset = std::max(0.0, std::min(*offset, itr->second.length));
-            cutoff -= itr->second.length - *offset;
+            double delta = itr->second.length - *offset;
+            if (cutoff <= delta) {
+                return {Route(this, cutoff, {*start_idx}, *offset,
+                              *offset + cutoff)};
+            }
+            cutoff -= delta;
         }
-
         std::vector<Route> routes;
-        auto backtrace = [&](std::vector<int64_t> &path, double length) {
-
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
+        backtrace = [&routes, cutoff, this,
+                     &backtrace](std::vector<int64_t> &path, double length) {
+            if (length > cutoff) {
+                return;
+            }
+            auto tail = path.back();
+            auto itr = this->nexts_.find(tail);
+            if (itr == this->nexts_.end()) {
+                return;
+            }
+            if (path.size() > 1) {
+                double new_length = length + this->nodes_.at(tail).length;
+                if (new_length > cutoff) {
+                    routes.push_back(
+                        Route(this, new_length, path, {}, cutoff - length));
+                }
+                length = new_length;
+            }
+            const auto N = routes.size();
+            for (auto next : itr->second) {
+                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                    continue;
+                }
+                path.push_back(next);
+                backtrace(path, length);
+                path.pop_back();
+            }
+            if (N == routes.size()) {
+                routes.push_back(Route(this, length, path, {}, {} // TODO
+                                       ));
+            }
         };
         auto path = std::vector<int64_t>{*start_idx};
         backtrace(path, 0.0);
