@@ -205,6 +205,43 @@ struct DiGraph
         return ret;
     }
 
+    std::vector<Route> all_routes_from(const std::string &start, double cutoff,
+                                       std::optional<double> offset = {}) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto start_idx = indexer_.get_id(start);
+        if (!start_idx) {
+            return {};
+        }
+        auto itr = nodes_.find(*start_idx);
+        if (itr == nodes_.end()) {
+            return {};
+        }
+
+        if (offset) {
+            offset = std::max(0.0, std::min(*offset, itr->second.length));
+            cutoff -= itr->second.length - *offset;
+        }
+
+        std::vector<Route> routes;
+        auto backtrace = [&](std::vector<int64_t> &path, double length) {
+
+        };
+        auto path = std::vector<int64_t>{*start_idx};
+        backtrace(path, 0.0);
+
+        if (offset) {
+            double delta = itr->second.length - *offset;
+            for (auto &route : routes) {
+                route.dist += delta;
+                route.start_offset = *offset;
+            }
+        }
+        return routes;
+    }
+
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
     RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
     {
@@ -454,8 +491,11 @@ PYBIND11_MODULE(_core, m)
         ;
 
     py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
-        .def_property_readonly("graph", [](const Route &self) { return self.graph; }, rvp::reference_internal)
-        .def_property_readonly("dist", [](const Route &self) { return self.dist; })
+        .def_property_readonly(
+            "graph", [](const Route &self) { return self.graph; },
+            rvp::reference_internal)
+        .def_property_readonly("dist",
+                               [](const Route &self) { return self.dist; })
         .def_property_readonly(
             "path",
             [](const Route &self) { return self.graph->__node_ids(self.path); })
