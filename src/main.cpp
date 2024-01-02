@@ -132,6 +132,7 @@ struct DiGraph
 
     std::vector<std::tuple<double, std::string>> single_source_dijkstra(
         const std::string &start, double cutoff,
+        std::optional<double> offset = {},
         const std::unordered_set<std::string> *sinks = nullptr,
         std::unordered_map<std::string, std::string> *prevs = nullptr,
         bool reverse = false) const
@@ -142,6 +143,19 @@ struct DiGraph
         auto start_idx = indexer_.get_id(start);
         if (!start_idx) {
             return {};
+        }
+        auto node = nodes_.find(*start_idx);
+        if (node == nodes_.end()) {
+            return {};
+        }
+        if (!offset) {
+            offset = 0.0;
+        } else {
+            if (reverse) {
+                offset = std::max(0.0, *offset);
+            } else {
+                offset = std::max(0.0, node->second.length - *offset);
+            }
         }
         std::unique_ptr<unordered_set<int64_t>> sinks_ptr;
         if (sinks) {
@@ -159,7 +173,7 @@ struct DiGraph
         unordered_map<int64_t, int64_t> pmap;
         unordered_map<int64_t, double> dmap;
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_ptr.get());
+                               pmap, dmap, sinks_ptr.get(), *offset);
         if (prevs) {
             for (const auto &pair : pmap) {
                 (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
@@ -255,7 +269,8 @@ struct DiGraph
         const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
         unordered_map<int64_t, int64_t> &pmap,
         unordered_map<int64_t, double> &dmap,
-        const unordered_set<int64_t> *sinks = nullptr) const
+        const unordered_set<int64_t> *sinks = nullptr,
+        double init_offset = 0.0) const
     {
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         auto itr = jumps.find(start);
@@ -266,9 +281,9 @@ struct DiGraph
         Q.push(start, 0.0);
         dmap.insert({start, 0.0});
         for (auto next : itr->second) {
-            Q.push(next, 0.0);
+            Q.push(next, init_offset);
             pmap.insert({next, start});
-            dmap.insert({next, 0.0});
+            dmap.insert({next, init_offset});
         }
         while (!Q.empty()) {
             HeapNode node = Q.top();
@@ -441,12 +456,13 @@ PYBIND11_MODULE(_core, m)
         .def(
             "single_source_dijkstra",
             [](const DiGraph &self, const std::string &id, double cutoff,
-               bool reverse) {
-                return self.single_source_dijkstra(id, cutoff, nullptr, nullptr,
-                                                   reverse);
+               std::optional<double> offset, bool reverse) {
+                return self.single_source_dijkstra(id, cutoff, offset, nullptr,
+                                                   nullptr, reverse);
             },
-            "id"_a, py::kw_only(), //
-            "cutoff"_a,            //
+            "id"_a, py::kw_only(),     //
+            "cutoff"_a,                //
+            "offset"_a = std::nullopt, //
             "reverse"_a = false)
         //
         ;

@@ -164,7 +164,27 @@ def test_digraph_dijkstra():
         (30.0, "w6"),
         (30.0, "w7"),
     ]
-    print()
+    dists = G.single_source_dijkstra("w1", cutoff=200.0, offset=-1)
+    assert dists == [
+        (10.0, "w2"),
+        (10.0, "w3"),
+        (20.0, "w4"),
+        (25.0, "w5"),
+        (40.0, "w6"),
+        (40.0, "w7"),
+    ]
+    dists = G.single_source_dijkstra("w1", cutoff=200.0, offset=3.0)
+    assert dists == [
+        (7.0, "w2"),
+        (7.0, "w3"),
+        (17.0, "w4"),
+        (22.0, "w5"),
+        (37.0, "w6"),
+        (37.0, "w7"),
+    ]
+    dists1 = G.single_source_dijkstra("w1", cutoff=200.0, offset=10.0)
+    dists2 = G.single_source_dijkstra("w1", cutoff=200.0, offset=13.0)
+    assert dists1 == dists2
 
-test_digraph_dijkstra()
-print()
+    dists = G.single_source_dijkstra("w7", cutoff=20.0, offset=3.0, reverse=True)
+    assert dists == [(3.0, "w5"), (3.0, "w6"), (6.0, "w4"), (18.0, "w2")]
