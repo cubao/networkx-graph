@@ -157,7 +157,6 @@ def test_digraph_dijkstra():
 
     dists = G.single_source_dijkstra("w1", cutoff=200.0)
     assert dists == [
-        (0.0, "w1"),
         (0.0, "w2"),
         (0.0, "w3"),
         (10.0, "w4"),
@@ -165,3 +164,7 @@ def test_digraph_dijkstra():
         (30.0, "w6"),
         (30.0, "w7"),
     ]
+    print()
+
+test_digraph_dijkstra()
+print()

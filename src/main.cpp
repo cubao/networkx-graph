@@ -303,6 +303,7 @@ struct DiGraph
                 }
             }
         }
+        dmap.erase(start);
     }
 };
 } // namespace nano_fmm
