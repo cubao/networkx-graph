@@ -108,8 +108,10 @@ struct DiGraph
     Node &add_node(const std::string &id, double length = 1.0)
     {
         reset();
-        auto &node = nodes_[indexer_.id(id)];
+        auto idx = indexer_.id(id);
+        auto &node = nodes_[idx];
         node.length = length;
+        lengths_[idx] = length;
         return node;
     }
     Edge &add_edge(const std::string &node0, const std::string &node1)
@@ -119,8 +121,8 @@ struct DiGraph
         auto idx1 = indexer_.id(node1);
         nexts_[idx0].insert(idx1);
         prevs_[idx1].insert(idx0);
-        nodes_[idx0];
-        nodes_[idx1];
+        lengths_[idx0] = nodes_[idx0].length;
+        lengths_[idx1] = nodes_[idx1].length;
         auto &edge = edges_[std::make_tuple(idx0, idx1)];
         return edge;
     }
@@ -169,8 +171,8 @@ struct DiGraph
         if (!start_idx) {
             return {};
         }
-        auto node = nodes_.find(*start_idx);
-        if (node == nodes_.end()) {
+        auto length = lengths_.find(*start_idx);
+        if (length == lengths_.end()) {
             return {};
         }
         if (!offset) {
@@ -179,7 +181,7 @@ struct DiGraph
             if (reverse) {
                 offset = std::max(0.0, *offset);
             } else {
-                offset = std::max(0.0, node->second.length - *offset);
+                offset = std::max(0.0, length->second - *offset);
             }
         }
         std::unique_ptr<unordered_set<int64_t>> sinks_ptr;
@@ -224,14 +226,14 @@ struct DiGraph
         if (!start_idx) {
             return {};
         }
-        auto itr = nodes_.find(*start_idx);
-        if (itr == nodes_.end()) {
+        auto length = lengths_.find(*start_idx);
+        if (length == lengths_.end()) {
             return {};
         }
 
         if (offset) {
-            offset = std::max(0.0, std::min(*offset, itr->second.length));
-            double delta = itr->second.length - *offset;
+            offset = std::max(0.0, std::min(*offset, length->second));
+            double delta = length->second - *offset;
             if (cutoff <= delta) {
                 return {Route(this, cutoff, {*start_idx}, *offset,
                               *offset + cutoff)};
@@ -247,7 +249,7 @@ struct DiGraph
             }
             auto tail = path.back();
             if (path.size() > 1) {
-                double new_length = length + this->nodes_.at(tail).length;
+                double new_length = length + this->lengths_.at(tail);
                 if (new_length > cutoff) {
                     routes.push_back(
                         Route(this, cutoff, path, {}, cutoff - length));
@@ -257,8 +259,8 @@ struct DiGraph
             }
             auto itr = this->nexts_.find(tail);
             if (itr == this->nexts_.end() || itr->second.empty()) {
-                routes.push_back(Route(this, length, path, {},
-                                       this->nodes_.at(tail).length));
+                routes.push_back(
+                    Route(this, length, path, {}, this->lengths_.at(tail)));
                 return;
             }
             const auto N = routes.size();
@@ -271,15 +273,15 @@ struct DiGraph
                 path.pop_back();
             }
             if (N == routes.size()) {
-                routes.push_back(Route(this, length, path, {},
-                                       this->nodes_.at(tail).length));
+                routes.push_back(
+                    Route(this, length, path, {}, this->lengths_.at(tail)));
             }
         };
         auto path = std::vector<int64_t>{*start_idx};
         backtrace(path, 0.0);
 
         if (offset) {
-            double delta = itr->second.length - *offset;
+            double delta = length->second - *offset;
             for (auto &route : routes) {
                 route.dist += delta;
                 route.start_offset = *offset;
@@ -319,6 +321,7 @@ struct DiGraph
     bool freezed_{false};
     std::unordered_map<int64_t, Node> nodes_;
     std::unordered_map<std::tuple<int64_t, int64_t>, Edge> edges_;
+    unordered_map<int64_t, double> lengths_;
     unordered_map<int64_t, unordered_set<int64_t>> nexts_, prevs_;
     mutable Indexer indexer_;
     struct Cache
@@ -401,7 +404,7 @@ struct DiGraph
             if (itr == jumps.end()) {
                 continue;
             }
-            double u_cost = nodes_.at(u).length;
+            double u_cost = lengths_.at(u);
             for (auto v : itr->second) {
                 auto c = node.value + u_cost;
                 auto iter = dmap.find(v);
