@@ -554,7 +554,7 @@ PYBIND11_MODULE(_core, m)
 
     py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
-            "graph", [](const Route &self) { return self.graph; },
+            "graph", [](Route &self) { return self.graph; },
             rvp::reference_internal)
         .def_property_readonly("dist",
                                [](const Route &self) { return self.dist; })
@@ -575,6 +575,51 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.path.back()),
                                        self.end_offset);
             })
+        .def(
+            "__getitem__",
+            [](Route &self, const std::string &attr_name) -> py::object {
+                // if (attr_name == "path") {
+                //     return self.graph->__node_ids(self.path);
+                // } else if (attr_name == "dist") {
+                //     return self.dist;
+                // } else if (attr_name == "start") {
+                //     return
+                //     std::make_tuple(self.graph->__node_id(self.path.front()),
+                //                        self.start_offset);
+                // } else if (attr_name == "end") {
+                //     return
+                //     std::make_tuple(self.graph->__node_id(self.path.back()),
+                //                        self.end_offset);
+                // }
+                auto py_obj = py::cast(self);
+                if (!py::hasattr(py_obj, attr_name.c_str())) {
+                    throw py::key_error(
+                        fmt::format("attribute:{} not found", attr_name));
+                }
+                return py_obj.attr(attr_name.c_str());
+            },
+            "attr_name"_a)
+        .def("__setitem__",
+             [](Route &self, const std::string &attr_name,
+                py::object obj) -> py::object {
+                 if (attr_name == "graph" || attr_name == "dist" ||
+                     attr_name == "path" || attr_name == "start" ||
+                     attr_name == "end") {
+                     throw py::key_error(
+                         fmt::format("{} is readonly", attr_name));
+                 }
+                 py::cast(self).attr(attr_name.c_str()) = obj;
+                 return obj;
+             })
+        .def("to_dict",
+             [](Route &self) {
+                 py::dict ret;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
