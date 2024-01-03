@@ -253,12 +253,11 @@ def test_all_routes():
 
     G = graph1(nx.DiGraph())
     routes = all_routes_from(G, "w1", 10.0)
-    print(routes)
+    assert routes == [{'dist': 0.0, 'path': ['w1', 'w2']}, {'dist': 10.0, 'path': ['w1', 'w3', 'w4']}]
 
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=10.0)
     routes = [r.to_dict() for r in routes]
-    print(routes)
     assert routes == [
         {"dist": 0.0, "path": ["w1", "w2"], "start": ("w1", None), "end": ("w2", 10.0)},
         {
