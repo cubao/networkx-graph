@@ -142,14 +142,15 @@ def test_digraph():
     assert edge.__dict__ == {"key": "value"}
 
 
-def graph1():
+def graph1(G=None):
     """
-                             --------w3-------------o------------------w4-----------------o
-                            /                                                             | w6
-    o---------w1-----------o-----------------w2-------------o---------------w5------------o------------w7-----o
+                             --------w3:10m---------o------------------w4:20m-------------o
+                            /                                                             | w6:3m
+    o---------w1:10m-------o-----------------w2:15m---------o---------------w5:15m--------o------------w7:10m--o
 
     """
-    G = DiGraph()
+    if G is None:
+        G = DiGraph()
     G.add_node("w1", length=10.0)
     G.add_node("w2", length=15.0)
     G.add_node("w5", length=15.0)
@@ -214,9 +215,69 @@ def test_digraph_dijkstra():
     )
 
 
+def all_routes_from(G, start, cutoff):
+    """python implementation"""
+    assert start is not None
+    assert cutoff >= 0
+    output = []
+
+    def backtrace(path, length):
+        if length > cutoff:
+            return
+        nexts = list(G.successors(path[-1]))
+        if not nexts:
+            output.append((length, path))
+            return
+        if len(path) > 1:
+            new_length = length + G.nodes[path[-1]]["length"]
+            if new_length > cutoff:
+                output.append((length, path))
+                return
+            length = new_length
+
+        N = len(output)
+        for nid in nexts:
+            if nid in path:
+                continue
+            backtrace([*path, nid], length)
+        if len(output) == N:
+            output.append((length, path))
+
+    backtrace([start], 0.0)
+    output = sorted(output, key=lambda x: x[0])
+    return [{"dist": round(d, 3), "path": p} for d, p in output]
+
+
 def test_all_routes():
+    import networkx as nx
+
+    G = graph1(nx.DiGraph())
+    routes = all_routes_from(G, "w1", 10.0)
+    print(routes)
+
+    G = graph1()
+    routes = G.all_routes_from("w1", cutoff=10.0)
+    routes = [r.to_dict() for r in routes]
+    print(routes)
+    assert routes == [
+        {"dist": 0.0, "path": ["w1", "w2"], "start": ("w1", None), "end": ("w2", 10.0)},
+        {
+            "dist": 10.0,
+            "path": ["w1", "w3", "w4"],
+            "start": ("w1", None),
+            "end": ("w4", 0.0),
+        },
+    ]
+
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
+    assert len(routes) == 1 and routes[0].to_dict() == {
+        "dist": 5.0,
+        "path": ["w1"],
+        "start": ("w1", 2.0),
+        "end": ("w1", 7.0),
+    }
+    routes = G.all_routes_from("w1", cutoff=15.0, offset=2.0)
     print()
 
 

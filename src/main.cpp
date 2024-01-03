@@ -247,14 +247,17 @@ struct DiGraph
             }
             auto tail = path.back();
             auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end()) {
+            if (itr == this->nexts_.end() || itr->second.empty()) {
+                routes.push_back(Route(this, length, path, {}, {} // TODO
+                                       ));
                 return;
             }
             if (path.size() > 1) {
                 double new_length = length + this->nodes_.at(tail).length;
                 if (new_length > cutoff) {
                     routes.push_back(
-                        Route(this, new_length, path, {}, cutoff - length));
+                        Route(this, length, path, {}, cutoff - length));
+                    return;
                 }
                 length = new_length;
             }
