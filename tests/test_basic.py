@@ -94,10 +94,17 @@ def test_digraph():
     assert node.length == 1.0
     node.key = 777
     assert node.__dict__ == {"key": 777}
+    assert node.to_dict() == {"length": 1.0, "key": 777}
     node.key = [1, 2, 3]
     assert node["key"] == [1, 2, 3]
     node.key.append(5)
     assert node["key"] == [1, 2, 3, 5]
+    assert node.to_dict() == {"length": 1.0, "key": [1, 2, 3, 5]}
+    node.to_dict()["key"].extend([7, 9])
+    assert node.to_dict() == {"length": 1.0, "key": [1, 2, 3, 5, 7, 9]}
+
+    node.to_dict()["new_key"] = "value"
+    assert list(node.to_dict().keys()) == ["length", "key"]
 
     node["key"] = "value"
     node["num"] = 42
@@ -128,8 +135,14 @@ def test_digraph():
     assert ("way1", "way2") in G1.edges
     assert G1.edges[("way1", "way2")] is edge
 
+    edge["key"] = "value"
+    assert edge.to_dict() == {"key": "value"}
+    assert edge.key == "value"
+    edge.to_dict()["new_key"] = "value"
+    assert edge.__dict__ == {"key": "value"}
 
-def test_digraph_dijkstra():
+
+def graph1():
     """
                              --------w3-------------o------------------w4-----------------o
                             /                                                             | w6
@@ -151,6 +164,11 @@ def test_digraph_dijkstra():
     G.add_edge("w4", "w6")
     G.add_edge("w6", "w7")
     G.add_edge("w5", "w7")
+    return G
+
+
+def test_digraph_dijkstra():
+    G = graph1()
 
     assert set(G.successors("w1")) == {"w2", "w3"}
     assert set(G.predecessors("w7")) == {"w5", "w6"}
@@ -188,3 +206,20 @@ def test_digraph_dijkstra():
 
     dists = G.single_source_dijkstra("w7", cutoff=20.0, offset=3.0, reverse=True)
     assert dists == [(3.0, "w5"), (3.0, "w6"), (6.0, "w4"), (18.0, "w2")]
+    assert dists == G.single_source_dijkstra(
+        "w7", cutoff=18.0, offset=3.0, reverse=True
+    )
+    assert dists[:-1] == G.single_source_dijkstra(
+        "w7", cutoff=17.0, offset=3.0, reverse=True
+    )
+
+
+def test_all_routes():
+    G = graph1()
+    routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
+    print()
+
+
+test_digraph()
+test_all_routes()
+print()

@@ -508,6 +508,16 @@ PYBIND11_MODULE(_core, m)
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
              })
+        .def("to_dict",
+             [](Node &self) {
+                 py::dict ret;
+                 ret["length"] = self.length;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
@@ -515,7 +525,7 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         .def(
             "__getitem__",
-            [](Node &self, const std::string &attr_name) -> py::object {
+            [](Edge &self, const std::string &attr_name) -> py::object {
                 auto py_obj = py::cast(self);
                 if (!py::hasattr(py_obj, attr_name.c_str())) {
                     throw py::key_error(
@@ -525,10 +535,19 @@ PYBIND11_MODULE(_core, m)
             },
             "attr_name"_a)
         .def("__setitem__",
-             [](Node &self, const std::string &attr_name,
+             [](Edge &self, const std::string &attr_name,
                 py::object obj) -> py::object {
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
+             })
+        .def("to_dict",
+             [](Edge &self) {
+                 py::dict ret;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
              })
         //
         ;
@@ -586,6 +605,8 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "reverse"_a = false)
+        .def("all_routes_from", &DiGraph::all_routes_from, "start"_a,
+             py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         //
         ;
 
