@@ -246,20 +246,20 @@ struct DiGraph
                 return;
             }
             auto tail = path.back();
-            auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty()) {
-                routes.push_back(Route(this, length, path, {}, {} // TODO
-                                       ));
-                return;
-            }
             if (path.size() > 1) {
                 double new_length = length + this->nodes_.at(tail).length;
                 if (new_length > cutoff) {
                     routes.push_back(
-                        Route(this, length, path, {}, cutoff - length));
+                        Route(this, cutoff, path, {}, cutoff - length));
                     return;
                 }
                 length = new_length;
+            }
+            auto itr = this->nexts_.find(tail);
+            if (itr == this->nexts_.end() || itr->second.empty()) {
+                routes.push_back(Route(this, length, path, {},
+                                       this->nodes_.at(tail).length));
+                return;
             }
             const auto N = routes.size();
             for (auto next : itr->second) {
@@ -271,8 +271,8 @@ struct DiGraph
                 path.pop_back();
             }
             if (N == routes.size()) {
-                routes.push_back(Route(this, length, path, {}, {} // TODO
-                                       ));
+                routes.push_back(Route(this, length, path, {},
+                                       this->nodes_.at(tail).length));
             }
         };
         auto path = std::vector<int64_t>{*start_idx};
@@ -285,6 +285,9 @@ struct DiGraph
                 route.start_offset = *offset;
             }
         }
+        std::sort(
+            routes.begin(), routes.end(),
+            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
     }
 

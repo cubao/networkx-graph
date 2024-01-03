@@ -253,13 +253,21 @@ def test_all_routes():
 
     G = graph1(nx.DiGraph())
     routes = all_routes_from(G, "w1", 10.0)
-    assert routes == [{'dist': 0.0, 'path': ['w1', 'w2']}, {'dist': 10.0, 'path': ['w1', 'w3', 'w4']}]
+    assert routes == [
+        {"dist": 0.0, "path": ["w1", "w2"]},
+        {"dist": 10.0, "path": ["w1", "w3", "w4"]},
+    ]
 
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=10.0)
     routes = [r.to_dict() for r in routes]
     assert routes == [
-        {"dist": 0.0, "path": ["w1", "w2"], "start": ("w1", None), "end": ("w2", 10.0)},
+        {
+            "dist": 10.0,
+            "path": ["w1", "w2"],
+            "start": ("w1", None),
+            "end": ("w2", 10.0),
+        },
         {
             "dist": 10.0,
             "path": ["w1", "w3", "w4"],
@@ -270,14 +278,38 @@ def test_all_routes():
 
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
-    assert len(routes) == 1 and routes[0].to_dict() == {
-        "dist": 5.0,
-        "path": ["w1"],
-        "start": ("w1", 2.0),
-        "end": ("w1", 7.0),
-    }
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 5.0,
+            "path": ["w1"],
+            "start": ("w1", 2.0),
+            "end": ("w1", 7.0),
+        }
+    ]
     routes = G.all_routes_from("w1", cutoff=15.0, offset=2.0)
-    print()
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {"dist": 15.0, "path": ["w1", "w2"], "start": ("w1", 2.0), "end": ("w2", 7.0)},
+        {"dist": 15.0, "path": ["w1", "w3"], "start": ("w1", 2.0), "end": ("w3", 7.0)},
+    ]
+
+    routes = G.all_routes_from("w1", cutoff=25.0, offset=5.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 25.0,
+            "path": ["w1", "w2", "w5"],
+            "start": ("w1", 5.0),
+            "end": ("w5", 5.0),
+        },
+        {
+            "dist": 25.0,
+            "path": ["w1", "w3", "w4"],
+            "start": ("w1", 5.0),
+            "end": ("w4", 10.0),
+        },
+    ]
 
 
 test_digraph()
