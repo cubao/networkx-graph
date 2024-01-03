@@ -578,19 +578,22 @@ PYBIND11_MODULE(_core, m)
         .def(
             "__getitem__",
             [](Route &self, const std::string &attr_name) -> py::object {
-                // if (attr_name == "path") {
-                //     return self.graph->__node_ids(self.path);
-                // } else if (attr_name == "dist") {
-                //     return self.dist;
-                // } else if (attr_name == "start") {
-                //     return
-                //     std::make_tuple(self.graph->__node_id(self.path.front()),
-                //                        self.start_offset);
-                // } else if (attr_name == "end") {
-                //     return
-                //     std::make_tuple(self.graph->__node_id(self.path.back()),
-                //                        self.end_offset);
-                // }
+                if (attr_name == "dist") {
+                    return py::float_(self.dist);
+                } else if (attr_name == "path") {
+                    auto path = self.graph->__node_ids(self.path);
+                    py::list ret;
+                    for (auto &node : path) {
+                        ret.append(node);
+                    }
+                    return ret;
+                } else if (attr_name == "start") {
+                    auto start = self.graph->__node_id(self.path.front());
+                    return py::make_tuple(start, self.start_offset);
+                } else if (attr_name == "end") {
+                    auto end = self.graph->__node_id(self.path.back());
+                    return py::make_tuple(end, self.end_offset);
+                }
                 auto py_obj = py::cast(self);
                 if (!py::hasattr(py_obj, attr_name.c_str())) {
                     throw py::key_error(
@@ -614,6 +617,16 @@ PYBIND11_MODULE(_core, m)
         .def("to_dict",
              [](Route &self) {
                  py::dict ret;
+                 ret["dist"] = self.dist;
+                 py::list path;
+                 for (auto &node : self.graph->__node_ids(self.path)) {
+                     path.append(node);
+                 }
+                 ret["path"] = path;
+                 auto start = self.graph->__node_id(self.path.front());
+                 ret["start"] = py::make_tuple(start, self.start_offset);
+                 auto end = self.graph->__node_id(self.path.back());
+                 ret["end"] = py::make_tuple(end, self.end_offset);
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
                      ret[k] = kv[k];
