@@ -82,10 +82,24 @@ struct Edge
 {
 };
 
+struct DiGraph;
+
 struct Route
 {
-    double dist;
-    std::vector<std::string> path;
+    Route() = default;
+    Route(const DiGraph *graph = nullptr, double dist = 0.0,
+          const std::vector<int64_t> &path = {},
+          std::optional<double> start_offset = {},
+          std::optional<double> end_offset = {})
+        : graph(graph), dist(dist), path(path), start_offset(start_offset),
+          end_offset(end_offset)
+    {
+    }
+    const DiGraph *graph{nullptr};
+    double dist{0.0};
+    std::vector<int64_t> path;
+    std::optional<double> start_offset;
+    std::optional<double> end_offset;
 };
 
 struct DiGraph
@@ -130,8 +144,20 @@ struct DiGraph
         return __nexts(id, nexts_);
     }
 
+    std::string __node_id(int64_t node) const { return indexer_.id(node); }
+    std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
+    {
+        std::vector<std::string> ids;
+        ids.reserve(nodes.size());
+        for (auto node : nodes) {
+            ids.push_back(indexer_.id(node));
+        }
+        return ids;
+    }
+
     std::vector<std::tuple<double, std::string>> single_source_dijkstra(
         const std::string &start, double cutoff,
+        std::optional<double> offset = {},
         const std::unordered_set<std::string> *sinks = nullptr,
         std::unordered_map<std::string, std::string> *prevs = nullptr,
         bool reverse = false) const
@@ -142,6 +168,19 @@ struct DiGraph
         auto start_idx = indexer_.get_id(start);
         if (!start_idx) {
             return {};
+        }
+        auto node = nodes_.find(*start_idx);
+        if (node == nodes_.end()) {
+            return {};
+        }
+        if (!offset) {
+            offset = 0.0;
+        } else {
+            if (reverse) {
+                offset = std::max(0.0, *offset);
+            } else {
+                offset = std::max(0.0, node->second.length - *offset);
+            }
         }
         std::unique_ptr<unordered_set<int64_t>> sinks_ptr;
         if (sinks) {
@@ -159,7 +198,7 @@ struct DiGraph
         unordered_map<int64_t, int64_t> pmap;
         unordered_map<int64_t, double> dmap;
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_ptr.get());
+                               pmap, dmap, sinks_ptr.get(), *offset);
         if (prevs) {
             for (const auto &pair : pmap) {
                 (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
@@ -173,6 +212,83 @@ struct DiGraph
         }
         std::sort(ret.begin(), ret.end());
         return ret;
+    }
+
+    std::vector<Route> all_routes_from(const std::string &start, double cutoff,
+                                       std::optional<double> offset = {}) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto start_idx = indexer_.get_id(start);
+        if (!start_idx) {
+            return {};
+        }
+        auto itr = nodes_.find(*start_idx);
+        if (itr == nodes_.end()) {
+            return {};
+        }
+
+        if (offset) {
+            offset = std::max(0.0, std::min(*offset, itr->second.length));
+            double delta = itr->second.length - *offset;
+            if (cutoff <= delta) {
+                return {Route(this, cutoff, {*start_idx}, *offset,
+                              *offset + cutoff)};
+            }
+            cutoff -= delta;
+        }
+        std::vector<Route> routes;
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
+        backtrace = [&routes, cutoff, this,
+                     &backtrace](std::vector<int64_t> &path, double length) {
+            if (length > cutoff) {
+                return;
+            }
+            auto tail = path.back();
+            if (path.size() > 1) {
+                double new_length = length + this->nodes_.at(tail).length;
+                if (new_length > cutoff) {
+                    routes.push_back(
+                        Route(this, cutoff, path, {}, cutoff - length));
+                    return;
+                }
+                length = new_length;
+            }
+            auto itr = this->nexts_.find(tail);
+            if (itr == this->nexts_.end() || itr->second.empty()) {
+                routes.push_back(Route(this, length, path, {},
+                                       this->nodes_.at(tail).length));
+                return;
+            }
+            const auto N = routes.size();
+            for (auto next : itr->second) {
+                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                    continue;
+                }
+                path.push_back(next);
+                backtrace(path, length);
+                path.pop_back();
+            }
+            if (N == routes.size()) {
+                routes.push_back(Route(this, length, path, {},
+                                       this->nodes_.at(tail).length));
+            }
+        };
+        auto path = std::vector<int64_t>{*start_idx};
+        backtrace(path, 0.0);
+
+        if (offset) {
+            double delta = itr->second.length - *offset;
+            for (auto &route : routes) {
+                route.dist += delta;
+                route.start_offset = *offset;
+            }
+        }
+        std::sort(
+            routes.begin(), routes.end(),
+            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
+        return routes;
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -255,7 +371,8 @@ struct DiGraph
         const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
         unordered_map<int64_t, int64_t> &pmap,
         unordered_map<int64_t, double> &dmap,
-        const unordered_set<int64_t> *sinks = nullptr) const
+        const unordered_set<int64_t> *sinks = nullptr,
+        double init_offset = 0.0) const
     {
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         auto itr = jumps.find(start);
@@ -266,9 +383,9 @@ struct DiGraph
         Q.push(start, 0.0);
         dmap.insert({start, 0.0});
         for (auto next : itr->second) {
-            Q.push(next, 0.0);
+            Q.push(next, init_offset);
             pmap.insert({next, start});
-            dmap.insert({next, 0.0});
+            dmap.insert({next, init_offset});
         }
         while (!Q.empty()) {
             HeapNode node = Q.top();
@@ -303,6 +420,7 @@ struct DiGraph
                 }
             }
         }
+        dmap.erase(start);
     }
 };
 } // namespace nano_fmm
@@ -396,6 +514,16 @@ PYBIND11_MODULE(_core, m)
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
              })
+        .def("to_dict",
+             [](Node &self) {
+                 py::dict ret;
+                 ret["length"] = self.length;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
@@ -403,7 +531,7 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         .def(
             "__getitem__",
-            [](Node &self, const std::string &attr_name) -> py::object {
+            [](Edge &self, const std::string &attr_name) -> py::object {
                 auto py_obj = py::cast(self);
                 if (!py::hasattr(py_obj, attr_name.c_str())) {
                     throw py::key_error(
@@ -413,10 +541,103 @@ PYBIND11_MODULE(_core, m)
             },
             "attr_name"_a)
         .def("__setitem__",
-             [](Node &self, const std::string &attr_name,
+             [](Edge &self, const std::string &attr_name,
                 py::object obj) -> py::object {
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
+             })
+        .def("to_dict",
+             [](Edge &self) {
+                 py::dict ret;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
+        //
+        ;
+
+    py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](Route &self) { return self.graph; },
+            rvp::reference_internal)
+        .def_property_readonly("dist",
+                               [](const Route &self) { return self.dist; })
+        .def_property_readonly(
+            "path",
+            [](const Route &self) { return self.graph->__node_ids(self.path); })
+        .def_property_readonly(
+            "start",
+            [](const Route &self)
+                -> std::tuple<std::string, std::optional<double>> {
+                return std::make_tuple(self.graph->__node_id(self.path.front()),
+                                       self.start_offset);
+            })
+        .def_property_readonly(
+            "end",
+            [](const Route &self)
+                -> std::tuple<std::string, std::optional<double>> {
+                return std::make_tuple(self.graph->__node_id(self.path.back()),
+                                       self.end_offset);
+            })
+        .def(
+            "__getitem__",
+            [](Route &self, const std::string &attr_name) -> py::object {
+                if (attr_name == "dist") {
+                    return py::float_(self.dist);
+                } else if (attr_name == "path") {
+                    auto path = self.graph->__node_ids(self.path);
+                    py::list ret;
+                    for (auto &node : path) {
+                        ret.append(node);
+                    }
+                    return ret;
+                } else if (attr_name == "start") {
+                    auto start = self.graph->__node_id(self.path.front());
+                    return py::make_tuple(start, self.start_offset);
+                } else if (attr_name == "end") {
+                    auto end = self.graph->__node_id(self.path.back());
+                    return py::make_tuple(end, self.end_offset);
+                }
+                auto py_obj = py::cast(self);
+                if (!py::hasattr(py_obj, attr_name.c_str())) {
+                    throw py::key_error(
+                        fmt::format("attribute:{} not found", attr_name));
+                }
+                return py_obj.attr(attr_name.c_str());
+            },
+            "attr_name"_a)
+        .def("__setitem__",
+             [](Route &self, const std::string &attr_name,
+                py::object obj) -> py::object {
+                 if (attr_name == "graph" || attr_name == "dist" ||
+                     attr_name == "path" || attr_name == "start" ||
+                     attr_name == "end") {
+                     throw py::key_error(
+                         fmt::format("{} is readonly", attr_name));
+                 }
+                 py::cast(self).attr(attr_name.c_str()) = obj;
+                 return obj;
+             })
+        .def("to_dict",
+             [](Route &self) {
+                 py::dict ret;
+                 ret["dist"] = self.dist;
+                 py::list path;
+                 for (auto &node : self.graph->__node_ids(self.path)) {
+                     path.append(node);
+                 }
+                 ret["path"] = path;
+                 auto start = self.graph->__node_id(self.path.front());
+                 ret["start"] = py::make_tuple(start, self.start_offset);
+                 auto end = self.graph->__node_id(self.path.back());
+                 ret["end"] = py::make_tuple(end, self.end_offset);
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
              })
         //
         ;
@@ -440,13 +661,16 @@ PYBIND11_MODULE(_core, m)
         .def(
             "single_source_dijkstra",
             [](const DiGraph &self, const std::string &id, double cutoff,
-               bool reverse) {
-                return self.single_source_dijkstra(id, cutoff, nullptr, nullptr,
-                                                   reverse);
+               std::optional<double> offset, bool reverse) {
+                return self.single_source_dijkstra(id, cutoff, offset, nullptr,
+                                                   nullptr, reverse);
             },
-            "id"_a, py::kw_only(), //
-            "cutoff"_a,            //
+            "id"_a, py::kw_only(),     //
+            "cutoff"_a,                //
+            "offset"_a = std::nullopt, //
             "reverse"_a = false)
+        .def("all_routes_from", &DiGraph::all_routes_from, "start"_a,
+             py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         //
         ;
 

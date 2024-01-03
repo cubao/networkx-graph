@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.3"
+    assert m.__version__ == "0.0.4"
 
 
 def test_add():
@@ -94,10 +94,17 @@ def test_digraph():
     assert node.length == 1.0
     node.key = 777
     assert node.__dict__ == {"key": 777}
+    assert node.to_dict() == {"length": 1.0, "key": 777}
     node.key = [1, 2, 3]
     assert node["key"] == [1, 2, 3]
     node.key.append(5)
     assert node["key"] == [1, 2, 3, 5]
+    assert node.to_dict() == {"length": 1.0, "key": [1, 2, 3, 5]}
+    node.to_dict()["key"].extend([7, 9])
+    assert node.to_dict() == {"length": 1.0, "key": [1, 2, 3, 5, 7, 9]}
+
+    node.to_dict()["new_key"] = "value"
+    assert list(node.to_dict().keys()) == ["length", "key"]
 
     node["key"] = "value"
     node["num"] = 42
@@ -128,15 +135,22 @@ def test_digraph():
     assert ("way1", "way2") in G1.edges
     assert G1.edges[("way1", "way2")] is edge
 
+    edge["key"] = "value"
+    assert edge.to_dict() == {"key": "value"}
+    assert edge.key == "value"
+    edge.to_dict()["new_key"] = "value"
+    assert edge.__dict__ == {"key": "value"}
 
-def test_digraph_dijkstra():
+
+def graph1(G=None):
     """
-                             --------w3-------------o------------------w4-----------------o
-                            /                                                             | w6
-    o---------w1-----------o-----------------w2-------------o---------------w5------------o------------w7-----o
+                             --------w3:10m---------o------------------w4:20m-------------o
+                            /                                                             | w6:3m
+    o---------w1:10m-------o-----------------w2:15m---------o---------------w5:15m--------o------------w7:10m--o
 
     """
-    G = DiGraph()
+    if G is None:
+        G = DiGraph()
     G.add_node("w1", length=10.0)
     G.add_node("w2", length=15.0)
     G.add_node("w5", length=15.0)
@@ -151,17 +165,151 @@ def test_digraph_dijkstra():
     G.add_edge("w4", "w6")
     G.add_edge("w6", "w7")
     G.add_edge("w5", "w7")
+    return G
+
+
+def test_digraph_dijkstra():
+    G = graph1()
 
     assert set(G.successors("w1")) == {"w2", "w3"}
     assert set(G.predecessors("w7")) == {"w5", "w6"}
 
     dists = G.single_source_dijkstra("w1", cutoff=200.0)
     assert dists == [
-        (0.0, "w1"),
         (0.0, "w2"),
         (0.0, "w3"),
         (10.0, "w4"),
         (15.0, "w5"),
         (30.0, "w6"),
         (30.0, "w7"),
+    ]
+    dists = G.single_source_dijkstra("w1", cutoff=200.0, offset=-1)
+    assert dists == [
+        (10.0, "w2"),
+        (10.0, "w3"),
+        (20.0, "w4"),
+        (25.0, "w5"),
+        (40.0, "w6"),
+        (40.0, "w7"),
+    ]
+    dists = G.single_source_dijkstra("w1", cutoff=200.0, offset=3.0)
+    assert dists == [
+        (7.0, "w2"),
+        (7.0, "w3"),
+        (17.0, "w4"),
+        (22.0, "w5"),
+        (37.0, "w6"),
+        (37.0, "w7"),
+    ]
+    dists1 = G.single_source_dijkstra("w1", cutoff=200.0, offset=10.0)
+    dists2 = G.single_source_dijkstra("w1", cutoff=200.0, offset=13.0)
+    assert dists1 == dists2
+
+    dists = G.single_source_dijkstra("w7", cutoff=20.0, offset=3.0, reverse=True)
+    assert dists == [(3.0, "w5"), (3.0, "w6"), (6.0, "w4"), (18.0, "w2")]
+    assert dists == G.single_source_dijkstra(
+        "w7", cutoff=18.0, offset=3.0, reverse=True
+    )
+    assert dists[:-1] == G.single_source_dijkstra(
+        "w7", cutoff=17.0, offset=3.0, reverse=True
+    )
+
+
+def all_routes_from(G, start, cutoff):
+    """python implementation"""
+    assert start is not None
+    assert cutoff >= 0
+    output = []
+
+    def backtrace(path, length):
+        if length > cutoff:
+            return
+        nexts = list(G.successors(path[-1]))
+        if not nexts:
+            output.append((length, path))
+            return
+        if len(path) > 1:
+            new_length = length + G.nodes[path[-1]]["length"]
+            if new_length > cutoff:
+                output.append((length, path))
+                return
+            length = new_length
+
+        N = len(output)
+        for nid in nexts:
+            if nid in path:
+                continue
+            backtrace([*path, nid], length)
+        if len(output) == N:
+            output.append((length, path))
+
+    backtrace([start], 0.0)
+    output = sorted(output, key=lambda x: x[0])
+    return [{"dist": round(d, 3), "path": p} for d, p in output]
+
+
+def test_all_routes():
+    try:
+        import networkx as nx
+
+        G = graph1(nx.DiGraph())
+        routes = all_routes_from(G, "w1", 10.0)
+        assert routes == [
+            {"dist": 0.0, "path": ["w1", "w2"]},
+            {"dist": 10.0, "path": ["w1", "w3", "w4"]},
+        ]
+    except ImportError:
+        pass
+
+    G = graph1()
+    routes = G.all_routes_from("w1", cutoff=10.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 10.0,
+            "path": ["w1", "w2"],
+            "start": ("w1", None),
+            "end": ("w2", 10.0),
+        },
+        {
+            "dist": 10.0,
+            "path": ["w1", "w3", "w4"],
+            "start": ("w1", None),
+            "end": ("w4", 0.0),
+        },
+    ]
+
+    G = graph1()
+    routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 5.0,
+            "path": ["w1"],
+            "start": ("w1", 2.0),
+            "end": ("w1", 7.0),
+        }
+    ]
+    routes = G.all_routes_from("w1", cutoff=15.0, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {"dist": 15.0, "path": ["w1", "w2"], "start": ("w1", 2.0), "end": ("w2", 7.0)},
+        {"dist": 15.0, "path": ["w1", "w3"], "start": ("w1", 2.0), "end": ("w3", 7.0)},
+    ]
+
+    routes = G.all_routes_from("w1", cutoff=25.0, offset=5.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 25.0,
+            "path": ["w1", "w2", "w5"],
+            "start": ("w1", 5.0),
+            "end": ("w5", 5.0),
+        },
+        {
+            "dist": 25.0,
+            "path": ["w1", "w3", "w4"],
+            "start": ("w1", 5.0),
+            "end": ("w4", 10.0),
+        },
     ]
