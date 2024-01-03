@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.3"
+    assert m.__version__ == "0.0.4"
 
 
 def test_add():
@@ -249,14 +249,17 @@ def all_routes_from(G, start, cutoff):
 
 
 def test_all_routes():
-    import networkx as nx
+    try:
+        import networkx as nx
 
-    G = graph1(nx.DiGraph())
-    routes = all_routes_from(G, "w1", 10.0)
-    assert routes == [
-        {"dist": 0.0, "path": ["w1", "w2"]},
-        {"dist": 10.0, "path": ["w1", "w3", "w4"]},
-    ]
+        G = graph1(nx.DiGraph())
+        routes = all_routes_from(G, "w1", 10.0)
+        assert routes == [
+            {"dist": 0.0, "path": ["w1", "w2"]},
+            {"dist": 10.0, "path": ["w1", "w3", "w4"]},
+        ]
+    except ImportError:
+        pass
 
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=10.0)
@@ -310,8 +313,3 @@ def test_all_routes():
             "end": ("w4", 10.0),
         },
     ]
-
-
-test_digraph()
-test_all_routes()
-print()
