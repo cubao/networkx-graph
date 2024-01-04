@@ -248,80 +248,7 @@ struct DiGraph
         if (!start_idx) {
             return {};
         }
-        auto length = lengths_.find(*start_idx);
-        if (length == lengths_.end()) {
-            return {};
-        }
-
-        if (offset) {
-            offset = std::max(0.0, std::min(*offset, length->second));
-            double delta = length->second - *offset;
-            if (cutoff <= delta) {
-                auto route = Route(this, cutoff, {*start_idx}, *offset,
-                                   *offset + cutoff);
-                if (round_scale_) {
-                    this->round(route);
-                }
-                return {route};
-            }
-            cutoff -= delta;
-        }
-        std::vector<Route> routes;
-        std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, cutoff, this,
-                     &backtrace](std::vector<int64_t> &path, double length) {
-            if (length > cutoff) {
-                return;
-            }
-            auto tail = path.back();
-            if (path.size() > 1) {
-                double new_length = length + this->lengths_.at(tail);
-                if (new_length > cutoff) {
-                    routes.push_back(
-                        Route(this, cutoff, path, {}, cutoff - length));
-                    return;
-                }
-                length = new_length;
-            }
-            auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty()) {
-                routes.push_back(
-                    Route(this, length, path, {}, this->lengths_.at(tail)));
-                return;
-            }
-            const auto N = routes.size();
-            for (auto next : itr->second) {
-                if (std::find(path.begin(), path.end(), next) != path.end()) {
-                    continue;
-                }
-                path.push_back(next);
-                backtrace(path, length);
-                path.pop_back();
-            }
-            if (N == routes.size()) {
-                routes.push_back(
-                    Route(this, length, path, {}, this->lengths_.at(tail)));
-            }
-        };
-        auto path = std::vector<int64_t>{*start_idx};
-        backtrace(path, 0.0);
-
-        if (offset) {
-            double delta = length->second - *offset;
-            for (auto &route : routes) {
-                route.dist += delta;
-                route.start_offset = *offset;
-            }
-        }
-        std::sort(
-            routes.begin(), routes.end(),
-            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
-        if (round_scale_) {
-            for (auto &r : routes) {
-                this->round(r);
-            }
-        }
-        return routes;
+        return __all_routes_from(*start_idx, cutoff, offset);
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -467,6 +394,86 @@ struct DiGraph
             }
         }
         dmap.erase(start);
+    }
+
+    std::vector<Route>
+    __all_routes_from(int64_t start, double cutoff,
+                      std::optional<double> offset = {}) const
+    {
+        auto length = lengths_.find(start);
+        if (length == lengths_.end()) {
+            return {};
+        }
+
+        if (offset) {
+            offset = std::max(0.0, std::min(*offset, length->second));
+            double delta = length->second - *offset;
+            if (cutoff <= delta) {
+                auto route =
+                    Route(this, cutoff, {start}, *offset, *offset + cutoff);
+                if (round_scale_) {
+                    this->round(route);
+                }
+                return {route};
+            }
+            cutoff -= delta;
+        }
+        std::vector<Route> routes;
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
+        backtrace = [&routes, cutoff, this,
+                     &backtrace](std::vector<int64_t> &path, double length) {
+            if (length > cutoff) {
+                return;
+            }
+            auto tail = path.back();
+            if (path.size() > 1) {
+                double new_length = length + this->lengths_.at(tail);
+                if (new_length > cutoff) {
+                    routes.push_back(
+                        Route(this, cutoff, path, {}, cutoff - length));
+                    return;
+                }
+                length = new_length;
+            }
+            auto itr = this->nexts_.find(tail);
+            if (itr == this->nexts_.end() || itr->second.empty()) {
+                routes.push_back(
+                    Route(this, length, path, {}, this->lengths_.at(tail)));
+                return;
+            }
+            const auto N = routes.size();
+            for (auto next : itr->second) {
+                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                    continue;
+                }
+                path.push_back(next);
+                backtrace(path, length);
+                path.pop_back();
+            }
+            if (N == routes.size()) {
+                routes.push_back(
+                    Route(this, length, path, {}, this->lengths_.at(tail)));
+            }
+        };
+        auto path = std::vector<int64_t>{start};
+        backtrace(path, 0.0);
+
+        if (offset) {
+            double delta = length->second - *offset;
+            for (auto &route : routes) {
+                route.dist += delta;
+                route.start_offset = *offset;
+            }
+        }
+        std::sort(
+            routes.begin(), routes.end(),
+            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
+        if (round_scale_) {
+            for (auto &r : routes) {
+                this->round(r);
+            }
+        }
+        return routes;
     }
 };
 } // namespace nano_fmm
