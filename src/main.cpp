@@ -84,6 +84,11 @@ struct Edge
 
 struct DiGraph;
 
+inline double ROUND(double v, double s)
+{
+    return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
+}
+
 struct Route
 {
     Route() = default;
@@ -100,12 +105,18 @@ struct Route
     std::vector<int64_t> path;
     std::optional<double> start_offset;
     std::optional<double> end_offset;
-};
 
-inline double ROUND(double v, double s)
-{
-    return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
-}
+    void round(double scale)
+    {
+        dist = ROUND(dist, scale);
+        if (start_offset) {
+            start_offset = ROUND(*start_offset, scale);
+        }
+        if (end_offset) {
+            end_offset = ROUND(*end_offset, scale);
+        }
+    }
+};
 
 struct DiGraph
 {
@@ -248,7 +259,49 @@ struct DiGraph
         if (!src_idx) {
             return {};
         }
-        return __all_routes_from(*src_idx, cutoff, offset);
+        auto routes = __all_routes(*src_idx, cutoff, offset, lengths_, nexts_);
+        if (round_scale_) {
+            for (auto &r : routes) {
+                r.round(*round_scale_);
+            }
+        }
+        return routes;
+    }
+
+    std::vector<Route> all_routes_to(const std::string &target, double cutoff,
+                                     std::optional<double> offset = {}) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto length = lengths_.find(*dst_idx);
+        if (length == lengths_.end()) {
+            return {};
+        }
+        if (offset) {
+            offset = std::max(0.0, std::min(*offset, length->second));
+            offset = length->second - *offset;
+        }
+        auto routes = __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_);
+        for (auto &r : routes) {
+            std::reverse(r.path.begin(), r.path.end());
+            if (r.start_offset) {
+                r.start_offset = lengths_.at(r.path.front()) - *r.start_offset;
+            }
+            if (r.end_offset) {
+                r.end_offset = lengths_.at(r.path.back()) - *r.end_offset;
+            }
+        }
+        if (round_scale_) {
+            for (auto &r : routes) {
+                r.round(*round_scale_);
+            }
+        }
+        return routes;
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -396,12 +449,13 @@ struct DiGraph
         dmap.erase(start);
     }
 
-    std::vector<Route>
-    __all_routes_from(int64_t source, double cutoff,
-                      std::optional<double> offset = {}) const
+    std::vector<Route> __all_routes(
+        int64_t source, double cutoff, std::optional<double> offset,
+        const unordered_map<int64_t, double> &lengths,
+        const unordered_map<int64_t, unordered_set<int64_t>> &jumps) const
     {
-        auto length = lengths_.find(source);
-        if (length == lengths_.end()) {
+        auto length = lengths.find(source);
+        if (length == lengths.end()) {
             return {};
         }
 
@@ -409,18 +463,14 @@ struct DiGraph
             offset = std::max(0.0, std::min(*offset, length->second));
             double delta = length->second - *offset;
             if (cutoff <= delta) {
-                auto route =
-                    Route(this, cutoff, {source}, *offset, *offset + cutoff);
-                if (round_scale_) {
-                    this->round(route);
-                }
-                return {route};
+                return {
+                    Route(this, cutoff, {source}, *offset, *offset + cutoff)};
             }
             cutoff -= delta;
         }
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, cutoff, this,
+        backtrace = [&routes, cutoff, &lengths, &jumps, this,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
@@ -435,8 +485,8 @@ struct DiGraph
                 }
                 length = new_length;
             }
-            auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty()) {
+            auto itr = jumps.find(tail);
+            if (itr == jumps.end() || itr->second.empty()) {
                 routes.push_back(
                     Route(this, length, path, {}, this->lengths_.at(tail)));
                 return;
@@ -468,11 +518,6 @@ struct DiGraph
         std::sort(
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
-        if (round_scale_) {
-            for (auto &r : routes) {
-                this->round(r);
-            }
-        }
         return routes;
     }
 };
@@ -726,6 +771,8 @@ PYBIND11_MODULE(_core, m)
             "offset"_a = std::nullopt, //
             "reverse"_a = false)
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
+             py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
+        .def("all_routes_to", &DiGraph::all_routes_to, "target"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         //
         ;

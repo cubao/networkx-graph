@@ -340,3 +340,15 @@ def test_all_routes_from():
     routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
     routes = [r.to_dict() for r in routes]
     assert [{"dist": 10.0, "path": ["w1"], "start": ("w1", 0.0), "end": ("w1", 10.0)}]
+
+
+def test_all_routes_to():
+    G = graph1()
+    routes = G.all_routes_to("w7", cutoff=30.0, offset=4.0)
+    routes = [r.to_dict() for r in routes]
+    print(routes)
+    print()
+
+
+test_all_routes_to()
+print()
