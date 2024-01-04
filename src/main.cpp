@@ -238,17 +238,17 @@ struct DiGraph
         return ret;
     }
 
-    std::vector<Route> all_routes_from(const std::string &start, double cutoff,
+    std::vector<Route> all_routes_from(const std::string &source, double cutoff,
                                        std::optional<double> offset = {}) const
     {
         if (cutoff < 0) {
             return {};
         }
-        auto start_idx = indexer_.get_id(start);
-        if (!start_idx) {
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
             return {};
         }
-        return __all_routes_from(*start_idx, cutoff, offset);
+        return __all_routes_from(*src_idx, cutoff, offset);
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -397,10 +397,10 @@ struct DiGraph
     }
 
     std::vector<Route>
-    __all_routes_from(int64_t start, double cutoff,
+    __all_routes_from(int64_t source, double cutoff,
                       std::optional<double> offset = {}) const
     {
-        auto length = lengths_.find(start);
+        auto length = lengths_.find(source);
         if (length == lengths_.end()) {
             return {};
         }
@@ -410,7 +410,7 @@ struct DiGraph
             double delta = length->second - *offset;
             if (cutoff <= delta) {
                 auto route =
-                    Route(this, cutoff, {start}, *offset, *offset + cutoff);
+                    Route(this, cutoff, {source}, *offset, *offset + cutoff);
                 if (round_scale_) {
                     this->round(route);
                 }
@@ -455,7 +455,7 @@ struct DiGraph
                     Route(this, length, path, {}, this->lengths_.at(tail)));
             }
         };
-        auto path = std::vector<int64_t>{start};
+        auto path = std::vector<int64_t>{source};
         backtrace(path, 0.0);
 
         if (offset) {
@@ -725,7 +725,7 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "reverse"_a = false)
-        .def("all_routes_from", &DiGraph::all_routes_from, "start"_a,
+        .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         //
         ;
