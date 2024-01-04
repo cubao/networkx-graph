@@ -102,12 +102,34 @@ struct Route
     std::optional<double> end_offset;
 };
 
+inline double ROUND(double v, double s)
+{
+    return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
+}
+
 struct DiGraph
 {
-    DiGraph() = default;
+    DiGraph(std::optional<int8_t> round_n = 3)
+    {
+        if (round_n) {
+            round_scale_ = std::pow(10.0, *round_n);
+        }
+    }
+    std::optional<int8_t> round_n() const
+    {
+        if (!round_scale_) {
+            return {};
+        }
+        return static_cast<int8_t>(ROUND(std::log10(*round_scale_), 1.0));
+    }
+    std::optional<double> round_scale() const { return round_scale_; }
+
     Node &add_node(const std::string &id, double length = 1.0)
     {
         reset();
+        if (round_scale_) {
+            length = ROUND(length, *round_scale_);
+        }
         auto idx = indexer_.id(id);
         auto &node = nodes_[idx];
         node.length = length;
@@ -235,8 +257,12 @@ struct DiGraph
             offset = std::max(0.0, std::min(*offset, length->second));
             double delta = length->second - *offset;
             if (cutoff <= delta) {
-                return {Route(this, cutoff, {*start_idx}, *offset,
-                              *offset + cutoff)};
+                auto route = Route(this, cutoff, {*start_idx}, *offset,
+                                   *offset + cutoff);
+                if (round_scale_) {
+                    this->round(route);
+                }
+                return {route};
             }
             cutoff -= delta;
         }
@@ -290,6 +316,11 @@ struct DiGraph
         std::sort(
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
+        if (round_scale_) {
+            for (auto &r : routes) {
+                this->round(r);
+            }
+        }
         return routes;
     }
 
@@ -319,6 +350,7 @@ struct DiGraph
 
   private:
     bool freezed_{false};
+    std::optional<double> round_scale_;
     std::unordered_map<int64_t, Node> nodes_;
     std::unordered_map<std::tuple<int64_t, int64_t>, Edge> edges_;
     unordered_map<int64_t, double> lengths_;
@@ -347,6 +379,17 @@ struct DiGraph
                 const_cast<Edge *>(&pair.second));
         }
         return *cache_;
+    }
+
+    void round(Route &r) const
+    {
+        r.dist = ROUND(r.dist, *round_scale_);
+        if (r.start_offset) {
+            r.start_offset = ROUND(*r.start_offset, *round_scale_);
+        }
+        if (r.end_offset) {
+            r.end_offset = ROUND(*r.end_offset, *round_scale_);
+        }
     }
 
     std::vector<std::string>
@@ -646,7 +689,10 @@ PYBIND11_MODULE(_core, m)
         ;
 
     py::class_<DiGraph>(m, "DiGraph", py::module_local(), py::dynamic_attr()) //
-        .def(py::init<>())
+        .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
+        //
+        .def_property_readonly("round_n", &DiGraph::round_n)
+        .def_property_readonly("round_scale", &DiGraph::round_scale)
         //
         .def("add_node", &DiGraph::add_node, "id"_a, py::kw_only(), "length"_a,
              rvp::reference_internal)

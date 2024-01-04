@@ -248,7 +248,7 @@ def all_routes_from(G, start, cutoff):
     return [{"dist": round(d, 3), "path": p} for d, p in output]
 
 
-def test_all_routes():
+def test_all_routes_from():
     try:
         import networkx as nx
 
@@ -313,3 +313,30 @@ def test_all_routes():
             "end": ("w4", 10.0),
         },
     ]
+
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {"dist": 5.123, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.123)}
+    ]
+
+    assert G.round_n == 3
+    assert G.round_scale == 1e3
+
+    G = DiGraph(round_n=None)
+    assert G.round_n is None
+    assert G.round_scale is None
+    G = graph1(G)
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert [
+        {"dist": 5.12345, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.12345)}
+    ]
+
+    G = DiGraph(round_n=-1)
+    assert G.round_n == -1
+    assert G.round_scale == 0.1
+    G = graph1(G)
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert [{"dist": 10.0, "path": ["w1"], "start": ("w1", 0.0), "end": ("w1", 10.0)}]

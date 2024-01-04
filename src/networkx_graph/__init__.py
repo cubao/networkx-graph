@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+from typing import Optional
+
 from ._core import DiGraph as DiGraphImpl
 from ._core import Edge, Node, __doc__, __version__, add, rapidjson, subtract
 
 
 class DiGraph(DiGraphImpl):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, round_n: Optional[int] = 3):  # noqa: UP007
+        super().__init__(round_n=round_n)
 
     def add_node(self, node: str, length: float = 1.0, **attr):
         assert isinstance(node, str), "we only supports str key!"
