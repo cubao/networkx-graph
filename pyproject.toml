@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 [project]
 name = "networkx_graph"
 version = "0.0.5"
-description="Some customized graph algorithms"
+description = "Some customized graph algorithms"
 readme = "README.md"
 authors = [
   { name = "district10", email = "dvorak4tzx@gmail.com" },
