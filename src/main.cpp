@@ -288,13 +288,14 @@ struct DiGraph
         }
         auto routes = __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_);
         for (auto &r : routes) {
-            std::reverse(r.path.begin(), r.path.end());
             if (r.start_offset) {
                 r.start_offset = lengths_.at(r.path.front()) - *r.start_offset;
             }
             if (r.end_offset) {
                 r.end_offset = lengths_.at(r.path.back()) - *r.end_offset;
             }
+            std::reverse(r.path.begin(), r.path.end());
+            std::swap(r.start_offset, r.end_offset);
         }
         if (round_scale_) {
             for (auto &r : routes) {

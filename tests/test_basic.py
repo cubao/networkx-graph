@@ -346,9 +346,33 @@ def test_all_routes_to():
     G = graph1()
     routes = G.all_routes_to("w7", cutoff=30.0, offset=4.0)
     routes = [r.to_dict() for r in routes]
-    print(routes)
-    print()
-
-
-test_all_routes_to()
-print()
+    assert routes == [
+        {
+            "dist": 30.0,
+            "path": ["w3", "w4", "w6", "w7"],
+            "start": ("w3", 7.0),
+            "end": ("w7", 4.0),
+        },
+        {
+            "dist": 30.0,
+            "path": ["w2", "w5", "w7"],
+            "start": ("w2", 4.0),
+            "end": ("w7", 4.0),
+        },
+    ]
+    routes = G.all_routes_to("w7", cutoff=30.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 30.0,
+            "path": ["w3", "w4", "w6", "w7"],
+            "start": ("w3", 3.0),
+            "end": ("w7", None),
+        },
+        {
+            "dist": 30.0,
+            "path": ["w1", "w2", "w5", "w7"],
+            "start": ("w1", 10.0),
+            "end": ("w7", None),
+        },
+    ]
