@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.4"
+    assert m.__version__ == "0.0.5"
 
 
 def test_add():
@@ -248,7 +248,7 @@ def all_routes_from(G, start, cutoff):
     return [{"dist": round(d, 3), "path": p} for d, p in output]
 
 
-def test_all_routes():
+def test_all_routes_from():
     try:
         import networkx as nx
 
@@ -311,5 +311,68 @@ def test_all_routes():
             "path": ["w1", "w3", "w4"],
             "start": ("w1", 5.0),
             "end": ("w4", 10.0),
+        },
+    ]
+
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {"dist": 5.123, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.123)}
+    ]
+
+    assert G.round_n == 3
+    assert G.round_scale == 1e3
+
+    G = DiGraph(round_n=None)
+    assert G.round_n is None
+    assert G.round_scale is None
+    G = graph1(G)
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert [
+        {"dist": 5.12345, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.12345)}
+    ]
+
+    G = DiGraph(round_n=-1)
+    assert G.round_n == -1
+    assert G.round_scale == 0.1
+    G = graph1(G)
+    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
+    routes = [r.to_dict() for r in routes]
+    assert [{"dist": 10.0, "path": ["w1"], "start": ("w1", 0.0), "end": ("w1", 10.0)}]
+
+
+def test_all_routes_to():
+    G = graph1()
+    routes = G.all_routes_to("w7", cutoff=30.0, offset=4.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 30.0,
+            "path": ["w3", "w4", "w6", "w7"],
+            "start": ("w3", 7.0),
+            "end": ("w7", 4.0),
+        },
+        {
+            "dist": 30.0,
+            "path": ["w2", "w5", "w7"],
+            "start": ("w2", 4.0),
+            "end": ("w7", 4.0),
+        },
+    ]
+    routes = G.all_routes_to("w7", cutoff=30.0)
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 30.0,
+            "path": ["w3", "w4", "w6", "w7"],
+            "start": ("w3", 3.0),
+            "end": ("w7", None),
+        },
+        {
+            "dist": 30.0,
+            "path": ["w1", "w2", "w5", "w7"],
+            "start": ("w1", 10.0),
+            "end": ("w7", None),
         },
     ]
