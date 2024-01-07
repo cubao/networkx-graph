@@ -118,6 +118,19 @@ struct Route
     }
 };
 
+struct Sinks
+{
+    const DiGraph *graph{nullptr};
+    unordered_set<int64_t> sinks;
+};
+
+using Binding = std::tuple<double, double, py::object>;
+struct Bindings
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, std::vector<Binding>> bindings;
+};
+
 struct DiGraph
 {
     DiGraph(std::optional<int8_t> round_n = 3)
@@ -303,6 +316,35 @@ struct DiGraph
             }
         }
         return routes;
+    }
+
+    std::vector<Route> all_routes(double cutoff, const std::string &source,
+                                  const std::string &target,
+                                  std::optional<double> source_offset,
+                                  std::optional<double> target_offset) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto src_length = lengths_.find(*src_idx);
+        if (src_length == lengths_.end()) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto dst_length = lengths_.find(*dst_idx);
+        if (dst_length == lengths_.end()) {
+            return {};
+        }
+        return __all_routes(cutoff, //
+                            std::make_tuple(*src_idx, source_offset),
+                            std::make_tuple(*dst_idx, target_offset));
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -520,6 +562,14 @@ struct DiGraph
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
+    }
+
+    std::vector<Route>
+    __all_routes(double cutoff,
+                 const std::tuple<int64_t, std::optional<double>> &source,
+                 const std::tuple<int64_t, std::optional<double>> &target) const
+    {
+        return {};
     }
 };
 } // namespace nano_fmm
