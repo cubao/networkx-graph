@@ -262,10 +262,12 @@ struct DiGraph
         }
         auto &pmap = shortest_path->prevs;
         auto &dmap = shortest_path->dists;
+        const unordered_set<int64_t> *sinks_nodes = nullptr;
+        if (sinks) {
+            sinks_nodes = &sinks->nodes;
+        }
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap,
-
-                               nullptr, *offset);
+                               pmap, dmap, sinks_nodes, *offset);
         auto ret = std::vector<std::tuple<double, std::string>>{};
         ret.reserve(dmap.size());
         for (auto &pair : dmap) {
@@ -457,6 +459,9 @@ struct DiGraph
         const unordered_set<int64_t> *sinks = nullptr,
         double init_offset = 0.0) const
     {
+        if (sinks && sinks->count(start)) {
+            return;
+        }
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         auto itr = jumps.find(start);
         if (itr == jumps.end()) {
@@ -466,6 +471,9 @@ struct DiGraph
         Q.push(start, 0.0);
         dmap.insert({start, 0.0});
         for (auto next : itr->second) {
+            if (sinks && sinks->count(next)) {
+                continue;
+            }
             Q.push(next, init_offset);
             pmap.insert({next, start});
             dmap.insert({next, init_offset});

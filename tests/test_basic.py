@@ -379,11 +379,24 @@ def test_all_routes_to():
 
 
 def test_routing():
-    try:
+    with pytest.raises(TypeError) as excinfo:
         Route()
-    except Exception as e:
-        assert "No constructor defined" in repr(e)
-    print()
+    assert "No constructor defined" in repr(excinfo.value)
+    G = graph1()
 
+    sinks = G.encode_sinks({"w1", "w2"})
+    assert sinks() == {"w1", "w2"}
 
-test_routing()
+    obj = {"key": "value"}
+    bindings = G.encode_bindings({"w3": [], "w2": [(3.0, 4, "text"), (8, 10, obj)]})
+    decoded = bindings()
+    assert decoded == {"w2": [(3.0, 4.0, "text"), (8.0, 10.0, obj)], "w3": []}
+    assert decoded["w2"][-1][-1] is obj
+    decoded["w2"][-1][-1]["num"] = 42
+    assert obj["num"] == 42
+
+    dists = G.single_source_dijkstra("w1", cutoff=20.0)
+    assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
+
+    dists = G.single_source_dijkstra("w1", cutoff=20.0, sinks=sinks)
+    assert dists == [(0.0, "w3"), (10.0, "w4")]
