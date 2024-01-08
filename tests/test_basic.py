@@ -5,7 +5,7 @@ import json
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, rapidjson
+from networkx_graph import DiGraph, Node, Route, rapidjson
 
 
 def test_version():
@@ -376,3 +376,14 @@ def test_all_routes_to():
             "end": ("w7", None),
         },
     ]
+
+
+def test_routing():
+    try:
+        Route()
+    except Exception as e:
+        assert "No constructor defined" in repr(e)
+    print()
+
+
+test_routing()

@@ -121,14 +121,21 @@ struct Route
 struct Sinks
 {
     const DiGraph *graph{nullptr};
-    unordered_set<int64_t> sinks;
+    unordered_set<int64_t> nodes;
 };
 
 using Binding = std::tuple<double, double, py::object>;
 struct Bindings
 {
     const DiGraph *graph{nullptr};
-    unordered_map<int64_t, std::vector<Binding>> bindings;
+    unordered_map<int64_t, std::vector<Binding>> node2bindings;
+};
+
+struct ShortestPathGenerator
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, int64_t> prevs;
+    unordered_map<int64_t, double> dists;
 };
 
 struct DiGraph
@@ -192,6 +199,26 @@ struct DiGraph
         return __nexts(id, nexts_);
     }
 
+    Sinks encode_sinks(const std::unordered_set<std::string> &nodes)
+    {
+        Sinks ret;
+        ret.graph = this;
+        for (auto &n : nodes) {
+            ret.nodes.insert(indexer_.id(n));
+        }
+        return ret;
+    }
+    Bindings encode_bindings(
+        const std::unordered_map<std::string, std::vector<Binding>> &bindings)
+    {
+        Bindings ret;
+        ret.graph = this;
+        for (auto &pair : bindings) {
+            ret.node2bindings.emplace(indexer_.id(pair.first), pair.second);
+        }
+        return ret;
+    }
+
     std::string __node_id(int64_t node) const { return indexer_.id(node); }
     std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
     {
@@ -203,12 +230,11 @@ struct DiGraph
         return ids;
     }
 
-    std::vector<std::tuple<double, std::string>> single_source_dijkstra(
-        const std::string &start, double cutoff,
-        std::optional<double> offset = {},
-        const std::unordered_set<std::string> *sinks = nullptr,
-        std::unordered_map<std::string, std::string> *prevs = nullptr,
-        bool reverse = false) const
+    std::vector<std::tuple<double, std::string>>
+    single_source_dijkstra(const std::string &start, double cutoff,
+                           std::optional<double> offset = {},
+                           bool reverse = false, const Sinks *sinks = nullptr,
+                           ShortestPathGenerator *shortest_path = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -230,28 +256,16 @@ struct DiGraph
                 offset = std::max(0.0, length->second - *offset);
             }
         }
-        std::unique_ptr<unordered_set<int64_t>> sinks_ptr;
-        if (sinks) {
-            sinks_ptr = std::make_unique<unordered_set<int64_t>>();
-            for (auto &node : *sinks) {
-                auto nid = indexer_.get_id(node);
-                if (nid) {
-                    sinks_ptr->insert(std::move(*nid));
-                }
-            }
-            if (sinks_ptr->empty()) {
-                sinks_ptr.reset();
-            }
+        ShortestPathGenerator generator;
+        if (!shortest_path) {
+            shortest_path = &generator;
         }
-        unordered_map<int64_t, int64_t> pmap;
-        unordered_map<int64_t, double> dmap;
+        auto &pmap = shortest_path->prevs;
+        auto &dmap = shortest_path->dists;
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_ptr.get(), *offset);
-        if (prevs) {
-            for (const auto &pair : pmap) {
-                (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
-            }
-        }
+                               pmap, dmap,
+
+                               nullptr, *offset);
         auto ret = std::vector<std::tuple<double, std::string>>{};
         ret.reserve(dmap.size());
         for (auto &pair : dmap) {
@@ -709,7 +723,7 @@ PYBIND11_MODULE(_core, m)
 
     py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
-            "graph", [](Route &self) { return self.graph; },
+            "graph", [](const Route &self) { return self.graph; },
             rvp::reference_internal)
         .def_property_readonly("dist",
                                [](const Route &self) { return self.dist; })
@@ -791,6 +805,45 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<Sinks>(m, "Sinks", py::module_local(), py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Sinks &self) { return self.graph; },
+            rvp::reference_internal)
+        //
+        .def("__call__",
+             [](const Sinks &self) {
+                 std::set<std::string> ret;
+                 for (auto &n : self.nodes) {
+                     ret.emplace(self.graph->__node_id(n));
+                 }
+                 return ret;
+             })
+        //
+        ;
+
+    py::class_<Bindings>(m, "Bindings", py::module_local(),
+                         py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Bindings &self) { return self.graph; },
+            rvp::reference_internal)
+        .def("__call__",
+             [](const Bindings &self) {
+                 std::map<std::string, std::vector<Binding>> ret;
+                 for (auto &pair : self.node2bindings) {
+                     ret.emplace(self.graph->__node_id(pair.first),
+                                 pair.second);
+                 }
+                 return ret;
+             })
+        //
+        ;
+
+    py::class_<ShortestPathGenerator>(m, "ShortestPathGenerator",
+                                      py::module_local(),
+                                      py::dynamic_attr()) //
+        //
+        ;
+
     py::class_<DiGraph>(m, "DiGraph", py::module_local(), py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
         //
@@ -810,17 +863,22 @@ PYBIND11_MODULE(_core, m)
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
         //
+        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
+        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
+        //
         .def(
             "single_source_dijkstra",
             [](const DiGraph &self, const std::string &id, double cutoff,
-               std::optional<double> offset, bool reverse) {
-                return self.single_source_dijkstra(id, cutoff, offset, nullptr,
-                                                   nullptr, reverse);
+               std::optional<double> offset, bool reverse, const Sinks *sinks,
+               ShortestPathGenerator *shortest_path) {
+                return self.single_source_dijkstra(id, cutoff, offset, reverse,
+                                                   sinks, shortest_path);
             },
             "id"_a, py::kw_only(),     //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "reverse"_a = false)
+            "reverse"_a = false, "sinks"_a = nullptr,
+            "path_generator"_a = nullptr)
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         .def("all_routes_to", &DiGraph::all_routes_to, "target"_a,
