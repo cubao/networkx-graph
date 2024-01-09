@@ -898,6 +898,8 @@ PYBIND11_MODULE(_core, m)
                  }
                  return ret;
              })
+        .def("cutoff",
+             [](const ShortestPathGenerator &self) { return self.cutoff; })
         .def("source",
              [](const ShortestPathGenerator &self) {
                  auto ret = std::optional<
@@ -965,9 +967,12 @@ PYBIND11_MODULE(_core, m)
                      if (self.source) {
                          route.start_offset = std::get<1>(*self.source);
                          std::reverse(route.path.begin(), route.path.end());
-                         route.end_offset = self.cutoff - route.dist;
+                         double length = self.graph->length(route.path.back());
+                         double offset = self.cutoff - route.dist;
+                         route.end_offset =
+                             std::max(0.0, std::min(offset, length));
                      } else {
-                         double length = self.graph->length(route.path[0]);
+                         double length = self.graph->length(route.path.front());
                          double offset = length - (self.cutoff - route.dist);
                          route.start_offset =
                              std::max(0.0, std::min(offset, length));

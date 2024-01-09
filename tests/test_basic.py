@@ -435,28 +435,37 @@ def test_routing():
         ]
     )
     assert path_generator.prevs() == {
-        "w7": "w5",
-        "w6": "w4",
         "w2": "w1",
         "w3": "w1",
-        "w5": "w2",
         "w4": "w3",
+        "w5": "w2",
+        "w6": "w4",
+        "w7": "w5",
     }
     assert path_generator.dists() == {
-        "w7": 35.0,
-        "w6": 35.0,
         "w2": 5.0,
         "w3": 5.0,
-        "w5": 20.0,
         "w4": 15.0,
+        "w5": 20.0,
+        "w6": 35.0,
+        "w7": 35.0,
     }
     assert path_generator.source() == ("w1", 5.0)
     assert path_generator.target() is None
 
     routes = path_generator.routes()
     assert len(routes) == 2
+    assert path_generator.cutoff() == 80.0
 
-    print()
-
-
-test_routing()
+    assert routes[0].to_dict() == {
+        "dist": 35.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 5.0),
+        "end": ("w7", 10.0),
+    }
+    assert routes[1].to_dict() == {
+        "dist": 35.0,
+        "path": ["w1", "w3", "w4", "w6"],
+        "start": ("w1", 5.0),
+        "end": ("w6", 3.0),
+    }
