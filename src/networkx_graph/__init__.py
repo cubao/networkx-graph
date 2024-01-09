@@ -3,7 +3,17 @@ from __future__ import annotations
 from typing import Optional
 
 from ._core import DiGraph as DiGraphImpl
-from ._core import Edge, Node, Route, __doc__, __version__, add, rapidjson, subtract
+from ._core import (
+    Edge,
+    Node,
+    Route,
+    ShortestPathGenerator,
+    __doc__,
+    __version__,
+    add,
+    rapidjson,
+    subtract,
+)
 
 
 class DiGraph(DiGraphImpl):
@@ -36,4 +46,5 @@ __all__ = [
     "Edge",
     "Route",
     "DiGraph",
+    "ShortestPathGenerator",
 ]

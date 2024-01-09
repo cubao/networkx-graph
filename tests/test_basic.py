@@ -5,7 +5,7 @@ import json
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Route, rapidjson
+from networkx_graph import DiGraph, Node, Route, ShortestPathGenerator, rapidjson
 
 
 def test_version():
@@ -384,9 +384,6 @@ def test_routing():
     assert "No constructor defined" in repr(excinfo.value)
     G = graph1()
 
-    sinks = G.encode_sinks({"w1", "w2"})
-    assert sinks() == {"w1", "w2"}
-
     obj = {"key": "value"}
     bindings = G.encode_bindings({"w3": [], "w2": [(3.0, 4, "text"), (8, 10, obj)]})
     decoded = bindings()
@@ -398,5 +395,42 @@ def test_routing():
     dists = G.single_source_dijkstra("w1", cutoff=20.0)
     assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
 
+    sinks = G.encode_sinks({"w2", "w3"})
+    assert sinks() == {"w2", "w3"}
+
     dists = G.single_source_dijkstra("w1", cutoff=20.0, sinks=sinks)
-    assert dists == [(0.0, "w3"), (10.0, "w4")]
+    assert dists == [(0.0, "w2"), (0.0, "w3")]
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=20.0, sinks=sinks, path_generator=path_generator
+    )
+    assert dists == path_generator.targets() == [(0.0, "w2"), (0.0, "w3")]
+
+    sinks = G.encode_sinks({"w6"})
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=20.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    )
+    assert (
+        dists
+        == path_generator.targets()
+        == [(5.0, "w2"), (5.0, "w3"), (15.0, "w4"), (20.0, "w5")]
+    )
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=80.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    )
+    assert (
+        dists
+        == path_generator.targets()
+        == [
+            (5.0, "w2"),
+            (5.0, "w3"),
+            (15.0, "w4"),
+            (20.0, "w5"),
+            (35.0, "w6"),
+            (35.0, "w7"),
+        ]
+    )
