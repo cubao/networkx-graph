@@ -405,7 +405,7 @@ def test_routing():
     dists = G.single_source_dijkstra(
         "w1", cutoff=20.0, sinks=sinks, path_generator=path_generator
     )
-    assert dists == path_generator.targets() == [(0.0, "w2"), (0.0, "w3")]
+    assert dists == path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
 
     sinks = G.encode_sinks({"w6"})
     path_generator = ShortestPathGenerator()
@@ -414,7 +414,7 @@ def test_routing():
     )
     assert (
         dists
-        == path_generator.targets()
+        == path_generator.destinations()
         == [(5.0, "w2"), (5.0, "w3"), (15.0, "w4"), (20.0, "w5")]
     )
 
@@ -424,7 +424,7 @@ def test_routing():
     )
     assert (
         dists
-        == path_generator.targets()
+        == path_generator.destinations()
         == [
             (5.0, "w2"),
             (5.0, "w3"),
