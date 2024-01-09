@@ -144,7 +144,7 @@ struct ShortestPathGenerator
     bool ready() const
     {
         return graph && !prevs.empty() && !dists.empty() //
-               && cutoff > 0 && (source || target);
+               && cutoff > 0 && ((bool)source ^ (bool)target);
     }
 };
 
@@ -239,6 +239,7 @@ struct DiGraph
         }
         return ids;
     }
+    double length(int64_t node) const { return lengths_.at(node); }
 
     std::vector<std::tuple<double, std::string>>
     single_source_dijkstra(const std::string &start, double cutoff,
@@ -866,6 +867,63 @@ PYBIND11_MODULE(_core, m)
                                                           //
         .def(py::init<>())
         //
+        .def("prevs",
+             [](const ShortestPathGenerator &self) {
+                 std::unordered_map<std::string, std::string> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.prevs) {
+                     auto k = indexer.get_id(pair.first);
+                     auto v = indexer.get_id(pair.second);
+                     if (k && v) {
+                         ret.emplace(std::move(*k), std::move(*v));
+                     }
+                 }
+                 return ret;
+             })
+        .def("dists",
+             [](const ShortestPathGenerator &self) {
+                 std::unordered_map<std::string, double> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.dists) {
+                     auto k = indexer.get_id(pair.first);
+                     if (k) {
+                         ret.emplace(std::move(*k), pair.second);
+                     }
+                 }
+                 return ret;
+             })
+        .def("source",
+             [](const ShortestPathGenerator &self) {
+                 auto ret = std::optional<
+                     std::tuple<std::string, std::optional<double>>>();
+                 if (self.ready() && self.source) {
+                     auto k = self.graph->indexer().get_id(
+                         std::get<0>(*self.source));
+                     if (k) {
+                         ret = std::make_tuple(*k, std::get<1>(*self.source));
+                     }
+                 }
+                 return ret;
+             })
+        .def("target",
+             [](const ShortestPathGenerator &self) {
+                 auto ret = std::optional<
+                     std::tuple<std::string, std::optional<double>>>();
+                 if (self.ready() && self.target) {
+                     auto k = self.graph->indexer().get_id(
+                         std::get<0>(*self.target));
+                     if (k) {
+                         ret = std::make_tuple(*k, std::get<1>(*self.target));
+                     }
+                 }
+                 return ret;
+             })
         .def("destinations",
              [](const ShortestPathGenerator &self)
                  -> std::vector<std::tuple<double, std::string>> {
@@ -904,8 +962,17 @@ PYBIND11_MODULE(_core, m)
                          end = self.prevs.at(end);
                      }
                      route.path.push_back(end);
-                     //  route.start_offset
-                     //  route.end_offset
+                     if (self.source) {
+                         route.start_offset = std::get<1>(*self.source);
+                         std::reverse(route.path.begin(), route.path.end());
+                         route.end_offset = self.cutoff - route.dist;
+                     } else {
+                         double length = self.graph->length(route.path[0]);
+                         double offset = length - (self.cutoff - route.dist);
+                         route.start_offset =
+                             std::max(0.0, std::min(offset, length));
+                         route.end_offset = std::get<1>(*self.target);
+                     }
                      routes.push_back(std::move(route));
                  }
                  return routes;
