@@ -259,6 +259,8 @@ struct DiGraph
         ShortestPathGenerator generator;
         if (!shortest_path) {
             shortest_path = &generator;
+        } else {
+            shortest_path->graph = this;
         }
         auto &pmap = shortest_path->prevs;
         auto &dmap = shortest_path->dists;
@@ -386,6 +388,7 @@ struct DiGraph
     }
 
     Indexer &indexer() { return indexer_; }
+    const Indexer &indexer() const { return indexer_; }
 
   private:
     bool freezed_{false};
@@ -849,6 +852,25 @@ PYBIND11_MODULE(_core, m)
     py::class_<ShortestPathGenerator>(m, "ShortestPathGenerator",
                                       py::module_local(),
                                       py::dynamic_attr()) //
+                                                          //
+        .def(py::init<>())
+        //
+        .def("targets",
+             [](const ShortestPathGenerator &self)
+                 -> std::vector<std::tuple<double, std::string>> {
+                 if (!self.graph || self.dists.empty()) {
+                     return {};
+                 }
+                 auto ret = std::vector<std::tuple<double, std::string>>{};
+                 ret.reserve(self.dists.size());
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.dists) {
+                     ret.emplace_back(
+                         std::make_tuple(pair.second, indexer.id(pair.first)));
+                 }
+                 std::sort(ret.begin(), ret.end());
+                 return ret;
+             })
         //
         ;
 
@@ -885,7 +907,8 @@ PYBIND11_MODULE(_core, m)
             "id"_a, py::kw_only(),     //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "reverse"_a = false, "sinks"_a = nullptr,
+            "reverse"_a = false,       //
+            "sinks"_a = nullptr,       //
             "path_generator"_a = nullptr)
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
