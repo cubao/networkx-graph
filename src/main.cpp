@@ -92,7 +92,7 @@ inline double ROUND(double v, double s)
 struct Route
 {
     Route() = default;
-    Route(const DiGraph *graph = nullptr, double dist = 0.0,
+    Route(const DiGraph *graph, double dist = 0.0,
           const std::vector<int64_t> &path = {},
           std::optional<double> start_offset = {},
           std::optional<double> end_offset = {})
@@ -115,6 +115,36 @@ struct Route
         if (end_offset) {
             end_offset = ROUND(*end_offset, scale);
         }
+    }
+};
+
+struct Sinks
+{
+    const DiGraph *graph{nullptr};
+    unordered_set<int64_t> nodes;
+};
+
+using Binding = std::tuple<double, double, py::object>;
+struct Bindings
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, std::vector<Binding>> node2bindings;
+};
+
+struct ShortestPathGenerator
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, int64_t> prevs;
+    unordered_map<int64_t, double> dists;
+
+    using Click = std::tuple<int64_t, std::optional<double>>;
+    double cutoff{0.0};
+    std::optional<Click> source;
+    std::optional<Click> target;
+    bool ready() const
+    {
+        return graph && !prevs.empty() && !dists.empty() //
+               && cutoff > 0 && ((bool)source ^ (bool)target);
     }
 };
 
@@ -179,6 +209,26 @@ struct DiGraph
         return __nexts(id, nexts_);
     }
 
+    Sinks encode_sinks(const std::unordered_set<std::string> &nodes)
+    {
+        Sinks ret;
+        ret.graph = this;
+        for (auto &n : nodes) {
+            ret.nodes.insert(indexer_.id(n));
+        }
+        return ret;
+    }
+    Bindings encode_bindings(
+        const std::unordered_map<std::string, std::vector<Binding>> &bindings)
+    {
+        Bindings ret;
+        ret.graph = this;
+        for (auto &pair : bindings) {
+            ret.node2bindings.emplace(indexer_.id(pair.first), pair.second);
+        }
+        return ret;
+    }
+
     std::string __node_id(int64_t node) const { return indexer_.id(node); }
     std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
     {
@@ -189,13 +239,13 @@ struct DiGraph
         }
         return ids;
     }
+    double length(int64_t node) const { return lengths_.at(node); }
 
-    std::vector<std::tuple<double, std::string>> single_source_dijkstra(
-        const std::string &start, double cutoff,
-        std::optional<double> offset = {},
-        const std::unordered_set<std::string> *sinks = nullptr,
-        std::unordered_map<std::string, std::string> *prevs = nullptr,
-        bool reverse = false) const
+    std::vector<std::tuple<double, std::string>>
+    single_source_dijkstra(const std::string &start, double cutoff,
+                           std::optional<double> offset = {},
+                           bool reverse = false, const Sinks *sinks = nullptr,
+                           ShortestPathGenerator *shortest_path = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -208,6 +258,24 @@ struct DiGraph
         if (length == lengths_.end()) {
             return {};
         }
+        ShortestPathGenerator generator;
+        if (!shortest_path) {
+            shortest_path = &generator;
+        } else {
+            shortest_path->graph = this;
+            if (!reverse) {
+                shortest_path->source = std::make_tuple(*start_idx, offset);
+            } else {
+                shortest_path->target = std::make_tuple(*start_idx, offset);
+            }
+            shortest_path->cutoff = cutoff;
+        }
+        auto &pmap = shortest_path->prevs;
+        auto &dmap = shortest_path->dists;
+        const unordered_set<int64_t> *sinks_nodes = nullptr;
+        if (sinks) {
+            sinks_nodes = &sinks->nodes;
+        }
         if (!offset) {
             offset = 0.0;
         } else {
@@ -217,28 +285,8 @@ struct DiGraph
                 offset = std::max(0.0, length->second - *offset);
             }
         }
-        std::unique_ptr<unordered_set<int64_t>> sinks_ptr;
-        if (sinks) {
-            sinks_ptr = std::make_unique<unordered_set<int64_t>>();
-            for (auto &node : *sinks) {
-                auto nid = indexer_.get_id(node);
-                if (nid) {
-                    sinks_ptr->insert(std::move(*nid));
-                }
-            }
-            if (sinks_ptr->empty()) {
-                sinks_ptr.reset();
-            }
-        }
-        unordered_map<int64_t, int64_t> pmap;
-        unordered_map<int64_t, double> dmap;
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_ptr.get(), *offset);
-        if (prevs) {
-            for (const auto &pair : pmap) {
-                (*prevs)[indexer_.id(pair.first)] = indexer_.id(pair.second);
-            }
-        }
+                               pmap, dmap, sinks_nodes, *offset);
         auto ret = std::vector<std::tuple<double, std::string>>{};
         ret.reserve(dmap.size());
         for (auto &pair : dmap) {
@@ -305,6 +353,35 @@ struct DiGraph
         return routes;
     }
 
+    std::vector<Route> all_routes(double cutoff, const std::string &source,
+                                  const std::string &target,
+                                  std::optional<double> source_offset,
+                                  std::optional<double> target_offset) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto src_length = lengths_.find(*src_idx);
+        if (src_length == lengths_.end()) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto dst_length = lengths_.find(*dst_idx);
+        if (dst_length == lengths_.end()) {
+            return {};
+        }
+        return __all_routes(cutoff, //
+                            std::make_tuple(*src_idx, source_offset),
+                            std::make_tuple(*dst_idx, target_offset));
+    }
+
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
     RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
     {
@@ -328,6 +405,7 @@ struct DiGraph
     }
 
     Indexer &indexer() { return indexer_; }
+    const Indexer &indexer() const { return indexer_; }
 
   private:
     bool freezed_{false};
@@ -408,11 +486,12 @@ struct DiGraph
         }
         Heap Q;
         Q.push(start, 0.0);
-        dmap.insert({start, 0.0});
-        for (auto next : itr->second) {
-            Q.push(next, init_offset);
-            pmap.insert({next, start});
-            dmap.insert({next, init_offset});
+        if (!sinks || !sinks->count(start)) {
+            for (auto next : itr->second) {
+                Q.push(next, init_offset);
+                pmap.insert({next, start});
+                dmap.insert({next, init_offset});
+            }
         }
         while (!Q.empty()) {
             HeapNode node = Q.top();
@@ -520,6 +599,14 @@ struct DiGraph
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
+    }
+
+    std::vector<Route>
+    __all_routes(double cutoff,
+                 const std::tuple<int64_t, std::optional<double>> &source,
+                 const std::tuple<int64_t, std::optional<double>> &target) const
+    {
+        return {};
     }
 };
 } // namespace nano_fmm
@@ -659,7 +746,7 @@ PYBIND11_MODULE(_core, m)
 
     py::class_<Route>(m, "Route", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
-            "graph", [](Route &self) { return self.graph; },
+            "graph", [](const Route &self) { return self.graph; },
             rvp::reference_internal)
         .def_property_readonly("dist",
                                [](const Route &self) { return self.dist; })
@@ -741,6 +828,163 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<Sinks>(m, "Sinks", py::module_local(), py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Sinks &self) { return self.graph; },
+            rvp::reference_internal)
+        //
+        .def("__call__",
+             [](const Sinks &self) {
+                 std::set<std::string> ret;
+                 for (auto &n : self.nodes) {
+                     ret.emplace(self.graph->__node_id(n));
+                 }
+                 return ret;
+             })
+        //
+        ;
+
+    py::class_<Bindings>(m, "Bindings", py::module_local(),
+                         py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Bindings &self) { return self.graph; },
+            rvp::reference_internal)
+        .def("__call__",
+             [](const Bindings &self) {
+                 std::map<std::string, std::vector<Binding>> ret;
+                 for (auto &pair : self.node2bindings) {
+                     ret.emplace(self.graph->__node_id(pair.first),
+                                 pair.second);
+                 }
+                 return ret;
+             })
+        //
+        ;
+
+    py::class_<ShortestPathGenerator>(m, "ShortestPathGenerator",
+                                      py::module_local(),
+                                      py::dynamic_attr()) //
+                                                          //
+        .def(py::init<>())
+        //
+        .def("prevs",
+             [](const ShortestPathGenerator &self) {
+                 std::unordered_map<std::string, std::string> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.prevs) {
+                     auto k = indexer.get_id(pair.first);
+                     auto v = indexer.get_id(pair.second);
+                     if (k && v) {
+                         ret.emplace(std::move(*k), std::move(*v));
+                     }
+                 }
+                 return ret;
+             })
+        .def("dists",
+             [](const ShortestPathGenerator &self) {
+                 std::unordered_map<std::string, double> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.dists) {
+                     auto k = indexer.get_id(pair.first);
+                     if (k) {
+                         ret.emplace(std::move(*k), pair.second);
+                     }
+                 }
+                 return ret;
+             })
+        .def("cutoff",
+             [](const ShortestPathGenerator &self) { return self.cutoff; })
+        .def("source",
+             [](const ShortestPathGenerator &self) {
+                 auto ret = std::optional<
+                     std::tuple<std::string, std::optional<double>>>();
+                 if (self.ready() && self.source) {
+                     auto k = self.graph->indexer().get_id(
+                         std::get<0>(*self.source));
+                     if (k) {
+                         ret = std::make_tuple(*k, std::get<1>(*self.source));
+                     }
+                 }
+                 return ret;
+             })
+        .def("target",
+             [](const ShortestPathGenerator &self) {
+                 auto ret = std::optional<
+                     std::tuple<std::string, std::optional<double>>>();
+                 if (self.ready() && self.target) {
+                     auto k = self.graph->indexer().get_id(
+                         std::get<0>(*self.target));
+                     if (k) {
+                         ret = std::make_tuple(*k, std::get<1>(*self.target));
+                     }
+                 }
+                 return ret;
+             })
+        .def("destinations",
+             [](const ShortestPathGenerator &self)
+                 -> std::vector<std::tuple<double, std::string>> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 auto ret = std::vector<std::tuple<double, std::string>>{};
+                 ret.reserve(self.dists.size());
+                 auto &indexer = self.graph->indexer();
+                 for (auto &pair : self.dists) {
+                     ret.emplace_back(
+                         std::make_tuple(pair.second, indexer.id(pair.first)));
+                 }
+                 std::sort(ret.begin(), ret.end());
+                 return ret;
+             })
+        .def("routes",
+             [](const ShortestPathGenerator &self) -> std::vector<Route> {
+                 unordered_set<int64_t> ends;
+                 for (auto &pair : self.prevs) {
+                     ends.insert(pair.first);
+                 }
+                 for (auto &pair : self.prevs) {
+                     ends.erase(pair.second);
+                 }
+                 auto routes = std::vector<Route>();
+                 routes.reserve(ends.size());
+
+                 const int64_t source = self.source ? std::get<0>(*self.source)
+                                                    : std::get<0>(*self.target);
+                 for (auto end : ends) {
+                     auto route = Route(self.graph);
+                     route.dist = self.dists.at(end);
+                     while (end != source) {
+                         route.path.push_back(end);
+                         end = self.prevs.at(end);
+                     }
+                     route.path.push_back(end);
+                     if (self.source) {
+                         route.start_offset = std::get<1>(*self.source);
+                         std::reverse(route.path.begin(), route.path.end());
+                         double length = self.graph->length(route.path.back());
+                         double offset = self.cutoff - route.dist;
+                         route.end_offset =
+                             std::max(0.0, std::min(offset, length));
+                     } else {
+                         double length = self.graph->length(route.path.front());
+                         double offset = length - (self.cutoff - route.dist);
+                         route.start_offset =
+                             std::max(0.0, std::min(offset, length));
+                         route.end_offset = std::get<1>(*self.target);
+                     }
+                     routes.push_back(std::move(route));
+                 }
+                 return routes;
+             })
+        //
+        ;
+
     py::class_<DiGraph>(m, "DiGraph", py::module_local(), py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
         //
@@ -760,17 +1004,23 @@ PYBIND11_MODULE(_core, m)
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
         //
+        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
+        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
+        //
         .def(
             "single_source_dijkstra",
             [](const DiGraph &self, const std::string &id, double cutoff,
-               std::optional<double> offset, bool reverse) {
-                return self.single_source_dijkstra(id, cutoff, offset, nullptr,
-                                                   nullptr, reverse);
+               std::optional<double> offset, bool reverse, const Sinks *sinks,
+               ShortestPathGenerator *shortest_path) {
+                return self.single_source_dijkstra(id, cutoff, offset, reverse,
+                                                   sinks, shortest_path);
             },
             "id"_a, py::kw_only(),     //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "reverse"_a = false)
+            "reverse"_a = false,       //
+            "sinks"_a = nullptr,       //
+            "path_generator"_a = nullptr)
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         .def("all_routes_to", &DiGraph::all_routes_to, "target"_a,

@@ -5,7 +5,7 @@ import json
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, rapidjson
+from networkx_graph import DiGraph, Node, Route, ShortestPathGenerator, rapidjson
 
 
 def test_version():
@@ -376,3 +376,96 @@ def test_all_routes_to():
             "end": ("w7", None),
         },
     ]
+
+
+def test_routing():
+    with pytest.raises(TypeError) as excinfo:
+        Route()
+    assert "No constructor defined" in repr(excinfo.value)
+    G = graph1()
+
+    obj = {"key": "value"}
+    bindings = G.encode_bindings({"w3": [], "w2": [(3.0, 4, "text"), (8, 10, obj)]})
+    decoded = bindings()
+    assert decoded == {"w2": [(3.0, 4.0, "text"), (8.0, 10.0, obj)], "w3": []}
+    assert decoded["w2"][-1][-1] is obj
+    decoded["w2"][-1][-1]["num"] = 42
+    assert obj["num"] == 42
+
+    dists = G.single_source_dijkstra("w1", cutoff=20.0)
+    assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
+
+    sinks = G.encode_sinks({"w2", "w3"})
+    assert sinks() == {"w2", "w3"}
+
+    dists = G.single_source_dijkstra("w1", cutoff=20.0, sinks=sinks)
+    assert dists == [(0.0, "w2"), (0.0, "w3")]
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=20.0, sinks=sinks, path_generator=path_generator
+    )
+    assert dists == path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
+
+    sinks = G.encode_sinks({"w6"})
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=20.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    )
+    assert (
+        dists
+        == path_generator.destinations()
+        == [(5.0, "w2"), (5.0, "w3"), (15.0, "w4"), (20.0, "w5")]
+    )
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1", cutoff=80.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    )
+    assert (
+        dists
+        == path_generator.destinations()
+        == [
+            (5.0, "w2"),
+            (5.0, "w3"),
+            (15.0, "w4"),
+            (20.0, "w5"),
+            (35.0, "w6"),
+            (35.0, "w7"),
+        ]
+    )
+    assert path_generator.prevs() == {
+        "w2": "w1",
+        "w3": "w1",
+        "w4": "w3",
+        "w5": "w2",
+        "w6": "w4",
+        "w7": "w5",
+    }
+    assert path_generator.dists() == {
+        "w2": 5.0,
+        "w3": 5.0,
+        "w4": 15.0,
+        "w5": 20.0,
+        "w6": 35.0,
+        "w7": 35.0,
+    }
+    assert path_generator.source() == ("w1", 5.0)
+    assert path_generator.target() is None
+
+    routes = path_generator.routes()
+    assert len(routes) == 2
+    assert path_generator.cutoff() == 80.0
+
+    assert routes[0].to_dict() == {
+        "dist": 35.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 5.0),
+        "end": ("w7", 10.0),
+    }
+    assert routes[1].to_dict() == {
+        "dist": 35.0,
+        "path": ["w1", "w3", "w4", "w6"],
+        "start": ("w1", 5.0),
+        "end": ("w6", 3.0),
+    }
