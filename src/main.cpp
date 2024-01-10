@@ -270,12 +270,6 @@ struct DiGraph
             }
             shortest_path->cutoff = cutoff;
         }
-        auto &pmap = shortest_path->prevs;
-        auto &dmap = shortest_path->dists;
-        const unordered_set<int64_t> *sinks_nodes = nullptr;
-        if (sinks) {
-            sinks_nodes = &sinks->nodes;
-        }
         if (!offset) {
             offset = 0.0;
         } else {
@@ -284,6 +278,12 @@ struct DiGraph
             } else {
                 offset = std::max(0.0, length->second - *offset);
             }
+        }
+        auto &pmap = shortest_path->prevs;
+        auto &dmap = shortest_path->dists;
+        const unordered_set<int64_t> *sinks_nodes = nullptr;
+        if (sinks) {
+            sinks_nodes = &sinks->nodes;
         }
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
                                pmap, dmap, sinks_nodes, *offset);
@@ -480,6 +480,9 @@ struct DiGraph
         double init_offset = 0.0) const
     {
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
+        if (cutoff < init_offset) {
+            return;
+        }
         auto itr = jumps.find(start);
         if (itr == jumps.end()) {
             return;
@@ -944,6 +947,47 @@ PYBIND11_MODULE(_core, m)
              })
         .def("routes",
              [](const ShortestPathGenerator &self) -> std::vector<Route> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 auto scale = self.graph->round_scale();
+                 auto routes = std::vector<Route>();
+                 if (self.prevs.empty()) {
+                     if (self.source && std::get<1>(*self.source)) {
+                         auto node = std::get<0>(*self.source);
+                         auto start_offset = *std::get<1>(*self.source);
+                         auto end_offset = start_offset + self.cutoff;
+                         double length = self.graph->length(node);
+                         if (end_offset <= length) {
+                             auto route = Route(self.graph);
+                             route.dist = self.cutoff;
+                             route.path.push_back(node);
+                             route.start_offset = start_offset;
+                             route.end_offset = end_offset;
+                             if (scale) {
+                                 route.round(*scale);
+                             }
+                             routes.push_back(std::move(route));
+                         }
+                     } else if (self.target && std::get<1>(*self.target)) {
+                         auto node = std::get<0>(*self.target);
+                         auto end_offset = *std::get<1>(*self.target);
+                         auto start_offset = end_offset - self.cutoff;
+                         double length = self.graph->length(node);
+                         if (start_offset >= 0) {
+                             auto route = Route(self.graph);
+                             route.dist = self.cutoff;
+                             route.path.push_back(node);
+                             route.start_offset = start_offset;
+                             route.end_offset = end_offset;
+                             if (scale) {
+                                 route.round(*scale);
+                             }
+                             routes.push_back(std::move(route));
+                         }
+                     }
+                     return routes;
+                 }
                  unordered_set<int64_t> ends;
                  for (auto &pair : self.prevs) {
                      ends.insert(pair.first);
@@ -951,12 +995,10 @@ PYBIND11_MODULE(_core, m)
                  for (auto &pair : self.prevs) {
                      ends.erase(pair.second);
                  }
-                 auto routes = std::vector<Route>();
                  routes.reserve(ends.size());
 
                  const int64_t source = self.source ? std::get<0>(*self.source)
                                                     : std::get<0>(*self.target);
-                 auto scale = self.graph->round_scale();
                  for (auto end : ends) {
                      auto route = Route(self.graph);
                      route.dist = self.dists.at(end);

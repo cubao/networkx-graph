@@ -469,6 +469,26 @@ def test_routing():
         "start": ("w1", 5.0),
         "end": ("w6", 3.0),
     }
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1",
+        cutoff=2.0,
+        offset=6.0,
+        sinks=sinks,
+        path_generator=path_generator,
+    )
+    routes = path_generator.routes()
+
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1",
+        cutoff=40.0,
+        offset=6.000001,
+        sinks=sinks,
+        path_generator=path_generator,
+    )
+    routes = path_generator.routes()
     print()
 
 
