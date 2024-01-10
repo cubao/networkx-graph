@@ -956,6 +956,7 @@ PYBIND11_MODULE(_core, m)
 
                  const int64_t source = self.source ? std::get<0>(*self.source)
                                                     : std::get<0>(*self.target);
+                 auto scale = self.graph->round_scale();
                  for (auto end : ends) {
                      auto route = Route(self.graph);
                      route.dist = self.dists.at(end);
@@ -977,6 +978,9 @@ PYBIND11_MODULE(_core, m)
                          route.start_offset =
                              std::max(0.0, std::min(offset, length));
                          route.end_offset = std::get<1>(*self.target);
+                     }
+                     if (scale) {
+                         route.round(*scale);
                      }
                      routes.push_back(std::move(route));
                  }

@@ -469,3 +469,7 @@ def test_routing():
         "start": ("w1", 5.0),
         "end": ("w6", 3.0),
     }
+    print()
+
+
+test_routing()
