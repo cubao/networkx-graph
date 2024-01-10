@@ -511,7 +511,16 @@ def test_routing():
         path_generator=path_generator,
     )
     routes = path_generator.routes()
-    print()
-
-
-test_routing()
+    assert len(routes) == 2
+    assert routes[0].to_dict() == {
+        "dist": 34.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 6.0),
+        "end": ("w7", 6.0),
+    }
+    assert routes[1].to_dict() == {
+        "dist": 34.0,
+        "path": ["w1", "w3", "w4", "w6"],
+        "start": ("w1", 6.0),
+        "end": ("w6", 3.0),
+    }
