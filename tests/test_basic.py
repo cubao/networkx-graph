@@ -475,10 +475,32 @@ def test_routing():
         "w1",
         cutoff=2.0,
         offset=6.0,
-        sinks=sinks,
         path_generator=path_generator,
     )
     routes = path_generator.routes()
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 2.0,
+        "path": ["w1"],
+        "start": ("w1", 6.0),
+        "end": ("w1", 8.0),
+    }
+    path_generator = ShortestPathGenerator()
+    dists = G.single_source_dijkstra(
+        "w1",
+        cutoff=2.0,
+        offset=6.0,
+        reverse=True,
+        path_generator=path_generator,
+    )
+    routes = path_generator.routes()
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 2.0,
+        "path": ["w1"],
+        "start": ("w1", 4.0),
+        "end": ("w1", 6.0),
+    }
 
     path_generator = ShortestPathGenerator()
     dists = G.single_source_dijkstra(

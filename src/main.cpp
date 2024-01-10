@@ -143,8 +143,7 @@ struct ShortestPathGenerator
     std::optional<Click> target;
     bool ready() const
     {
-        return graph && !prevs.empty() && !dists.empty() //
-               && cutoff > 0 && ((bool)source ^ (bool)target);
+        return graph && cutoff > 0 && ((bool)source ^ (bool)target);
     }
 };
 
@@ -263,12 +262,12 @@ struct DiGraph
             shortest_path = &generator;
         } else {
             shortest_path->graph = this;
+            shortest_path->cutoff = cutoff;
             if (!reverse) {
                 shortest_path->source = std::make_tuple(*start_idx, offset);
             } else {
                 shortest_path->target = std::make_tuple(*start_idx, offset);
             }
-            shortest_path->cutoff = cutoff;
         }
         if (!offset) {
             offset = 0.0;
