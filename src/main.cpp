@@ -1004,8 +1004,10 @@ PYBIND11_MODULE(_core, m)
                  const int64_t source = self.source ? std::get<0>(*self.source)
                                                     : std::get<0>(*self.target);
                  for (auto end : ends) {
+                     double length = self.graph->length(end);
                      auto route = Route(self.graph);
-                     route.dist = self.dists.at(end);
+                     double dist = self.dists.at(end);
+                     route.dist = std::min(self.cutoff, dist + length);
                      while (end != source) {
                          route.path.push_back(end);
                          end = self.prevs.at(end);
@@ -1014,12 +1016,10 @@ PYBIND11_MODULE(_core, m)
                      if (self.source) {
                          route.start_offset = std::get<1>(*self.source);
                          std::reverse(route.path.begin(), route.path.end());
-                         double length = self.graph->length(route.path.back());
-                         double offset = self.cutoff - route.dist;
+                         double offset = self.cutoff - dist;
                          route.end_offset = CLIP(0.0, offset, length);
                      } else {
-                         double length = self.graph->length(route.path.front());
-                         double offset = length - (self.cutoff - route.dist);
+                         double offset = length - (self.cutoff - dist);
                          route.start_offset = CLIP(0.0, offset, length);
                          route.end_offset = std::get<1>(*self.target);
                      }
