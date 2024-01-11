@@ -408,6 +408,15 @@ def test_all_routes_to():
     ]
 
 
+def test_all_routes():
+    G = graph1()
+    routes = G.all_routes(
+        cutoff=80.0, source="w1", target="w7", source_offset=3.0, target_offset=4.0
+    )
+    routes = [r.to_dict() for r in routes]
+    assert not routes  # TODO, implement
+
+
 def test_routing():
     with pytest.raises(TypeError) as excinfo:
         Route()
