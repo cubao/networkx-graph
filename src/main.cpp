@@ -1030,10 +1030,38 @@ PYBIND11_MODULE(_core, m)
                  }
                  return routes;
              })
+        .def("to_dict",
+             [](const ShortestPathGenerator &self) {
+                 py::dict ret;
+                 if (self.ready()) {
+                     ret["cutoff"] = self.cutoff;
+                     if (self.source) {
+                         auto k = self.graph->indexer().get_id(
+                             std::get<0>(*self.source));
+                         if (k) {
+                             ret["source"] =
+                                 std::make_tuple(*k, std::get<1>(*self.source));
+                         }
+                     } else {
+                         auto k = self.graph->indexer().get_id(
+                             std::get<0>(*self.target));
+                         if (k) {
+                             ret["target"] =
+                                 std::make_tuple(*k, std::get<1>(*self.target));
+                         }
+                     }
+                 }
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
-    py::class_<DiGraph>(m, "DiGraph", py::module_local(), py::dynamic_attr()) //
+    py::class_<DiGraph>(m, "DiGraph", py::module_local(),
+                        py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
         //
         .def_property_readonly("round_n", &DiGraph::round_n)

@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, Route, ShortestPathGenerator, rapidjso
 
 
 def test_version():
-    assert m.__version__ == "0.0.5"
+    assert m.__version__ == "0.0.6"
 
 
 def test_add():
@@ -406,6 +406,7 @@ def test_routing():
         "w1", cutoff=20.0, sinks=sinks, path_generator=path_generator
     )
     assert dists == path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
+    assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", None)}
 
     sinks = G.encode_sinks({"w6"})
     path_generator = ShortestPathGenerator()
@@ -417,6 +418,7 @@ def test_routing():
         == path_generator.destinations()
         == [(5.0, "w2"), (5.0, "w3"), (15.0, "w4"), (20.0, "w5")]
     )
+    assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", 5.0)}
 
     path_generator = ShortestPathGenerator()
     dists = G.single_source_dijkstra(
@@ -563,3 +565,4 @@ def test_routing():
         "start": ("w4", 6.0),
         "end": ("w7", 3.0),
     }
+    assert path_generator.to_dict() == {"cutoff": 20.0, "target": ("w7", 3.0)}
