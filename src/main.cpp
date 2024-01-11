@@ -246,11 +246,11 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    std::vector<std::tuple<double, std::string>>
-    single_source_dijkstra(const std::string &start, double cutoff,
-                           std::optional<double> offset = {},
-                           bool reverse = false, const Sinks *sinks = nullptr,
-                           ShortestPathGenerator *shortest_path = nullptr) const
+    ShortestPathGenerator shortest_path(const std::string &start,          //
+                                        double cutoff,                     //
+                                        std::optional<double> offset = {}, //
+                                        bool reverse = false,              //
+                                        const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -263,20 +263,16 @@ struct DiGraph
         if (length == lengths_.end()) {
             return {};
         }
-        ShortestPathGenerator generator;
-        if (!shortest_path) {
-            shortest_path = &generator;
+        ShortestPathGenerator shortest_path;
+        shortest_path.graph = this;
+        shortest_path.cutoff = cutoff;
+        if (!reverse) {
+            shortest_path.source = std::make_tuple(*start_idx, offset);
         } else {
-            shortest_path->graph = this;
-            shortest_path->cutoff = cutoff;
-            if (!reverse) {
-                shortest_path->source = std::make_tuple(*start_idx, offset);
-            } else {
-                shortest_path->target = std::make_tuple(*start_idx, offset);
-            }
+            shortest_path.target = std::make_tuple(*start_idx, offset);
         }
-        auto &pmap = shortest_path->prevs;
-        auto &dmap = shortest_path->dists;
+        auto &pmap = shortest_path.prevs;
+        auto &dmap = shortest_path.dists;
         const unordered_set<int64_t> *sinks_nodes = nullptr;
         if (sinks) {
             sinks_nodes = &sinks->nodes;
@@ -287,14 +283,7 @@ struct DiGraph
                                : std::max(0.0, length->second - *offset));
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
                                pmap, dmap, sinks_nodes, init_offset);
-        auto ret = std::vector<std::tuple<double, std::string>>{};
-        ret.reserve(dmap.size());
-        for (auto &pair : dmap) {
-            ret.emplace_back(
-                std::make_tuple(pair.second, indexer_.id(pair.first)));
-        }
-        std::sort(ret.begin(), ret.end());
-        return ret;
+        return shortest_path;
     }
 
     std::vector<Route> all_routes_from(const std::string &source, double cutoff,
@@ -353,9 +342,10 @@ struct DiGraph
         return routes;
     }
 
-    std::vector<Route> all_routes(double cutoff, const std::string &source,
-                                  const std::string &target,
-                                  std::optional<double> source_offset,
+    std::vector<Route> all_routes(double cutoff,                       //
+                                  const std::string &source,           //
+                                  const std::string &target,           //
+                                  std::optional<double> source_offset, //
                                   std::optional<double> target_offset) const
     {
         if (cutoff < 0) {
@@ -1084,23 +1074,39 @@ PYBIND11_MODULE(_core, m)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
         //
         .def(
-            "single_source_dijkstra",
-            [](const DiGraph &self, const std::string &id, double cutoff,
-               std::optional<double> offset, bool reverse, const Sinks *sinks,
-               ShortestPathGenerator *shortest_path) {
-                return self.single_source_dijkstra(id, cutoff, offset, reverse,
-                                                   sinks, shortest_path);
+            "shortest_routes_from",
+            [](const DiGraph &self, const std::string &source, //
+               double cutoff, std::optional<double> offset,
+               const Sinks *sinks) {
+                return self.shortest_path(source, cutoff, offset, false, sinks);
             },
-            "id"_a, py::kw_only(),     //
+            "source"_a,                //
+            py::kw_only(),             //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "reverse"_a = false,       //
-            "sinks"_a = nullptr,       //
-            "path_generator"_a = nullptr)
+            "sinks"_a = nullptr)
+        .def(
+            "shortest_routes_to",
+            [](const DiGraph &self, const std::string &target, //
+               double cutoff, std::optional<double> offset,
+               const Sinks *sinks) {
+                return self.shortest_path(target, cutoff, offset, true, sinks);
+            },
+            "target"_a,                //
+            py::kw_only(),             //
+            "cutoff"_a,                //
+            "offset"_a = std::nullopt, //
+            "sinks"_a = nullptr)
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
         .def("all_routes_to", &DiGraph::all_routes_to, "target"_a,
              py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
+        .def("all_routes", &DiGraph::all_routes, py::kw_only(), //
+             "cutoff"_a,                                        //
+             "source"_a,                                        //
+             "target"_a,                                        //
+             "source_offset"_a = std::nullopt,                  //
+             "target_offset"_a = std::nullopt)
         //
         ;
 
