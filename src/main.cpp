@@ -89,6 +89,12 @@ inline double ROUND(double v, double s)
     return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
 }
 
+inline double CLIP(double low, double v, double high)
+{
+    // return std::max(low, std::min(v, high));
+    return v < low ? low : (v > high ? high : v);
+}
+
 struct Route
 {
     Route() = default;
@@ -330,7 +336,7 @@ struct DiGraph
             return {};
         }
         if (offset) {
-            offset = std::max(0.0, std::min(*offset, length->second));
+            offset = CLIP(0.0, *offset, length->second);
             offset = length->second - *offset;
         }
         auto routes = __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_);
@@ -542,7 +548,7 @@ struct DiGraph
         }
 
         if (offset) {
-            offset = std::max(0.0, std::min(*offset, length->second));
+            offset = CLIP(0.0, *offset, length->second);
             double delta = length->second - *offset;
             if (cutoff <= delta) {
                 return {
@@ -954,12 +960,14 @@ PYBIND11_MODULE(_core, m)
                  if (self.prevs.empty()) {
                      if (self.source && std::get<1>(*self.source)) {
                          auto node = std::get<0>(*self.source);
-                         auto start_offset = *std::get<1>(*self.source);
-                         auto end_offset = start_offset + self.cutoff;
                          double length = self.graph->length(node);
-                         if (end_offset <= length) {
+                         auto start_offset =
+                             CLIP(0.0, *std::get<1>(*self.source), length);
+                         auto end_offset =
+                             CLIP(0.0, start_offset + self.cutoff, length);
+                         if (start_offset < end_offset) {
                              auto route = Route(self.graph);
-                             route.dist = self.cutoff;
+                             route.dist = end_offset - start_offset;
                              route.path.push_back(node);
                              route.start_offset = start_offset;
                              route.end_offset = end_offset;
@@ -970,12 +978,14 @@ PYBIND11_MODULE(_core, m)
                          }
                      } else if (self.target && std::get<1>(*self.target)) {
                          auto node = std::get<0>(*self.target);
-                         auto end_offset = *std::get<1>(*self.target);
-                         auto start_offset = end_offset - self.cutoff;
                          double length = self.graph->length(node);
-                         if (start_offset >= 0) {
+                         auto end_offset =
+                             CLIP(0.0, *std::get<1>(*self.target), length);
+                         auto start_offset =
+                             CLIP(0.0, end_offset - self.cutoff, length);
+                         if (start_offset < end_offset) {
                              auto route = Route(self.graph);
-                             route.dist = self.cutoff;
+                             route.dist = end_offset - start_offset;
                              route.path.push_back(node);
                              route.start_offset = start_offset;
                              route.end_offset = end_offset;
@@ -1011,13 +1021,11 @@ PYBIND11_MODULE(_core, m)
                          std::reverse(route.path.begin(), route.path.end());
                          double length = self.graph->length(route.path.back());
                          double offset = self.cutoff - route.dist;
-                         route.end_offset =
-                             std::max(0.0, std::min(offset, length));
+                         route.end_offset = CLIP(0.0, offset, length);
                      } else {
                          double length = self.graph->length(route.path.front());
                          double offset = length - (self.cutoff - route.dist);
-                         route.start_offset =
-                             std::max(0.0, std::min(offset, length));
+                         route.start_offset = CLIP(0.0, offset, length);
                          route.end_offset = std::get<1>(*self.target);
                      }
                      if (scale) {
