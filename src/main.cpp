@@ -1018,6 +1018,10 @@ PYBIND11_MODULE(_core, m)
                      }
                      routes.push_back(std::move(route));
                  }
+                 std::sort(routes.begin(), routes.end(),
+                           [](const auto &r1, const auto &r2) {
+                               return r1.dist > r2.dist;
+                           });
                  return routes;
              })
         .def("to_dict",

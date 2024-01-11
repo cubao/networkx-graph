@@ -168,6 +168,30 @@ def graph1(G=None):
     return G
 
 
+def graph2(G=None):
+    """
+                             --------w3:10m---------o------------------w4:20m-------------+
+                            /                                                             |
+    o---------w1:10m-------o-----------------w2:15m---------o---------------w5:15m--------o------------w7:10m--o
+
+    """
+    if G is None:
+        G = DiGraph()
+    G.add_node("w1", length=10.0)
+    G.add_node("w2", length=15.0)
+    G.add_node("w5", length=15.0)
+    G.add_node("w3", length=10.0)
+    G.add_node("w4", length=20.0)
+    G.add_node("w7", length=10.0)
+    G.add_edge("w1", "w2")
+    G.add_edge("w1", "w3")
+    G.add_edge("w2", "w5")
+    G.add_edge("w3", "w4")
+    G.add_edge("w4", "w7")
+    G.add_edge("w5", "w7")
+    return G
+
+
 def test_digraph_shortest_paths():
     G = graph1()
 
@@ -558,3 +582,21 @@ def test_routing():
         "end": ("w7", 3.0),
     }
     assert path_generator.to_dict() == {"cutoff": 20.0, "target": ("w7", 3.0)}
+
+    path_generator = G.shortest_routes_from(
+        "w1",
+        cutoff=80.0,
+        offset=6.0,
+    )
+    assert len(path_generator.routes()) == 2
+
+    G = graph2()
+    path_generator = G.shortest_routes_from(
+        "w1",
+        cutoff=80.0,
+        offset=6.0,
+    )
+    assert len(path_generator.routes()) == 2
+    destinations = [r.end for r in path_generator.routes()]
+    assert ("w7", 10.0) in destinations
+    assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
