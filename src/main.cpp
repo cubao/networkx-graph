@@ -234,6 +234,10 @@ struct DiGraph
         return ret;
     }
 
+    std::optional<int64_t> __node_id(const std::string &node) const
+    {
+        return indexer_.get_id(node);
+    }
     std::string __node_id(int64_t node) const { return indexer_.id(node); }
     std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
     {
@@ -1023,6 +1027,44 @@ PYBIND11_MODULE(_core, m)
                                return r1.dist > r2.dist;
                            });
                  return routes;
+             })
+        .def("route",
+             [](const ShortestPathGenerator &self,
+                const std::string &node) -> std::optional<Route> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 auto node_idx = self.graph->__node_id(node);
+                 if (!node_idx || !self.prevs.count(*node_idx)) {
+                     return {};
+                 }
+                 const int64_t source = self.source ? std::get<0>(*self.source)
+                                                    : std::get<0>(*self.target);
+                 auto end = *node_idx;
+                 double length = self.graph->length(end);
+                 auto route = Route(self.graph);
+                 double dist = self.dists.at(end);
+                 route.dist = std::min(self.cutoff, dist + length);
+                 while (end != source) {
+                     route.path.push_back(end);
+                     end = self.prevs.at(end);
+                 }
+                 route.path.push_back(end);
+                 if (self.source) {
+                     route.start_offset = std::get<1>(*self.source);
+                     std::reverse(route.path.begin(), route.path.end());
+                     double offset = self.cutoff - dist;
+                     route.end_offset = CLIP(0.0, offset, length);
+                 } else {
+                     double offset = length - (self.cutoff - dist);
+                     route.start_offset = CLIP(0.0, offset, length);
+                     route.end_offset = std::get<1>(*self.target);
+                 }
+                 auto scale = self.graph->round_scale();
+                 if (scale) {
+                     route.round(*scale);
+                 }
+                 return route;
              })
         .def("to_dict",
              [](const ShortestPathGenerator &self) {

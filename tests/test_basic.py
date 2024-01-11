@@ -576,21 +576,38 @@ def test_routing():
         cutoff=20.0,
         offset=3.0,
     )
-    routes = path_generator.routes()
+    routes = [r.to_dict() for r in path_generator.routes()]
     assert len(routes) == 2
-    assert routes[0].to_dict() == {
+    route1 = {
         "dist": 20.0,
         "path": ["w2", "w5", "w7"],
         "start": ("w2", 13.0),
         "end": ("w7", 3.0),
     }
-    assert routes[1].to_dict() == {
+    route2 = {
         "dist": 20.0,
         "path": ["w4", "w6", "w7"],
         "start": ("w4", 6.0),
         "end": ("w7", 3.0),
     }
+    assert routes in [[route1, route2],  [route2, route1]]
     assert path_generator.to_dict() == {"cutoff": 20.0, "target": ("w7", 3.0)}
+
+    assert path_generator.route("w5").to_dict() == {
+        "dist": 18.0,
+        "path": ["w5", "w7"],
+        "start": ("w5", 0.0),
+        "end": ("w7", 3.0),
+    }
+    assert path_generator.route("w6").to_dict() == {
+        "dist": 6.0,
+        "path": ["w6", "w7"],
+        "start": ("w6", 0.0),
+        "end": ("w7", 3.0),
+    }
+    assert path_generator.prevs() == {"w2": "w5", "w4": "w6", "w5": "w7", "w6": "w7"}
+    assert path_generator.dists() == {"w2": 18.0, "w4": 6.0, "w5": 3.0, "w6": 3.0}
+    assert path_generator.route("w7") is None
 
     path_generator = G.shortest_routes_from(
         "w1",
