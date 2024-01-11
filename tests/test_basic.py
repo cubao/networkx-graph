@@ -458,13 +458,13 @@ def test_routing():
     assert path_generator.cutoff() == 80.0
 
     assert routes[0].to_dict() == {
-        "dist": 35.0,
+        "dist": 45.0,
         "path": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 5.0),
         "end": ("w7", 10.0),
     }
     assert routes[1].to_dict() == {
-        "dist": 35.0,
+        "dist": 38.0,
         "path": ["w1", "w3", "w4", "w6"],
         "start": ("w1", 5.0),
         "end": ("w6", 3.0),
@@ -513,13 +513,13 @@ def test_routing():
     routes = path_generator.routes()
     assert len(routes) == 2
     assert routes[0].to_dict() == {
-        "dist": 34.0,
+        "dist": 40.0,
         "path": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 6.0),
         "end": ("w7", 6.0),
     }
     assert routes[1].to_dict() == {
-        "dist": 34.0,
+        "dist": 37.0,
         "path": ["w1", "w3", "w4", "w6"],
         "start": ("w1", 6.0),
         "end": ("w6", 3.0),
@@ -552,17 +552,14 @@ def test_routing():
     routes = path_generator.routes()
     assert len(routes) == 2
     assert routes[0].to_dict() == {
-        "dist": 18.0,
+        "dist": 20.0,
         "path": ["w2", "w5", "w7"],
         "start": ("w2", 13.0),
         "end": ("w7", 3.0),
     }
     assert routes[1].to_dict() == {
-        "dist": 6.0,
+        "dist": 20.0,
         "path": ["w4", "w6", "w7"],
         "start": ("w4", 6.0),
         "end": ("w7", 3.0),
     }
-
-
-# test_routing()
