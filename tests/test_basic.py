@@ -590,7 +590,7 @@ def test_routing():
         "start": ("w4", 6.0),
         "end": ("w7", 3.0),
     }
-    assert routes in [[route1, route2],  [route2, route1]]
+    assert routes in [[route1, route2], [route2, route1]]
     assert path_generator.to_dict() == {"cutoff": 20.0, "target": ("w7", 3.0)}
 
     assert path_generator.route("w5").to_dict() == {
