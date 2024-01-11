@@ -275,23 +275,18 @@ struct DiGraph
                 shortest_path->target = std::make_tuple(*start_idx, offset);
             }
         }
-        if (!offset) {
-            offset = 0.0;
-        } else {
-            if (reverse) {
-                offset = std::max(0.0, *offset);
-            } else {
-                offset = std::max(0.0, length->second - *offset);
-            }
-        }
         auto &pmap = shortest_path->prevs;
         auto &dmap = shortest_path->dists;
         const unordered_set<int64_t> *sinks_nodes = nullptr;
         if (sinks) {
             sinks_nodes = &sinks->nodes;
         }
+        double init_offset =
+            !offset ? 0.0
+                    : (reverse ? std::max(0.0, *offset)
+                               : std::max(0.0, length->second - *offset));
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_nodes, *offset);
+                               pmap, dmap, sinks_nodes, init_offset);
         auto ret = std::vector<std::tuple<double, std::string>>{};
         ret.reserve(dmap.size());
         for (auto &pair : dmap) {
