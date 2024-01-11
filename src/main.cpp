@@ -1084,7 +1084,8 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),             //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "sinks"_a = nullptr)
+            "sinks"_a = nullptr,       //
+            py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_routes_to",
             [](const DiGraph &self, const std::string &target, //
@@ -1096,17 +1097,25 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),             //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "sinks"_a = nullptr)
+            "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
-             py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
-        .def("all_routes_to", &DiGraph::all_routes_to, "target"_a,
-             py::kw_only(), "cutoff"_a, "offset"_a = std::nullopt)
+             py::kw_only(),             //
+             "cutoff"_a,                //
+             "offset"_a = std::nullopt, //
+             py::call_guard<py::gil_scoped_release>())
+        .def("all_routes_to", &DiGraph::all_routes_to, //
+             "target"_a,
+             py::kw_only(), //
+             "cutoff"_a,    //
+             "offset"_a = std::nullopt,
+             py::call_guard<py::gil_scoped_release>())
         .def("all_routes", &DiGraph::all_routes, py::kw_only(), //
              "cutoff"_a,                                        //
              "source"_a,                                        //
              "target"_a,                                        //
              "source_offset"_a = std::nullopt,                  //
-             "target_offset"_a = std::nullopt)
+             "target_offset"_a = std::nullopt,                  //
+             py::call_guard<py::gil_scoped_release>())
         //
         ;
 
