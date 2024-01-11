@@ -5,7 +5,7 @@ import json
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Route, ShortestPathGenerator, rapidjson
+from networkx_graph import DiGraph, Node, Route, rapidjson
 
 
 def test_version():
@@ -398,50 +398,48 @@ def test_routing():
     decoded["w2"][-1][-1]["num"] = 42
     assert obj["num"] == 42
 
-    dists = G.single_source_dijkstra("w1", cutoff=20.0)
+    dists = G.shortest_routes_from("w1", cutoff=20.0).destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
 
     sinks = G.encode_sinks({"w2", "w3"})
     assert sinks() == {"w2", "w3"}
 
-    dists = G.single_source_dijkstra("w1", cutoff=20.0, sinks=sinks)
+    dists = G.shortest_routes_from("w1", cutoff=20.0, sinks=sinks).destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3")]
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
-        "w1", cutoff=20.0, sinks=sinks, path_generator=path_generator
-    )
-    assert dists == path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
+    path_generator = G.shortest_routes_from("w1", cutoff=20.0, sinks=sinks)
+    assert path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
     assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", None)}
 
     sinks = G.encode_sinks({"w6"})
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
-        "w1", cutoff=20.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    path_generator = G.shortest_routes_from(
+        "w1",
+        cutoff=20.0,
+        offset=5.0,
+        sinks=sinks,
     )
-    assert (
-        dists
-        == path_generator.destinations()
-        == [(5.0, "w2"), (5.0, "w3"), (15.0, "w4"), (20.0, "w5")]
-    )
+    assert path_generator.destinations() == [
+        (5.0, "w2"),
+        (5.0, "w3"),
+        (15.0, "w4"),
+        (20.0, "w5"),
+    ]
     assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", 5.0)}
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
-        "w1", cutoff=80.0, offset=5.0, sinks=sinks, path_generator=path_generator
+    path_generator = G.shortest_routes_from(
+        "w1",
+        cutoff=80.0,
+        offset=5.0,
+        sinks=sinks,
     )
-    assert (
-        dists
-        == path_generator.destinations()
-        == [
-            (5.0, "w2"),
-            (5.0, "w3"),
-            (15.0, "w4"),
-            (20.0, "w5"),
-            (35.0, "w6"),
-            (35.0, "w7"),
-        ]
-    )
+    assert path_generator.destinations() == [
+        (5.0, "w2"),
+        (5.0, "w3"),
+        (15.0, "w4"),
+        (20.0, "w5"),
+        (35.0, "w6"),
+        (35.0, "w7"),
+    ]
     assert path_generator.prevs() == {
         "w2": "w1",
         "w3": "w1",
@@ -478,12 +476,10 @@ def test_routing():
         "end": ("w6", 3.0),
     }
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
+    path_generator = G.shortest_routes_from(
         "w1",
         cutoff=2.0,
         offset=6.0,
-        path_generator=path_generator,
     )
     routes = path_generator.routes()
     assert len(routes) == 1
@@ -493,13 +489,10 @@ def test_routing():
         "start": ("w1", 6.0),
         "end": ("w1", 8.0),
     }
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
+    path_generator = G.shortest_routes_to(
         "w1",
         cutoff=2.0,
         offset=6.0,
-        reverse=True,
-        path_generator=path_generator,
     )
     routes = path_generator.routes()
     assert len(routes) == 1
@@ -510,13 +503,11 @@ def test_routing():
         "end": ("w1", 6.0),
     }
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
+    path_generator = G.shortest_routes_from(
         "w1",
         cutoff=40.0,
         offset=6.000001,
         sinks=sinks,
-        path_generator=path_generator,
     )
     routes = path_generator.routes()
     assert len(routes) == 2
@@ -533,12 +524,10 @@ def test_routing():
         "end": ("w6", 3.0),
     }
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
+    path_generator = G.shortest_routes_from(
         "w7",
         cutoff=20.0,
         offset=3.0,
-        path_generator=path_generator,
     )
     routes = path_generator.routes()
     assert len(routes) == 1
@@ -549,13 +538,10 @@ def test_routing():
         "end": ("w7", 10.0),
     }
 
-    path_generator = ShortestPathGenerator()
-    dists = G.single_source_dijkstra(
+    path_generator = G.shortest_routes_to(
         "w7",
         cutoff=20.0,
         offset=3.0,
-        reverse=True,
-        path_generator=path_generator,
     )
     routes = path_generator.routes()
     assert len(routes) == 2
