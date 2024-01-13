@@ -461,11 +461,7 @@ struct DiGraph
             for (auto &r : routes) {
                 r.dist += delta;
                 r.start_offset = source_offset;
-                if (target_offset) {
-                    r.end_offset = target_offset;
-                } else {
-                    r.dist += *r.end_offset;
-                }
+                r.end_offset = target_offset;
             }
         }
         if (round_scale_) {

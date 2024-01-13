@@ -424,7 +424,42 @@ def test_all_routes():
     routes = G.all_routes("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
     assert not routes
 
-    routes = G.all_routes("w1", "w3", cutoff=20)
+    routes = G.all_routes("w1", "w3", cutoff=10)
+    assert {
+        "dist": 0.0,
+        "path": ["w1", "w3"],
+        "start": ("w1", None),
+        "end": ("w3", None),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=10)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 10.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", None),
+        "end": ("w4", None),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=9)
+    assert not routes
+
+    routes = G.all_routes("w1", "w4", cutoff=20, target_offset=5)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 15.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", None),
+        "end": ("w4", 5.0),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=14, target_offset=5)
+    assert not routes
+    routes = G.all_routes("w1", "w4", cutoff=20, source_offset=8, target_offset=5)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 17.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", 8.0),
+        "end": ("w4", 5.0),
+    }
     return
 
     routes = G.all_routes(
