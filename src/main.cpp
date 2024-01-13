@@ -450,14 +450,6 @@ struct DiGraph
             }
             cutoff -= delta;
             routes = __all_routes(*src_idx, *dst_idx, cutoff);
-            if (target_offset) {
-                routes.erase(std::remove_if(routes.begin(), routes.end(),
-                                            [target_offset](const auto &r) {
-                                                return *r.end_offset <
-                                                       *target_offset;
-                                            }),
-                             routes.end());
-            }
             for (auto &r : routes) {
                 r.dist += delta;
                 r.start_offset = source_offset;
@@ -706,13 +698,11 @@ struct DiGraph
             }
             auto tail = path.back();
             if (path.size() > 1) {
-                double cur_length = this->lengths_.at(tail);
-                double new_length = length + cur_length;
                 if (tail == target) {
-                    routes.push_back(Route(this, length, path, {},
-                                           new_length > cutoff ? cutoff - length
-                                                               : cur_length));
+                    routes.push_back(Route(this, length, path));
+                    return;
                 }
+                double new_length = length + this->lengths_.at(tail);
                 if (new_length > cutoff) {
                     return;
                 }
