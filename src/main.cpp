@@ -299,11 +299,21 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    ShortestPathGenerator shortest_path(const std::string &start,          //
-                                        double cutoff,                     //
-                                        std::optional<double> offset = {}, //
-                                        bool reverse = false,              //
-                                        const Sinks *sinks = nullptr) const
+    std::optional<Route>
+    shortest_path(const std::string &source,           //
+                  const std::string &target,           //
+                  double cutoff,                       //
+                  std::optional<double> source_offset, //
+                  std::optional<double> target_offset) const
+    {
+        return {};
+    }
+
+    ShortestPathGenerator shortest_paths(const std::string &start,          //
+                                         double cutoff,                     //
+                                         std::optional<double> offset = {}, //
+                                         bool reverse = false,              //
+                                         const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -1250,11 +1260,29 @@ PYBIND11_MODULE(_core, m)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
         //
         .def(
+            "shortest_route",
+            [](const DiGraph &self,
+               const std::string &source, //
+               const std::string &target, //
+               double cutoff,             //
+               std::optional<double> source_offset,
+               std::optional<double> target_offset) {
+                return self.shortest_path(source, target, cutoff, source_offset,
+                                          target_offset);
+            },
+            "source"_a,                //
+            py::kw_only(),             //
+            "cutoff"_a,                //
+            "offset"_a = std::nullopt, //
+            "sinks"_a = nullptr,       //
+            py::call_guard<py::gil_scoped_release>())
+        .def(
             "shortest_routes_from",
             [](const DiGraph &self, const std::string &source, //
                double cutoff, std::optional<double> offset,
                const Sinks *sinks) {
-                return self.shortest_path(source, cutoff, offset, false, sinks);
+                return self.shortest_paths(source, cutoff, offset, false,
+                                           sinks);
             },
             "source"_a,                //
             py::kw_only(),             //
@@ -1267,7 +1295,7 @@ PYBIND11_MODULE(_core, m)
             [](const DiGraph &self, const std::string &target, //
                double cutoff, std::optional<double> offset,
                const Sinks *sinks) {
-                return self.shortest_path(target, cutoff, offset, true, sinks);
+                return self.shortest_paths(target, cutoff, offset, true, sinks);
             },
             "target"_a,                //
             py::kw_only(),             //
