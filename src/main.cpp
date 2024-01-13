@@ -459,10 +459,12 @@ struct DiGraph
                              routes.end());
             }
             for (auto &r : routes) {
-                r.dist = std::min(r.dist + delta, cutoff);
+                r.dist += delta;
                 r.start_offset = source_offset;
                 if (target_offset) {
                     r.end_offset = target_offset;
+                } else {
+                    r.dist += *r.end_offset;
                 }
             }
         }

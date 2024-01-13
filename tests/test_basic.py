@@ -423,6 +423,8 @@ def test_all_routes():
     }
     routes = G.all_routes("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
     assert not routes
+
+    routes = G.all_routes("w1", "w3", cutoff=20)
     return
 
     routes = G.all_routes(
