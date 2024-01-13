@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, Route, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.6"
+    assert m.__version__ == "0.0.7"
 
 
 def test_add():
