@@ -431,6 +431,9 @@ struct DiGraph
                 return {};
             }
             double dist = *target_offset - *source_offset;
+            if (dist == 0) {
+                return {};
+            }
             routes.emplace_back(this, dist, std::vector<int64_t>{*src_idx},
                                 source_offset, target_offset);
         } else {

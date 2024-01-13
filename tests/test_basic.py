@@ -410,6 +410,21 @@ def test_all_routes_to():
 
 def test_all_routes():
     G = graph1()
+
+    routes = G.all_routes("w1", "w1", cutoff=20)
+    assert not routes  # skip trivial
+    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=3.0, target_offset=4.0)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 1.0,
+        "path": ["w1"],
+        "start": ("w1", 3.0),
+        "end": ("w1", 4.0),
+    }
+    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
+    assert not routes
+    return
+
     routes = G.all_routes(
         cutoff=80.0, source="w1", target="w7", source_offset=3.0, target_offset=4.0
     )
