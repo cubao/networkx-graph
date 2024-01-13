@@ -299,12 +299,12 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    std::optional<Route>
-    shortest_path(const std::string &source,           //
-                  const std::string &target,           //
-                  double cutoff,                       //
-                  std::optional<double> source_offset, //
-                  std::optional<double> target_offset) const
+    std::optional<Route> shortest_path(const std::string &source,           //
+                                       const std::string &target,           //
+                                       double cutoff,                       //
+                                       std::optional<double> source_offset, //
+                                       std::optional<double> target_offset,
+                                       const Sinks *sinks = nullptr) const
     {
         return {};
     }
@@ -350,7 +350,8 @@ struct DiGraph
     }
 
     std::vector<Route> all_routes_from(const std::string &source, double cutoff,
-                                       std::optional<double> offset = {}) const
+                                       std::optional<double> offset = {},
+                                       const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -359,7 +360,8 @@ struct DiGraph
         if (!src_idx) {
             return {};
         }
-        auto routes = __all_routes(*src_idx, cutoff, offset, lengths_, nexts_);
+        auto routes =
+            __all_routes(*src_idx, cutoff, offset, lengths_, nexts_, sinks);
         if (round_scale_) {
             for (auto &r : routes) {
                 r.round(*round_scale_);
@@ -369,7 +371,8 @@ struct DiGraph
     }
 
     std::vector<Route> all_routes_to(const std::string &target, double cutoff,
-                                     std::optional<double> offset = {}) const
+                                     std::optional<double> offset = {},
+                                     const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -386,7 +389,8 @@ struct DiGraph
             offset = CLIP(0.0, *offset, length->second);
             offset = length->second - *offset;
         }
-        auto routes = __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_);
+        auto routes =
+            __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_, sinks);
         for (auto &r : routes) {
             if (r.start_offset) {
                 r.start_offset = lengths_.at(r.path.front()) - *r.start_offset;
@@ -409,7 +413,8 @@ struct DiGraph
                                   const std::string &target,           //
                                   double cutoff,                       //
                                   std::optional<double> source_offset, //
-                                  std::optional<double> target_offset) const
+                                  std::optional<double> target_offset,
+                                  const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -459,7 +464,7 @@ struct DiGraph
                 delta += *target_offset;
             }
             cutoff -= delta;
-            routes = __all_routes(*src_idx, *dst_idx, cutoff);
+            routes = __all_routes(*src_idx, *dst_idx, cutoff, sinks);
             for (auto &r : routes) {
                 r.dist += delta;
                 r.start_offset = source_offset;
@@ -624,10 +629,11 @@ struct DiGraph
         dmap.erase(start);
     }
 
-    std::vector<Route> __all_routes(
-        int64_t source, double cutoff, std::optional<double> offset,
-        const unordered_map<int64_t, double> &lengths,
-        const unordered_map<int64_t, unordered_set<int64_t>> &jumps) const
+    std::vector<Route>
+    __all_routes(int64_t source, double cutoff, std::optional<double> offset,
+                 const unordered_map<int64_t, double> &lengths,
+                 const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
+                 const Sinks *sinks = nullptr) const
     {
         auto length = lengths.find(source);
         if (length == lengths.end()) {
@@ -697,7 +703,8 @@ struct DiGraph
     }
 
     std::vector<Route> __all_routes(int64_t source, int64_t target,
-                                    double cutoff) const
+                                    double cutoff,
+                                    const Sinks *sinks = nullptr) const
     {
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
@@ -1262,13 +1269,14 @@ PYBIND11_MODULE(_core, m)
         .def(
             "shortest_route",
             [](const DiGraph &self,
-               const std::string &source, //
-               const std::string &target, //
-               double cutoff,             //
-               std::optional<double> source_offset,
-               std::optional<double> target_offset) {
-                return self.shortest_path(source, target, cutoff, source_offset,
-                                          target_offset);
+               const std::string &source,           //
+               const std::string &target,           //
+               double cutoff,                       //
+               std::optional<double> source_offset, //
+               std::optional<double> target_offset, //
+               const Sinks *sinks) {
+                return self.shortest_path(source, target, cutoff, //
+                                          source_offset, target_offset, sinks);
             },
             "source"_a,                       //
             "target"_a,                       //
@@ -1276,6 +1284,7 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                       //
             "source_offset"_a = std::nullopt, //
             "target_offset"_a = std::nullopt, //
+            "sinks"_a = nullptr,              //
             py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_routes_from",
@@ -1307,12 +1316,14 @@ PYBIND11_MODULE(_core, m)
              py::kw_only(),             //
              "cutoff"_a,                //
              "offset"_a = std::nullopt, //
+             "sinks"_a = nullptr,       //
              py::call_guard<py::gil_scoped_release>())
         .def("all_routes_to", &DiGraph::all_routes_to, //
              "target"_a,
              py::kw_only(), //
              "cutoff"_a,    //
              "offset"_a = std::nullopt,
+             "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
         .def("all_routes", &DiGraph::all_routes,
              "source"_a,                       //
@@ -1321,6 +1332,7 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                       //
              "source_offset"_a = std::nullopt, //
              "target_offset"_a = std::nullopt, //
+             "sinks"_a = nullptr,              //
              py::call_guard<py::gil_scoped_release>())
         //
         ;
