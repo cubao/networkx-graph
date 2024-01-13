@@ -9,7 +9,7 @@ from networkx_graph import DiGraph, Node, Route, rapidjson
 
 
 def test_version():
-    assert m.__version__ == "0.0.6"
+    assert m.__version__ == "0.0.7"
 
 
 def test_add():
@@ -409,12 +409,91 @@ def test_all_routes_to():
 
 
 def test_all_routes():
-    G = graph1()
-    routes = G.all_routes(
-        cutoff=80.0, source="w1", target="w7", source_offset=3.0, target_offset=4.0
-    )
+    G = graph2()
+
+    routes = G.all_routes("w1", "w1", cutoff=20)
+    assert not routes  # skip trivial
+    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=3.0, target_offset=4.0)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 1.0,
+        "path": ["w1"],
+        "start": ("w1", 3.0),
+        "end": ("w1", 4.0),
+    }
+    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
+    assert not routes
+
+    routes = G.all_routes("w1", "w3", cutoff=10)
+    assert {
+        "dist": 0.0,
+        "path": ["w1", "w3"],
+        "start": ("w1", None),
+        "end": ("w3", None),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=10)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 10.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", None),
+        "end": ("w4", None),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=9)
+    assert not routes
+
+    routes = G.all_routes("w1", "w4", cutoff=20, target_offset=5)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 15.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", None),
+        "end": ("w4", 5.0),
+    }
+    routes = G.all_routes("w1", "w4", cutoff=14, target_offset=5)
+    assert not routes
+    routes = G.all_routes("w1", "w4", cutoff=20, source_offset=8, target_offset=5)
+    assert len(routes) == 1
+    assert routes[0].to_dict() == {
+        "dist": 17.0,
+        "path": ["w1", "w3", "w4"],
+        "start": ("w1", 8.0),
+        "end": ("w4", 5.0),
+    }
+
+    routes = G.all_routes("w1", "w7", cutoff=80)
+    assert len(routes) == 2
     routes = [r.to_dict() for r in routes]
-    assert not routes  # TODO, implement
+    r1 = {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    r2 = {
+        "dist": 30.0,
+        "path": ["w1", "w3", "w4", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    assert routes in ([r1, r2], [r2, r1])
+
+    routes = G.all_routes("w1", "w7", cutoff=80, source_offset=3.0, target_offset=4.0)
+    assert len(routes) == 2
+    routes = [r.to_dict() for r in routes]
+    r1 = {
+        "dist": 41.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", 4.0),
+    }
+    r2 = {
+        "dist": 41.0,
+        "path": ["w1", "w3", "w4", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", 4.0),
+    }
+    assert routes in ([r1, r2], [r2, r1])
 
 
 def test_routing():
