@@ -420,27 +420,21 @@ struct DiGraph
         if (dst_length == lengths_.end()) {
             return {};
         }
-        auto routes =
-            __all_routes(*src_idx, cutoff, source_offset, lengths_, nexts_);
-        routes.erase(std::remove_if(routes.begin(), routes.end(),
-                                    [dst_idx, target_offset](const auto &r) {
-                                        auto itr = r.path.find(*dst_idx);
-                                        if (itr == r.path.end()) {
-                                            return true;
-                                        }
-                                        if (std::distance(itr, r.path.end()) >
-                                            1) {
-                                            return false;
-                                        }
-                                        if (!target_offset) {
-                                            return false;
-                                        }
-                                        return *r.end_offset * target_offset;
-                                    }),
-                     routes.end());
-
-        for (auto &r : routes) {
-            // auto itr = r.path.find(*dst_idx);
+        std::vector<Route> routes;
+        if (*src_idx == *dst_idx) {
+            if (!source_offset || !target_offset) {
+                return {};
+            }
+            source_offset = CLIP(0.0, *source_offset, src_length->second);
+            target_offset = CLIP(0.0, *target_offset, src_length->second);
+            if (*target_offset - *source_offset > cutoff) {
+                return {};
+            }
+            double dist = *target_offset - *source_offset;
+            routes.emplace_back(this, dist, std::vector<int64_t>{*src_idx},
+                                source_offset, target_offset);
+        } else {
+            // TODO
         }
         if (round_scale_) {
             for (auto &r : routes) {
