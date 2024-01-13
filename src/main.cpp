@@ -651,7 +651,7 @@ struct DiGraph
         }
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, cutoff, &lengths, &jumps, this,
+        backtrace = [&routes, cutoff, &lengths, &jumps, sinks, this,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
@@ -667,7 +667,8 @@ struct DiGraph
                 length = new_length;
             }
             auto itr = jumps.find(tail);
-            if (itr == jumps.end() || itr->second.empty()) {
+            if (itr == jumps.end() || itr->second.empty() ||
+                (sinks && sinks->nodes.count(tail))) {
                 routes.push_back(
                     Route(this, length, path, {}, this->lengths_.at(tail)));
                 return;
@@ -708,7 +709,7 @@ struct DiGraph
     {
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, target, cutoff, this,
+        backtrace = [&routes, target, cutoff, this, sinks,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
@@ -729,7 +730,8 @@ struct DiGraph
                 return;
             }
             auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty()) {
+            if (itr == this->nexts_.end() || itr->second.empty() ||
+                (sinks && sinks->nodes.count(tail))) {
                 return;
             }
             const auto N = routes.size();
