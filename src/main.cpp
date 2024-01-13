@@ -420,13 +420,17 @@ struct DiGraph
         if (dst_length == lengths_.end()) {
             return {};
         }
+        if (source_offset) {
+            source_offset = CLIP(0.0, *source_offset, src_length->second);
+        }
+        if (target_offset) {
+            target_offset = CLIP(0.0, *target_offset, dst_length->second);
+        }
         std::vector<Route> routes;
         if (*src_idx == *dst_idx) {
             if (!source_offset || !target_offset) {
                 return {};
             }
-            source_offset = CLIP(0.0, *source_offset, src_length->second);
-            target_offset = CLIP(0.0, *target_offset, src_length->second);
             if (*target_offset - *source_offset > cutoff) {
                 return {};
             }
@@ -437,7 +441,30 @@ struct DiGraph
             routes.emplace_back(this, dist, std::vector<int64_t>{*src_idx},
                                 source_offset, target_offset);
         } else {
-            // TODO
+            double delta = 0.0;
+            if (source_offset) {
+                delta = src_length->second - *source_offset;
+            }
+            if (target_offset) {
+                delta = *target_offset;
+            }
+            cutoff -= delta;
+            routes = __all_routes(*src_idx, *dst_idx, cutoff);
+            if (target_offset) {
+                routes.erase(std::remove_if(routes.begin(), routes.end(),
+                                            [target_offset](const auto &r) {
+                                                return *r.end_offset <
+                                                       *target_offset;
+                                            }),
+                             routes.end());
+            }
+            for (auto &r : routes) {
+                r.dist = std::min(r.dist + delta, cutoff);
+                r.start_offset = source_offset;
+                if (target_offset) {
+                    r.end_offset = target_offset;
+                }
+            }
         }
         if (round_scale_) {
             for (auto &r : routes) {
@@ -663,6 +690,56 @@ struct DiGraph
                 route.start_offset = *offset;
             }
         }
+        std::sort(
+            routes.begin(), routes.end(),
+            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
+        return routes;
+    }
+
+    std::vector<Route> __all_routes(int64_t source, int64_t target,
+                                    double cutoff) const
+    {
+        std::vector<Route> routes;
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
+        backtrace = [&routes, target, cutoff, this,
+                     &backtrace](std::vector<int64_t> &path, double length) {
+            if (length > cutoff) {
+                return;
+            }
+            auto tail = path.back();
+            if (path.size() > 1) {
+                double cur_length = this->lengths_.at(tail);
+                double new_length = length + cur_length;
+                if (tail == target) {
+                    routes.push_back(Route(this, length, path, {},
+                                           new_length > cutoff ? cutoff - length
+                                                               : cur_length));
+                }
+                if (new_length > cutoff) {
+                    return;
+                }
+                length = new_length;
+            }
+            if (tail == target) {
+                return;
+            }
+            auto itr = this->nexts_.find(tail);
+            if (itr == this->nexts_.end() || itr->second.empty()) {
+                return;
+            }
+            const auto N = routes.size();
+            for (auto next : itr->second) {
+                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                    continue;
+                }
+                path.push_back(next);
+                backtrace(path, length);
+                path.pop_back();
+            }
+        };
+        auto path = std::vector<int64_t>{source};
+        backtrace(path, 0.0);
+
         std::sort(
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
