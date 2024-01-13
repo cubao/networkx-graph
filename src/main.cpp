@@ -1270,11 +1270,12 @@ PYBIND11_MODULE(_core, m)
                 return self.shortest_path(source, target, cutoff, source_offset,
                                           target_offset);
             },
-            "source"_a,                //
-            py::kw_only(),             //
-            "cutoff"_a,                //
-            "offset"_a = std::nullopt, //
-            "sinks"_a = nullptr,       //
+            "source"_a,                       //
+            "target"_a,                       //
+            py::kw_only(),                    //
+            "cutoff"_a,                       //
+            "source_offset"_a = std::nullopt, //
+            "target_offset"_a = std::nullopt, //
             py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_routes_from",
