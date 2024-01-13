@@ -626,3 +626,8 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
+
+
+# test_routing()
+test_all_routes()
+print()

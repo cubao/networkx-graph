@@ -95,6 +95,20 @@ inline double CLIP(double low, double v, double high)
     return v < low ? low : (v > high ? high : v);
 }
 
+struct Sinks
+{
+    const DiGraph *graph{nullptr};
+    unordered_set<int64_t> nodes;
+};
+
+using Binding = std::tuple<double, double, py::object>; // always sorted
+struct Bindings
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, std::vector<Binding>> node2bindings;
+};
+
+// TODO, rename to Path
 struct Route
 {
     Route() = default;
@@ -122,19 +136,50 @@ struct Route
             end_offset = ROUND(*end_offset, scale);
         }
     }
-};
 
-struct Sinks
-{
-    const DiGraph *graph{nullptr};
-    unordered_set<int64_t> nodes;
-};
+    bool through_sinks(const Sinks &sinks) const
+    {
+        if (sinks.graph != this->graph) {
+            return false;
+        }
+        for (const auto &p : path) {
+            if (sinks.nodes.count(p)) {
+                return true;
+            }
+        }
+        return false;
+    }
 
-using Binding = std::tuple<double, double, py::object>;
-struct Bindings
-{
-    const DiGraph *graph{nullptr};
-    unordered_map<int64_t, std::vector<Binding>> node2bindings;
+    bool through_bindings(const Bindings &bindings) const
+    {
+        if (bindings.graph != this->graph || path.empty()) {
+            return false;
+        }
+        auto &kv = bindings.node2bindings;
+        if (start_offset) {
+            auto itr = kv.find(path.front());
+            if (itr != kv.end() && !itr->second.empty()) {
+                if (*start_offset <= std::get<1>(itr->second.back())) {
+                    return true;
+                }
+            }
+        }
+        if (end_offset) {
+            auto itr = kv.find(path.back());
+            if (itr != kv.end() && !itr->second.empty()) {
+                if (*start_offset >= std::get<0>(itr->second.front())) {
+                    return true;
+                }
+            }
+        }
+        for (int i = 1, N = path.size(); i < N - 1; ++i) {
+            auto itr = kv.find(path[i]);
+            if (itr != kv.end() && !itr->second.empty()) {
+                return true;
+            }
+        }
+        return false;
+    }
 };
 
 struct ShortestPathGenerator
@@ -229,7 +274,9 @@ struct DiGraph
         Bindings ret;
         ret.graph = this;
         for (auto &pair : bindings) {
-            ret.node2bindings.emplace(indexer_.id(pair.first), pair.second);
+            auto [itr, _] =
+                ret.node2bindings.emplace(indexer_.id(pair.first), pair.second);
+            std::sort(itr->second.begin(), itr->second.end());
         }
         return ret;
     }
@@ -764,6 +811,8 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.path.back()),
                                        self.end_offset);
             })
+        .def("through_sinks", &Route::through_sinks, "sinks"_a)
+        .def("through_bindings", &Route::through_bindings, "sinks"_a)
         .def(
             "__getitem__",
             [](Route &self, const std::string &attr_name) -> py::object {
