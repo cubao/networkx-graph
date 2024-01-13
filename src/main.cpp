@@ -97,6 +97,7 @@ inline double CLIP(double low, double v, double high)
 
 struct Sinks
 {
+    // you stop at (on) sinks, not passing through
     const DiGraph *graph{nullptr};
     unordered_set<int64_t> nodes;
 };
@@ -104,6 +105,7 @@ struct Sinks
 using Binding = std::tuple<double, double, py::object>; // always sorted
 struct Bindings
 {
+    // you stop at first hit of bindings
     const DiGraph *graph{nullptr};
     unordered_map<int64_t, std::vector<Binding>> node2bindings;
 };
@@ -393,9 +395,9 @@ struct DiGraph
         return routes;
     }
 
-    std::vector<Route> all_routes(double cutoff,                       //
-                                  const std::string &source,           //
+    std::vector<Route> all_routes(const std::string &source,           //
                                   const std::string &target,           //
+                                  double cutoff,                       //
                                   std::optional<double> source_offset, //
                                   std::optional<double> target_offset) const
     {
@@ -418,9 +420,34 @@ struct DiGraph
         if (dst_length == lengths_.end()) {
             return {};
         }
-        return __all_routes(cutoff, //
-                            std::make_tuple(*src_idx, source_offset),
-                            std::make_tuple(*dst_idx, target_offset));
+        auto routes =
+            __all_routes(*src_idx, cutoff, source_offset, lengths_, nexts_);
+        routes.erase(std::remove_if(routes.begin(), routes.end(),
+                                    [dst_idx, target_offset](const auto &r) {
+                                        auto itr = r.path.find(*dst_idx);
+                                        if (itr == r.path.end()) {
+                                            return true;
+                                        }
+                                        if (std::distance(itr, r.path.end()) >
+                                            1) {
+                                            return false;
+                                        }
+                                        if (!target_offset) {
+                                            return false;
+                                        }
+                                        return *r.end_offset * target_offset;
+                                    }),
+                     routes.end());
+
+        for (auto &r : routes) {
+            // auto itr = r.path.find(*dst_idx);
+        }
+        if (round_scale_) {
+            for (auto &r : routes) {
+                r.round(*round_scale_);
+            }
+        }
+        return routes;
     }
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
@@ -643,14 +670,6 @@ struct DiGraph
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
-    }
-
-    std::vector<Route>
-    __all_routes(double cutoff,
-                 const std::tuple<int64_t, std::optional<double>> &source,
-                 const std::tuple<int64_t, std::optional<double>> &target) const
-    {
-        return {};
     }
 };
 } // namespace nano_fmm
@@ -1204,12 +1223,13 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,    //
              "offset"_a = std::nullopt,
              py::call_guard<py::gil_scoped_release>())
-        .def("all_routes", &DiGraph::all_routes, py::kw_only(), //
-             "cutoff"_a,                                        //
-             "source"_a,                                        //
-             "target"_a,                                        //
-             "source_offset"_a = std::nullopt,                  //
-             "target_offset"_a = std::nullopt,                  //
+        .def("all_routes", &DiGraph::all_routes,
+             "source"_a,                       //
+             "target"_a,                       //
+             py::kw_only(),                    //
+             "cutoff"_a,                       //
+             "source_offset"_a = std::nullopt, //
+             "target_offset"_a = std::nullopt, //
              py::call_guard<py::gil_scoped_release>())
         //
         ;
