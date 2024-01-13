@@ -443,10 +443,10 @@ struct DiGraph
         } else {
             double delta = 0.0;
             if (source_offset) {
-                delta = src_length->second - *source_offset;
+                delta += src_length->second - *source_offset;
             }
             if (target_offset) {
-                delta = *target_offset;
+                delta += *target_offset;
             }
             cutoff -= delta;
             routes = __all_routes(*src_idx, *dst_idx, cutoff);

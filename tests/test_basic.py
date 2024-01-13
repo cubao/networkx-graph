@@ -409,7 +409,7 @@ def test_all_routes_to():
 
 
 def test_all_routes():
-    G = graph1()
+    G = graph2()
 
     routes = G.all_routes("w1", "w1", cutoff=20)
     assert not routes  # skip trivial
@@ -460,13 +460,40 @@ def test_all_routes():
         "start": ("w1", 8.0),
         "end": ("w4", 5.0),
     }
-    return
 
-    routes = G.all_routes(
-        cutoff=80.0, source="w1", target="w7", source_offset=3.0, target_offset=4.0
-    )
+    routes = G.all_routes("w1", "w7", cutoff=80)
+    assert len(routes) == 2
     routes = [r.to_dict() for r in routes]
-    assert not routes  # TODO, implement
+    r1 = {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    r2 = {
+        "dist": 30.0,
+        "path": ["w1", "w3", "w4", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    assert routes in ([r1, r2], [r2, r1])
+
+    routes = G.all_routes("w1", "w7", cutoff=80, source_offset=3.0, target_offset=4.0)
+    assert len(routes) == 2
+    routes = [r.to_dict() for r in routes]
+    r1 = {
+        "dist": 41.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", 4.0),
+    }
+    r2 = {
+        "dist": 41.0,
+        "path": ["w1", "w3", "w4", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", 4.0),
+    }
+    assert routes in ([r1, r2], [r2, r1])
 
 
 def test_routing():
@@ -678,8 +705,3 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
-
-
-# test_routing()
-test_all_routes()
-print()
