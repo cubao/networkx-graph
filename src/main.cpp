@@ -306,8 +306,65 @@ struct DiGraph
                                        std::optional<double> target_offset,
                                        const Sinks *sinks = nullptr) const
     {
-        // TODO
-        return {};
+        if (cutoff < 0) {
+            return {};
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto src_length = lengths_.find(*src_idx);
+        if (src_length == lengths_.end()) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto dst_length = lengths_.find(*dst_idx);
+        if (dst_length == lengths_.end()) {
+            return {};
+        }
+        if (source_offset) {
+            source_offset = CLIP(0.0, *source_offset, src_length->second);
+        }
+        if (target_offset) {
+            target_offset = CLIP(0.0, *target_offset, dst_length->second);
+        }
+        std::optional<Route> route;
+        if (*src_idx == *dst_idx) {
+            if (!source_offset || !target_offset) {
+                return {};
+            }
+            if (*target_offset - *source_offset > cutoff) {
+                return {};
+            }
+            double dist = *target_offset - *source_offset;
+            if (dist <= 0) {
+                return {};
+            }
+            route = Route(this, dist, std::vector<int64_t>{*src_idx},
+                          source_offset, target_offset);
+        } else {
+            double delta = 0.0;
+            if (source_offset) {
+                delta += src_length->second - *source_offset;
+            }
+            if (target_offset) {
+                delta += *target_offset;
+            }
+            cutoff -= delta;
+            route = __dijkstra(*src_idx, *dst_idx, cutoff, sinks);
+            if (route) {
+                route->dist += delta;
+                route->start_offset = source_offset;
+                route->end_offset = target_offset;
+            }
+        }
+        if (route && round_scale_) {
+            route->round(*round_scale_);
+        }
+        return route;
     }
 
     ShortestPathGenerator shortest_paths(const std::string &start,          //
@@ -451,7 +508,7 @@ struct DiGraph
                 return {};
             }
             double dist = *target_offset - *source_offset;
-            if (dist == 0) {
+            if (dist <= 0) {
                 return {};
             }
             routes.emplace_back(this, dist, std::vector<int64_t>{*src_idx},
@@ -648,6 +705,14 @@ struct DiGraph
             }
         }
         dmap.erase(start);
+    }
+
+    std::optional<Route> __dijkstra(int64_t source, int64_t target,
+                                    double cutoff,
+                                    const Sinks *sinks = nullptr) const
+    {
+        //
+        return {};
     }
 
     std::vector<Route>
