@@ -885,3 +885,60 @@ def test_shortest_path_to_bindings():
     )
     assert backwards is not None
     assert forwards is None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=2.0,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards is not None
+    assert forwards is None
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=2.0 - 1e-3,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards is None
+    assert forwards is None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w4",
+        cutoff=30,
+        bindings=bindings,
+    )
+    assert forwards.to_dict() == {
+        "dist": 6.0,
+        "path": ["w4", "w6", "w7"],
+        "start": ("w4", None),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
+    assert backwards.to_dict() == {
+        "dist": 7.0,
+        "path": ["w3", "w4"],
+        "start": ("w3", 3.0),
+        "end": ("w4", None),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w7",
+        cutoff=30,
+        bindings=G.encode_bindings(
+            {
+                "w3": [(3, 8, "obj3")],
+                "w2": [(2, 3, "obj4")],
+                "w5": [(8, 8, "obj5")],
+            }
+        ),
+    )
+    assert forwards is None
+    assert backwards.to_dict() == {
+        "dist": 7.0,
+        "path": ["w5", "w7"],
+        "start": ("w5", 8.0),
+        "end": ("w7", None),
+        "binding": ("w5", (8.0, 8.0, "obj5")),
+    }

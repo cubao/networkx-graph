@@ -999,7 +999,11 @@ struct DiGraph
             target = pmap.at(target);
         }
         path.push_back(target);
-        std::reverse(path.begin(), path.end());
+        if (!reverse) {
+            std::reverse(path.begin(), path.end());
+        } else {
+            std::swap(route->start_offset, route->end_offset);
+        }
         return route;
     }
 
