@@ -557,6 +557,17 @@ def test_all_routes():
     }
     assert routes in ([r1, r2], [r2, r1])
 
+    routes = G.all_routes(
+        "w1",
+        "w7",
+        cutoff=80,
+        source_offset=3.0,
+        target_offset=4.0,
+        sinks=G.encode_sinks({"w4"}),
+    )
+    assert len(routes) == 1
+    assert routes[0].to_dict() == r1
+
 
 def test_routing():
     with pytest.raises(TypeError) as excinfo:
@@ -767,3 +778,6 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
+
+
+test_all_routes()

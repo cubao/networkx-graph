@@ -146,6 +146,7 @@ struct Route
         }
         for (const auto &p : path) {
             if (sinks.nodes.count(p)) {
+                // TODO, accept p == nodes[-1]?
                 return true;
             }
         }
@@ -1085,7 +1086,15 @@ PYBIND11_MODULE(_core, m)
                                        self.end_offset);
             })
         .def("through_sinks", &Route::through_sinks, "sinks"_a)
-        .def("through_bindings", &Route::through_bindings, "sinks"_a)
+        .def("through_bindings", &Route::through_bindings, "bindings"_a)
+        .def("through_jumps",
+             [](const Route &r,
+                const std::unordered_map<std::string, std::vector<std::string>>
+                    &jumps) -> bool {
+                 // TODO, implement
+                 // maybe integrate into dijkstra(source,target)?
+                 return true;
+             })
         .def(
             "__getitem__",
             [](Route &self, const std::string &attr_name) -> py::object {
