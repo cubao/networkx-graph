@@ -308,6 +308,22 @@ def test_all_routes_from():
             "end": ("w4", 0.0),
         },
     ]
+    routes = G.all_routes_from("w1", cutoff=10.0, sinks=G.encode_sinks({"w3"}))
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 10.0,
+            "path": ["w1", "w2"],
+            "start": ("w1", None),
+            "end": ("w2", 10.0),
+        },
+        {
+            "dist": 10.0,
+            "path": ["w1", "w3"],
+            "start": ("w1", None),
+            "end": ("w3", 10.0),
+        },
+    ]
 
     G = graph1()
     routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
@@ -705,3 +721,7 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
+
+
+test_all_routes_from()
+print()

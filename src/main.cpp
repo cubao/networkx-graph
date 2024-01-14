@@ -306,6 +306,7 @@ struct DiGraph
                                        std::optional<double> target_offset,
                                        const Sinks *sinks = nullptr) const
     {
+        // TODO
         return {};
     }
 
@@ -478,6 +479,26 @@ struct DiGraph
         }
         return routes;
     }
+
+    std::tuple<std::optional<Route>, std::optional<Route>>
+    shortest_path_to_bindings() const
+    {
+    }
+    std::tuple<std::optional<double>, std::optional<double>>
+    distance_to_bindings() const
+    {
+    }
+
+    std::tuple<std::vector<Route>, std::vector<Route>> route_onto_bindings(
+        const std::string &source, std::optional<double> offset = {},
+        double cutoff, const Bindings &bindings,
+        int direction = 0, // 0 -> forwards/backwards, 1->forwards, -1:backwards
+        const Sinks *sinks = nullptr) const
+    {
+        // TODO, routing
+    }
+
+    // TODO, batching
 
     DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
     RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
