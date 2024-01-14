@@ -850,16 +850,17 @@ struct DiGraph
             // may stop at source node
             auto itr = node2bindings.find(source);
             if (itr != node2bindings.end()) {
+                std::optional<Route> route;
                 if (!reverse) {
                     for (auto &t : itr->second) {
                         if (std::get<0>(t) >= *source_offset) {
-                            auto route = Route(this);
-                            route.dist = std::get<0>(t) - *source_offset;
-                            route.path = {source};
-                            route.start_offset = source_offset;
-                            route.end_offset = std::get<0>(t);
-                            route.binding = t;
-                            return route;
+                            route = Route(this);
+                            route->dist = std::get<0>(t) - *source_offset;
+                            route->path = {source};
+                            route->start_offset = source_offset;
+                            route->end_offset = std::get<0>(t);
+                            route->binding = t;
+                            break;
                         }
                     }
                 } else {
@@ -867,19 +868,71 @@ struct DiGraph
                          it != itr->second.rend(); ++it) {
                         auto &t = *it;
                         if (std::get<1>(t) <= *source_offset) {
-                            auto route = Route(this);
-                            route.dist = *source_offset - std::get<1>(t);
-                            route.path = {source};
-                            route.start_offset = std::get<1>(t);
-                            route.end_offset = source_offset;
-                            route.binding = t;
-                            return route;
+                            route = Route(this);
+                            route->dist = *source_offset - std::get<1>(t);
+                            route->path = {source};
+                            route->start_offset = std::get<1>(t);
+                            route->end_offset = source_offset;
+                            route->binding = t;
+                            break;
                         }
+                    }
+                }
+                if (route) {
+                    return route->dist <= cutoff ? route : std::nullopt;
+                }
+            }
+        }
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto &jumps = reverse ? prevs_ : nexts_;
+        auto itr = jumps.find(source);
+        if (itr == jumps.end()) {
+            return {};
+        }
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        Q.decrease_key(v, c);
+                    }
+                } else {
+                    if (c <= cutoff) {
+                        pmap.insert({v, u});
+                        dmap.insert({v, c});
+                        Q.push(v, c);
                     }
                 }
             }
         }
-
         return {};
     }
 
