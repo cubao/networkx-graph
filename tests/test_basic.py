@@ -807,10 +807,7 @@ def test_shortest_path_to_bindings():
     assert obj1 == {"key": "value"}
 
     _, forwards2 = G.shortest_path_to_bindings(
-        "w1",
-        cutoff=50.0,
-        bindings=bindings,
-        sinks=G.encode_sinks({'w3'})
+        "w1", cutoff=50.0, bindings=bindings, sinks=G.encode_sinks({"w3"})
     )
     assert forwards2.to_dict() == forwards
     _, forwards = G.shortest_path_to_bindings(
@@ -818,14 +815,73 @@ def test_shortest_path_to_bindings():
         cutoff=50.0,
         bindings=bindings,
     )
-    assert forwards.to_dict() == {'dist': 26.0, 'path': ['w3', 'w4', 'w6', 'w7'], 'start': ('w3', None), 'end': ('w7', 3.0), 'binding': ('w7', (3.0, 4.0, 'obj2'))}
+    assert forwards.to_dict() == {
+        "dist": 26.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", None),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
 
+    _, forwards = G.shortest_path_to_bindings(
+        "w3", cutoff=50.0, bindings=bindings, offset=1.0
+    )
+    assert forwards.to_dict() == {
+        "dist": 0.0,
+        "path": ["w3"],
+        "start": ("w3", 1.0),
+        "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
 
-    _, forwards = G.shortest_path_to_bindings("w3", cutoff=50.0, bindings=bindings, source_offset=1.0)
-    assert forwards.to_dict() == {'dist': 0.0, 'path': ['w3'], 'start': ('w3', 1.0), 'end': ('w3', 1.0), 'binding': ('w3', (1.0, 3.0, {'key': 'value'}))}
+    _, forwards = G.shortest_path_to_bindings(
+        "w3", cutoff=50.0, bindings=bindings, offset=1.0 + 1e-8
+    )
+    assert forwards.to_dict() == {
+        "dist": 35.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 1.0),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
 
-    _, forwards = G.shortest_path_to_bindings("w3", cutoff=50.0, bindings=bindings, source_offset=1.0 + 1e-8)
-    assert forwards.to_dict() == {'dist': 35.0, 'path': ['w3', 'w4', 'w6', 'w7'], 'start': ('w3', 1.0), 'end': ('w7', 3.0), 'binding': ('w7', (3.0, 4.0, 'obj2'))}
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards.to_dict() == {
+        "dist": 2.0,
+        "path": ["w3"],
+        "start": ("w3", 3.0),
+        "end": ("w3", 5.0),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+    assert forwards.to_dict() == {
+        "dist": 31.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 5.0),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
 
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+        direction=1,  # forwards
+    )
+    assert backwards is None
+    assert forwards is not None
 
-test_shortest_path_to_bindings()
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+        direction=-1,  # backwards
+    )
+    assert backwards is not None
+    assert forwards is None

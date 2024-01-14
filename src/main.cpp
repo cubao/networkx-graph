@@ -1704,16 +1704,17 @@ PYBIND11_MODULE(_core, m)
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
         // all routes
-        .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
-             py::kw_only(),             //
-             "cutoff"_a,                //
-             "offset"_a = std::nullopt, //
-             "sinks"_a = nullptr,       //
+        .def("all_routes_from", &DiGraph::all_routes_from, //
+             "source"_a,                                   //
+             py::kw_only(),                                //
+             "cutoff"_a,                                   //
+             "offset"_a = std::nullopt,                    //
+             "sinks"_a = nullptr,                          //
              py::call_guard<py::gil_scoped_release>())
         .def("all_routes_to", &DiGraph::all_routes_to, //
-             "target"_a,
-             py::kw_only(), //
-             "cutoff"_a,    //
+             "target"_a,                               //
+             py::kw_only(),                            //
+             "cutoff"_a,                               //
              "offset"_a = std::nullopt,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
@@ -1728,11 +1729,11 @@ PYBIND11_MODULE(_core, m)
              py::call_guard<py::gil_scoped_release>())
         // shortest path to bindings
         .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
-             "source"_a,                       //
-             py::kw_only(),                    //
-             "cutoff"_a,                       //
-             "bindings"_a,                     //
-             "source_offset"_a = std::nullopt, //
+             "source"_a,                //
+             py::kw_only(),             //
+             "cutoff"_a,                //
+             "bindings"_a,              //
+             "offset"_a = std::nullopt, //
              "direction"_a = 0,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
