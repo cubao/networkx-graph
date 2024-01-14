@@ -654,6 +654,7 @@ struct DiGraph
         const unordered_set<int64_t> *sinks = nullptr,
         double init_offset = 0.0) const
     {
+        // https://github.com/cyang-kth/fmm/tree/master/src/network/network_graph.cpp
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         if (cutoff < init_offset) {
             return;
@@ -711,8 +712,71 @@ struct DiGraph
                                     double cutoff,
                                     const Sinks *sinks = nullptr) const
     {
-        //
-        return {};
+        // https://github.com/cyang-kth/fmm/tree/master/src/network/network_graph.cpp
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto itr = nexts_.find(source);
+        if (itr == nexts_.end()) {
+            return {};
+        }
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (u == target) {
+                break;
+            }
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        Q.decrease_key(v, c);
+                    }
+                } else {
+                    if (c <= cutoff) {
+                        pmap.insert({v, u});
+                        dmap.insert({v, c});
+                        Q.push(v, c);
+                    }
+                }
+            }
+        }
+        if (!pmap.count(target)) {
+            return {};
+        }
+        auto route = Route(this);
+        route.dist = dmap.at(target);
+        while (target != source) {
+            route.path.push_back(target);
+            target = pmap.at(target);
+        }
+        route.path.push_back(target);
+        std::reverse(route.path.begin(), route.path.end());
+        return route;
     }
 
     std::vector<Route>
