@@ -1735,7 +1735,7 @@ PYBIND11_MODULE(_core, m)
                            });
                  return paths;
              })
-        .def("nodes",
+        .def("path",
              [](const ShortestPathGenerator &self,
                 const std::string &node) -> std::optional<Path> {
                  if (!self.ready()) {
