@@ -538,19 +538,42 @@ struct DiGraph
     }
 
     std::tuple<std::optional<Route>, std::optional<Route>>
-    shortest_path_to_bindings() const
-    {
-    }
-    std::tuple<std::optional<double>, std::optional<double>>
-    distance_to_bindings() const
-    {
-    }
-
-    std::tuple<std::vector<Route>, std::vector<Route>> route_onto_bindings(
-        const std::string &source, std::optional<double> offset = {},
-        double cutoff, const Bindings &bindings,
+    shortest_path_to_bindings(
+        const std::string &source,         //
+        double cutoff,                     //
+        const Bindings &bindings,          //
+        std::optional<double> offset = {}, //
         int direction = 0, // 0 -> forwards/backwards, 1->forwards, -1:backwards
         const Sinks *sinks = nullptr) const
+    {
+        std::tuple<std::optional<Route>, std::optional<Route>> ret;
+        return ret;
+    }
+    std::tuple<std::optional<double>, std::optional<double>>
+    distance_to_bindings(const std::string &source,         //
+                         double cutoff,                     //
+                         const Bindings &bindings,          //
+                         std::optional<double> offset = {}, //
+                         int direction = 0, const Sinks *sinks = nullptr) const
+    {
+        auto [backwards, forwards] = shortest_path_to_bindings(
+            source, cutoff, bindings, offset, direction, sinks);
+        std::optional<double> backward_dist;
+        std::optional<double> forward_dist;
+        if (backwards) {
+            backward_dist = backwards->dist;
+        }
+        if (forwards) {
+            forward_dist = forwards->dist;
+        }
+        return std::make_tuple(backward_dist, forward_dist);
+    }
+
+    std::tuple<std::vector<Route>, std::vector<Route>>
+    all_path_onto_bindings(const std::string &source, double cutoff,
+                           const Bindings &bindings,
+                           std::optional<double> offset = {}, int direction = 0,
+                           const Sinks *sinks = nullptr) const
     {
         // TODO, routing
     }
@@ -654,7 +677,7 @@ struct DiGraph
         const unordered_set<int64_t> *sinks = nullptr,
         double init_offset = 0.0) const
     {
-        // https://github.com/cyang-kth/fmm/tree/master/src/network/network_graph.cpp
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L234-L274
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         if (cutoff < init_offset) {
             return;
@@ -712,7 +735,7 @@ struct DiGraph
                                     double cutoff,
                                     const Sinks *sinks = nullptr) const
     {
-        // https://github.com/cyang-kth/fmm/tree/master/src/network/network_graph.cpp
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L54-L97
         if (sinks && sinks->nodes.count(source)) {
             return {};
         }
