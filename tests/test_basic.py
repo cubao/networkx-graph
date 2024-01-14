@@ -782,24 +782,29 @@ def test_routing():
 
 def test_shortest_path_to_bindings():
     G = graph1()
+    obj1 = {}
     bindings = G.encode_bindings(
         {
-            "w3": [(1, 3, "obj1")],
+            "w3": [(1, 3, obj1)],
             "w7": [(3, 4, "obj2")],
         }
     )
     backwards, forwards = G.shortest_path_to_bindings(
-        "w1", cutoff=50.0, bindings=bindings
+        "w1",
+        cutoff=50.0,
+        bindings=bindings,
     )
     assert backwards is None
-    assert forwards.to_dict() == {
+    forwards = forwards.to_dict()
+    assert forwards == {
         "dist": 1.0,
         "path": ["w1", "w3"],
         "start": ("w1", None),
         "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, obj1)),
     }
-
-    print()
+    forwards["binding"][-1][-1]["key"] = "value"
+    assert obj1 == {"key": "value"}
 
 
 test_shortest_path_to_bindings()
