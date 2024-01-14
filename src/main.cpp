@@ -620,7 +620,9 @@ struct DiGraph
         std::optional<double> offset = {}, int direction = 0,
         const Sinks *sinks = nullptr) const
     {
-        // TODO, routing
+        std::vector<Route> forwards;
+        std::vector<Route> backwards;
+        return std::make_tuple(forwards, backwards);
     }
 
     // TODO, batching
