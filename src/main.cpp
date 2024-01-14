@@ -162,15 +162,15 @@ struct Path
             }
         }
         if (end_offset) {
-            auto itr = kv.find(path.back());
+            auto itr = kv.find(nodes.back());
             if (itr != kv.end() && !itr->second.empty()) {
                 if (*start_offset >= std::get<0>(itr->second.front())) {
                     return true;
                 }
             }
         }
-        for (int i = 1, N = path.size(); i < N - 1; ++i) {
-            auto itr = kv.find(path[i]);
+        for (int i = 1, N = nodes.size(); i < N - 1; ++i) {
+            auto itr = kv.find(nodes[i]);
             if (itr != kv.end() && !itr->second.empty()) {
                 return true;
             }
@@ -460,13 +460,13 @@ struct DiGraph
             __all_paths(*dst_idx, cutoff, offset, lengths_, prevs_, sinks);
         for (auto &p : paths) {
             if (p.start_offset) {
-                p.start_offset = lengths_.at(p.nodes.front()) - *r.start_offset;
+                p.start_offset = lengths_.at(p.nodes.front()) - *p.start_offset;
             }
             if (p.end_offset) {
-                p.end_offset = lengths_.at(p.nodes.back()) - *r.end_offset;
+                p.end_offset = lengths_.at(p.nodes.back()) - *p.end_offset;
             }
-            std::reverse(r.path.begin(), r.path.end());
-            std::swap(r.start_offset, r.end_offset);
+            std::reverse(p.nodes.begin(), p.nodes.end());
+            std::swap(p.start_offset, p.end_offset);
         }
         if (round_scale_) {
             for (auto &p : paths) {
@@ -907,7 +907,7 @@ struct DiGraph
                         if (std::get<1>(t) <= *source_offset) {
                             path = Path(this);
                             path->dist = *source_offset - std::get<1>(t);
-                            path->path = {source};
+                            path->nodes = {source};
                             path->start_offset = std::get<1>(t);
                             path->end_offset = source_offset;
                             path->binding = std::make_tuple(source, t);
@@ -1049,16 +1049,16 @@ struct DiGraph
         std::vector<Path> paths;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
         backtrace = [&paths, cutoff, &lengths, &jumps, sinks, this,
-                     &backtrace](std::vector<int64_t> &path, double length) {
+                     &backtrace](std::vector<int64_t> &nodes, double length) {
             if (length > cutoff) {
                 return;
             }
-            auto tail = path.back();
-            if (path.size() > 1) {
+            auto tail = nodes.back();
+            if (nodes.size() > 1) {
                 double new_length = length + this->lengths_.at(tail);
                 if (new_length > cutoff) {
                     paths.push_back(
-                        Path(this, cutoff, path, {}, cutoff - length));
+                        Path(this, cutoff, nodes, {}, cutoff - length));
                     return;
                 }
                 length = new_length;
@@ -1067,25 +1067,26 @@ struct DiGraph
             if (itr == jumps.end() || itr->second.empty() ||
                 (sinks && sinks->nodes.count(tail))) {
                 paths.push_back(
-                    Path(this, length, path, {}, this->lengths_.at(tail)));
+                    Path(this, length, nodes, {}, this->lengths_.at(tail)));
                 return;
             }
             const auto N = paths.size();
             for (auto next : itr->second) {
-                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                if (std::find(nodes.begin(), nodes.end(), next) !=
+                    nodes.end()) {
                     continue;
                 }
-                path.push_back(next);
-                backtrace(path, length);
-                path.pop_back();
+                nodes.push_back(next);
+                backtrace(nodes, length);
+                nodes.pop_back();
             }
             if (N == paths.size()) {
                 paths.push_back(
-                    Path(this, length, path, {}, this->lengths_.at(tail)));
+                    Path(this, length, nodes, {}, this->lengths_.at(tail)));
             }
         };
-        auto path = std::vector<int64_t>{source};
-        backtrace(path, 0.0);
+        auto nodes = std::vector<int64_t>{source};
+        backtrace(nodes, 0.0);
 
         if (offset) {
             double delta = length->second - *offset;
@@ -1106,14 +1107,14 @@ struct DiGraph
         std::vector<Path> paths;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
         backtrace = [&paths, target, cutoff, this, sinks,
-                     &backtrace](std::vector<int64_t> &path, double length) {
+                     &backtrace](std::vector<int64_t> &nodes, double length) {
             if (length > cutoff) {
                 return;
             }
-            auto tail = path.back();
-            if (path.size() > 1) {
+            auto tail = nodes.back();
+            if (nodes.size() > 1) {
                 if (tail == target) {
-                    paths.push_back(Path(this, length, path));
+                    paths.push_back(Path(this, length, nodes));
                     return;
                 }
                 double new_length = length + this->lengths_.at(tail);
@@ -1125,23 +1126,26 @@ struct DiGraph
             if (tail == target) {
                 return;
             }
+            if (sinks && sinks->nodes.count(tail)) {
+                return;
+            }
             auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty() ||
-                (sinks && sinks->nodes.count(tail))) {
+            if (itr == this->nexts_.end() || itr->second.empty()) {
                 return;
             }
             const auto N = paths.size();
             for (auto next : itr->second) {
-                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                if (std::find(nodes.begin(), nodes.end(), next) !=
+                    nodes.end()) {
                     continue;
                 }
-                path.push_back(next);
-                backtrace(path, length);
-                path.pop_back();
+                nodes.push_back(next);
+                backtrace(nodes, length);
+                nodes.pop_back();
             }
         };
-        auto path = std::vector<int64_t>{source};
-        backtrace(path, 0.0);
+        auto nodes = std::vector<int64_t>{source};
+        backtrace(nodes, 0.0);
 
         std::sort(
             paths.begin(), paths.end(),
@@ -1227,11 +1231,11 @@ struct DiGraph
         std::function<void(std::vector<int64_t> &, double)> backtrace;
         backtrace = [&paths, source, source_offset, cutoff, reverse, &jumps,
                      &node2bindings, sinks, this,
-                     &backtrace](std::vector<int64_t> &path, double length) {
+                     &backtrace](std::vector<int64_t> &nodes, double length) {
             if (length > cutoff) {
                 return;
             }
-            auto tail = path.back();
+            auto tail = nodes.back();
             double this_length = this->lengths_.at(tail);
 
             auto hits = node2bindings.find(tail);
@@ -1242,25 +1246,25 @@ struct DiGraph
                     auto &t = hits->second.front();
                     auto c = CLIP(0.0, std::get<0>(t), this_length);
                     if (length + c <= cutoff) {
-                        auto p = Path(this);
-                        p.dist = length + c;
-                        p.nodes = path;
-                        p.start_offset = source_offset;
-                        p.end_offset = c;
-                        p.binding = std::make_tuple(tail, t);
-                        paths.push_back(std::move(p));
+                        auto path = Path(this);
+                        path.dist = length + c;
+                        path.nodes = nodes;
+                        path.start_offset = source_offset;
+                        path.end_offset = c;
+                        path.binding = std::make_tuple(tail, t);
+                        paths.push_back(std::move(path));
                     }
                 } else {
                     auto &t = hits->second.back();
                     auto c = CLIP(0.0, std::get<1>(t), this_length);
                     if (length + (this_length - c) <= cutoff) {
-                        auto p = Path(this);
-                        p.dist = length + (this_length - c);
-                        p.nodes = path;
-                        p.start_offset = source_offset;
-                        p.end_offset = c;
-                        p.binding = std::make_tuple(tail, t);
-                        paths.push_back(std::move(p));
+                        auto path = Path(this);
+                        path.dist = length + (this_length - c);
+                        path.nodes = nodes;
+                        path.start_offset = source_offset;
+                        path.end_offset = c;
+                        path.binding = std::make_tuple(tail, t);
+                        paths.push_back(std::move(path));
                     }
                 }
                 return;
@@ -1272,20 +1276,21 @@ struct DiGraph
             if (itr == jumps.end() || itr->second.empty()) {
                 return;
             }
-            if (path.size() > 1) {
+            if (nodes.size() > 1) {
                 length += this_length;
             }
             for (auto next : itr->second) {
-                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                if (std::find(nodes.begin(), nodes.end(), next) !=
+                    nodes.end()) {
                     continue;
                 }
-                path.push_back(next);
-                backtrace(path, length);
-                path.pop_back();
+                nodes.push_back(next);
+                backtrace(nodes, length);
+                nodes.pop_back();
             }
         };
-        auto path = std::vector<int64_t>{source};
-        backtrace(path, init_offset);
+        auto nodes = std::vector<int64_t>{source};
+        backtrace(nodes, init_offset);
         if (reverse) {
             for (auto &p : paths) {
                 std::reverse(p.nodes.begin(), p.nodes.end());
@@ -1433,7 +1438,7 @@ PYBIND11_MODULE(_core, m)
                                [](const Path &self) { return self.dist; })
         .def_property_readonly(
             "nodes",
-            [](const Path &self) { return self.graph->__node_ids(self.path); })
+            [](const Path &self) { return self.graph->__node_ids(self.nodes); })
         .def_property_readonly(
             "start",
             [](const Path &self)
@@ -1504,14 +1509,14 @@ PYBIND11_MODULE(_core, m)
              [](const Path &self) {
                  py::dict ret;
                  ret["dist"] = self.dist;
-                 py::list path;
-                 for (auto &node : self.graph->__node_ids(self.path)) {
-                     path.append(node);
+                 py::list nodes;
+                 for (auto &node : self.graph->__node_ids(self.nodes)) {
+                     nodes.append(node);
                  }
-                 ret["path"] = path;
-                 auto start = self.graph->__node_id(self.path.front());
+                 ret["nodes"] = nodes;
+                 auto start = self.graph->__node_id(self.nodes.front());
                  ret["start"] = py::make_tuple(start, self.start_offset);
-                 auto end = self.graph->__node_id(self.path.back());
+                 auto end = self.graph->__node_id(self.nodes.back());
                  ret["end"] = py::make_tuple(end, self.end_offset);
                  if (self.binding) {
                      ret["binding"] = std::make_tuple( //
@@ -1657,15 +1662,15 @@ PYBIND11_MODULE(_core, m)
                          auto end_offset =
                              CLIP(0.0, start_offset + self.cutoff, length);
                          if (start_offset < end_offset) {
-                             auto p = Path(self.graph);
-                             p.dist = end_offset - start_offset;
-                             p.nodes.push_back(node);
-                             p.start_offset = start_offset;
-                             p.end_offset = end_offset;
+                             auto path = Path(self.graph);
+                             path.dist = end_offset - start_offset;
+                             path.nodes.push_back(node);
+                             path.start_offset = start_offset;
+                             path.end_offset = end_offset;
                              if (scale) {
-                                 p.round(*scale);
+                                 path.round(*scale);
                              }
-                             paths.push_back(std::move(p));
+                             paths.push_back(std::move(path));
                          }
                      } else if (self.target && std::get<1>(*self.target)) {
                          auto node = std::get<0>(*self.target);
@@ -1675,15 +1680,15 @@ PYBIND11_MODULE(_core, m)
                          auto start_offset =
                              CLIP(0.0, end_offset - self.cutoff, length);
                          if (start_offset < end_offset) {
-                             auto p = Path(self.graph);
-                             p.dist = end_offset - start_offset;
-                             p.path.push_back(node);
-                             p.start_offset = start_offset;
-                             p.end_offset = end_offset;
+                             auto path = Path(self.graph);
+                             path.dist = end_offset - start_offset;
+                             path.nodes.push_back(node);
+                             path.start_offset = start_offset;
+                             path.end_offset = end_offset;
                              if (scale) {
-                                 p.round(*scale);
+                                 path.round(*scale);
                              }
-                             paths.push_back(std::move(p));
+                             paths.push_back(std::move(path));
                          }
                      }
                      return paths;
@@ -1701,28 +1706,28 @@ PYBIND11_MODULE(_core, m)
                                                     : std::get<0>(*self.target);
                  for (auto end : ends) {
                      double length = self.graph->length(end);
-                     auto p = Path(self.graph);
+                     auto path = Path(self.graph);
                      double dist = self.dists.at(end);
-                     p.dist = std::min(self.cutoff, dist + length);
+                     path.dist = std::min(self.cutoff, dist + length);
                      while (end != source) {
-                         p.nodes.push_back(end);
+                         path.nodes.push_back(end);
                          end = self.prevs.at(end);
                      }
-                     p.nodes.push_back(end);
+                     path.nodes.push_back(end);
                      if (self.source) {
-                         p.start_offset = std::get<1>(*self.source);
-                         std::reverse(p.nodes.begin(), p.nodes.end());
+                         path.start_offset = std::get<1>(*self.source);
+                         std::reverse(path.nodes.begin(), path.nodes.end());
                          double offset = self.cutoff - dist;
-                         p.end_offset = CLIP(0.0, offset, length);
+                         path.end_offset = CLIP(0.0, offset, length);
                      } else {
                          double offset = length - (self.cutoff - dist);
-                         p.start_offset = CLIP(0.0, offset, length);
-                         p.end_offset = std::get<1>(*self.target);
+                         path.start_offset = CLIP(0.0, offset, length);
+                         path.end_offset = std::get<1>(*self.target);
                      }
                      if (scale) {
-                         p.round(*scale);
+                         path.round(*scale);
                      }
-                     paths.push_back(std::move(p));
+                     paths.push_back(std::move(path));
                  }
                  std::sort(paths.begin(), paths.end(),
                            [](const auto &p1, const auto &p2) {
@@ -1744,29 +1749,29 @@ PYBIND11_MODULE(_core, m)
                                                     : std::get<0>(*self.target);
                  auto end = *node_idx;
                  double length = self.graph->length(end);
-                 auto p = Path(self.graph);
+                 auto path = Path(self.graph);
                  double dist = self.dists.at(end);
-                 p.dist = std::min(self.cutoff, dist + length);
+                 path.dist = std::min(self.cutoff, dist + length);
                  while (end != source) {
-                     p.nodes.push_back(end);
+                     path.nodes.push_back(end);
                      end = self.prevs.at(end);
                  }
-                 p.nodes.push_back(end);
+                 path.nodes.push_back(end);
                  if (self.source) {
-                     p.start_offset = std::get<1>(*self.source);
-                     std::reverse(p.nodes.begin(), p.nodes.end());
+                     path.start_offset = std::get<1>(*self.source);
+                     std::reverse(path.nodes.begin(), path.nodes.end());
                      double offset = self.cutoff - dist;
-                     p.end_offset = CLIP(0.0, offset, length);
+                     path.end_offset = CLIP(0.0, offset, length);
                  } else {
                      double offset = length - (self.cutoff - dist);
-                     p.start_offset = CLIP(0.0, offset, length);
-                     p.end_offset = std::get<1>(*self.target);
+                     path.start_offset = CLIP(0.0, offset, length);
+                     path.end_offset = std::get<1>(*self.target);
                  }
                  auto scale = self.graph->round_scale();
                  if (scale) {
-                     p.round(*scale);
+                     path.round(*scale);
                  }
-                 return p;
+                 return path;
              })
         .def("to_dict",
              [](const ShortestPathGenerator &self) {
