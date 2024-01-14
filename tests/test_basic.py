@@ -919,3 +919,33 @@ def test_shortest_path_to_bindings():
         "end": ("w7", None),
         "binding": ("w5", (8.0, 8.0, "obj5")),
     }
+
+
+def test_all_paths_to_bindings():
+    G = graph1()
+    bindings = G.encode_bindings(
+        {
+            "w1": [(4, 4, "obj1")],
+            "w3": [(1, 3, "obj31"), (5, 6, "obj32"), (9, 10, "obj33")],
+            "w7": [(3, 4, "obj7")],
+        }
+    )
+    backwards, forwards = G.all_paths_to_bindings(
+        "w3", cutoff=30, offset=5.5, bindings=bindings
+    )
+    assert len(backwards) == 1
+    assert len(forwards) == 1
+    assert backwards[0].to_dict() == {
+        "dist": 2.5,
+        "path": ["w3"],
+        "start": ("w3", 3.0),
+        "end": ("w3", 5.5),
+        "binding": ("w3", (1.0, 3.0, "obj31")),
+    }
+    assert forwards[0].to_dict() == {
+        "dist": 3.5,
+        "path": ["w3"],
+        "start": ("w3", 5.5),
+        "end": ("w3", 9.0),
+        "binding": ("w3", (9.0, 10.0, "obj33")),
+    }
