@@ -311,6 +311,9 @@ struct DiGraph
         if (cutoff < 0) {
             return {};
         }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
             return {};
@@ -378,6 +381,9 @@ struct DiGraph
         if (cutoff < 0) {
             return {};
         }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
         auto start_idx = indexer_.get_id(start);
         if (!start_idx) {
             return {};
@@ -416,6 +422,9 @@ struct DiGraph
         if (cutoff < 0) {
             return {};
         }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
             return {};
@@ -436,6 +445,9 @@ struct DiGraph
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto dst_idx = indexer_.get_id(target);
         if (!dst_idx) {
@@ -478,6 +490,9 @@ struct DiGraph
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
@@ -553,6 +568,9 @@ struct DiGraph
         }
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
@@ -914,7 +932,8 @@ struct DiGraph
             }
             auto u = node.index;
             auto hits = node2bindings.find(u);
-            if (hits != node2bindings.end() && !hits->second.empty()) {
+            if (u != source && hits != node2bindings.end() &&
+                !hits->second.empty()) {
                 // check bindings
                 auto &t = reverse ? hits->second.back() : hits->second.front();
                 double length = lengths_.at(u);
