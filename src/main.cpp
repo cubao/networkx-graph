@@ -1228,28 +1228,55 @@ struct DiGraph
         if (itr == jumps.end()) {
             return {};
         }
-        backtrace = [&routes, cutoff, &jumps, sinks, this,
+        backtrace = [&routes, source, source_offset, cutoff, reverse, &jumps,
+                     &node2bindings, sinks, this,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
             }
             auto tail = path.back();
-            if (path.size() > 1) {
-                double new_length = length + this->lengths_.at(tail);
-                if (new_length > cutoff) {
-                    routes.push_back(
-                        Route(this, cutoff, path, {}, cutoff - length));
-                    return;
-                }
-                length = new_length;
-            }
-            // check bindings on tail
-            // TODO
+            double this_length = this->lengths_.at(tail);
 
-            auto itr = jumps.find(tail);
-            if (itr == jumps.end() || itr->second.empty() ||
-                (sinks && sinks->nodes.count(tail))) {
+            auto hits = node2bindings.find(tail);
+            if (tail != source && hits != node2bindings.end() &&
+                !hits->second.empty()) {
+                auto &t = reverse ? hits->second.back() : hits->second.front();
+                if (!reverse) {
+                    auto &t = hits->second.front();
+                    auto c = CLIP(0.0, std::get<0>(t), this_length);
+                    if (length + c <= cutoff) {
+                        auto route = Route(this);
+                        route.dist = length + c;
+                        route.path = path;
+                        route.start_offset = source_offset;
+                        route.end_offset = c;
+                        route.binding = std::make_tuple(tail, t);
+                        routes.push_back(std::move(route));
+                    }
+                } else {
+                    auto &t = hits->second.back();
+                    auto c = CLIP(0.0, std::get<1>(t), this_length);
+                    if (length + (this_length - c) <= cutoff) {
+                        auto route = Route(this);
+                        route.dist = length + (this_length - c);
+                        route.path = path;
+                        route.start_offset = source_offset;
+                        route.end_offset = c;
+                        route.binding = std::make_tuple(tail, t);
+                        routes.push_back(std::move(route));
+                    }
+                }
                 return;
+            }
+            if (sinks && sinks->nodes.count(tail)) {
+                return;
+            }
+            auto itr = jumps.find(tail);
+            if (itr == jumps.end() || itr->second.empty()) {
+                return;
+            }
+            if (path.size() > 1) {
+                length += this_length;
             }
             for (auto next : itr->second) {
                 if (std::find(path.begin(), path.end(), next) != path.end()) {
@@ -1263,7 +1290,7 @@ struct DiGraph
         auto path = std::vector<int64_t>{source};
         backtrace(path, init_offset);
 
-        return {};
+        return routes;
     }
 };
 } // namespace nano_fmm
