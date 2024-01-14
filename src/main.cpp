@@ -97,7 +97,7 @@ inline double CLIP(double low, double v, double high)
 
 struct Sinks
 {
-    // you stop at (on) sinks, not passing through
+    // you stop at (on) sinks, no passing through
     const DiGraph *graph{nullptr};
     unordered_set<int64_t> nodes;
 };

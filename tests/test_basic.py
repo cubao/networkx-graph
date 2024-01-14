@@ -244,6 +244,52 @@ def test_digraph_shortest_paths():
         dists[:-1] == G.shortest_routes_to("w7", cutoff=17.0, offset=3.0).destinations()
     )
 
+    path = G.shortest_route("w1", "w7", cutoff=37.0, source_offset=3.0)
+    assert path is not None
+    assert path.to_dict() == {
+        "dist": 37.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", None),
+    }
+    path = G.shortest_route("w1", "w7", cutoff=37.0 - 1e-3, source_offset=3.0)
+    assert path is None
+    path = G.shortest_route("w1", "w7", cutoff=30.0)
+    assert path is not None
+    assert path.to_dict() == {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    path = G.shortest_route("w1", "w7", cutoff=30.0 - 1e-3)
+    assert path is None
+
+    path = G.shortest_route("w1", "w7", cutoff=33, source_offset=9, target_offset=1)
+    assert path.to_dict() == {
+        "dist": 32.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 9.0),
+        "end": ("w7", 1.0),
+    }
+
+    path = G.shortest_route("w1", "w7", cutoff=40.0)
+    assert path.path == ["w1", "w2", "w5", "w7"]
+    assert path.to_dict() == {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    # take a detour
+    path = G.shortest_route("w1", "w7", cutoff=40.0, sinks=G.encode_sinks({"w5"}))
+    assert path.to_dict() == {
+        "dist": 33.0,
+        "path": ["w1", "w3", "w4", "w6", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+
 
 def all_routes_from(G, start, cutoff):
     """python implementation"""
@@ -721,7 +767,3 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
-
-
-test_all_routes_from()
-print()
