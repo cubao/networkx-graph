@@ -1004,3 +1004,22 @@ def test_all_paths_to_bindings():
         "end": ("w7", 1.0),
         "binding": ("w1", (4.0, 4.0, "obj1")),
     }
+
+    backwards, forwards = G.all_paths_to_bindings(
+        "w7",
+        cutoff=80,
+        offset=1.0,
+        bindings=bindings,
+        direction=1,
+    )
+    assert len(backwards) == 0
+    assert len(forwards) == 1
+    backwards, forwards = G.all_paths_to_bindings(
+        "w7",
+        cutoff=80,
+        offset=1.0,
+        bindings=bindings,
+        direction=-1,
+    )
+    assert len(backwards) == 2
+    assert len(forwards) == 0
