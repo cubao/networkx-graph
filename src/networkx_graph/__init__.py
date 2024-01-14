@@ -6,7 +6,7 @@ from ._core import DiGraph as DiGraphImpl
 from ._core import (
     Edge,
     Node,
-    Route,
+    Path,
     ShortestPathGenerator,
     __doc__,
     __version__,
@@ -42,7 +42,7 @@ __all__ = [
     "subtract",
     "Node",
     "Edge",
-    "Route",
+    "Path",
     "DiGraph",
     "ShortestPathGenerator",
 ]

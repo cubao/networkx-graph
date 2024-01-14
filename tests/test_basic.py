@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Route
+from networkx_graph import DiGraph, Node, Path
 
 
 def test_version():
@@ -175,7 +175,7 @@ def test_digraph_shortest_paths():
     assert set(G.successors("w1")) == {"w2", "w3"}
     assert set(G.predecessors("w7")) == {"w5", "w6"}
 
-    shorts = G.shortest_routes_from("w1", cutoff=200.0)
+    shorts = G.shortest_paths_from("w1", cutoff=200.0)
     assert shorts.destinations() == [
         (0.0, "w2"),
         (0.0, "w3"),
@@ -184,7 +184,7 @@ def test_digraph_shortest_paths():
         (30.0, "w6"),
         (30.0, "w7"),
     ]
-    shorts = G.shortest_routes_from("w1", cutoff=200.0, offset=-1)
+    shorts = G.shortest_paths_from("w1", cutoff=200.0, offset=-1)
     assert shorts.destinations() == [
         (10.0, "w2"),
         (10.0, "w3"),
@@ -193,7 +193,7 @@ def test_digraph_shortest_paths():
         (40.0, "w6"),
         (40.0, "w7"),
     ]
-    shorts = G.shortest_routes_from("w1", cutoff=200.0, offset=3.0)
+    shorts = G.shortest_paths_from("w1", cutoff=200.0, offset=3.0)
     assert shorts.destinations() == [
         (7.0, "w2"),
         (7.0, "w3"),
@@ -202,73 +202,73 @@ def test_digraph_shortest_paths():
         (37.0, "w6"),
         (37.0, "w7"),
     ]
-    shorts1 = G.shortest_routes_from("w1", cutoff=200.0, offset=10.0)
-    shorts2 = G.shortest_routes_from("w1", cutoff=200.0, offset=13.0)
+    shorts1 = G.shortest_paths_from("w1", cutoff=200.0, offset=10.0)
+    shorts2 = G.shortest_paths_from("w1", cutoff=200.0, offset=13.0)
     assert shorts1.destinations() == shorts2.destinations()
 
-    shorts = G.shortest_routes_to("w7", cutoff=20.0, offset=3.0)
+    shorts = G.shortest_paths_to("w7", cutoff=20.0, offset=3.0)
     dists = shorts.destinations()
     assert dists == [(3.0, "w5"), (3.0, "w6"), (6.0, "w4"), (18.0, "w2")]
     assert (
         dists
-        == G.shortest_routes_to(
+        == G.shortest_paths_to(
             "w7",
             cutoff=18.0,
             offset=3.0,
         ).destinations()
     )
     assert (
-        dists[:-1] == G.shortest_routes_to("w7", cutoff=17.0, offset=3.0).destinations()
+        dists[:-1] == G.shortest_paths_to("w7", cutoff=17.0, offset=3.0).destinations()
     )
 
-    path = G.shortest_route("w1", "w7", cutoff=37.0, source_offset=3.0)
+    path = G.shortest_path("w1", "w7", cutoff=37.0, source_offset=3.0)
     assert path is not None
     assert path.to_dict() == {
         "dist": 37.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 3.0),
         "end": ("w7", None),
     }
-    path = G.shortest_route("w1", "w7", cutoff=37.0 - 1e-3, source_offset=3.0)
+    path = G.shortest_path("w1", "w7", cutoff=37.0 - 1e-3, source_offset=3.0)
     assert path is None
-    path = G.shortest_route("w1", "w7", cutoff=30.0)
+    path = G.shortest_path("w1", "w7", cutoff=30.0)
     assert path is not None
     assert path.to_dict() == {
         "dist": 30.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
     }
-    path = G.shortest_route("w1", "w7", cutoff=30.0 - 1e-3)
+    path = G.shortest_path("w1", "w7", cutoff=30.0 - 1e-3)
     assert path is None
 
-    path = G.shortest_route("w1", "w7", cutoff=33, source_offset=9, target_offset=1)
+    path = G.shortest_path("w1", "w7", cutoff=33, source_offset=9, target_offset=1)
     assert path.to_dict() == {
         "dist": 32.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 9.0),
         "end": ("w7", 1.0),
     }
 
-    path = G.shortest_route("w1", "w7", cutoff=40.0)
-    assert path.path == ["w1", "w2", "w5", "w7"]
+    path = G.shortest_path("w1", "w7", cutoff=40.0)
+    assert path.nodes == ["w1", "w2", "w5", "w7"]
     assert path.to_dict() == {
         "dist": 30.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
     }
     # take a detour
-    path = G.shortest_route("w1", "w7", cutoff=40.0, sinks=G.encode_sinks({"w5"}))
+    path = G.shortest_path("w1", "w7", cutoff=40.0, sinks=G.encode_sinks({"w5"}))
     assert path.to_dict() == {
         "dist": 33.0,
-        "path": ["w1", "w3", "w4", "w6", "w7"],
+        "nodes": ["w1", "w3", "w4", "w6", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
     }
 
 
-def all_routes_from(G, start, cutoff):
+def all_paths_from(G, start, cutoff):
     """python implementation"""
     assert start is not None
     assert cutoff >= 0
@@ -298,95 +298,95 @@ def all_routes_from(G, start, cutoff):
 
     backtrace([start], 0.0)
     output = sorted(output, key=lambda x: x[0])
-    return [{"dist": round(d, 3), "path": p} for d, p in output]
+    return [{"dist": round(d, 3), "nodes": p} for d, p in output]
 
 
-def test_all_routes_from():
+def test_all_paths_from():
     try:
         import networkx as nx
 
         G = graph1(nx.DiGraph())
-        routes = all_routes_from(G, "w1", 10.0)
-        assert routes == [
-            {"dist": 0.0, "path": ["w1", "w2"]},
-            {"dist": 10.0, "path": ["w1", "w3", "w4"]},
+        paths = all_paths_from(G, "w1", 10.0)
+        assert paths == [
+            {"dist": 0.0, "nodes": ["w1", "w2"]},
+            {"dist": 10.0, "nodes": ["w1", "w3", "w4"]},
         ]
     except ImportError:
         pass
 
     G = graph1()
-    routes = G.all_routes_from("w1", cutoff=10.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_from("w1", cutoff=10.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 10.0,
-            "path": ["w1", "w2"],
+            "nodes": ["w1", "w2"],
             "start": ("w1", None),
             "end": ("w2", 10.0),
         },
         {
             "dist": 10.0,
-            "path": ["w1", "w3", "w4"],
+            "nodes": ["w1", "w3", "w4"],
             "start": ("w1", None),
             "end": ("w4", 0.0),
         },
     ]
-    routes = G.all_routes_from("w1", cutoff=10.0, sinks=G.encode_sinks({"w3"}))
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_from("w1", cutoff=10.0, sinks=G.encode_sinks({"w3"}))
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 10.0,
-            "path": ["w1", "w2"],
+            "nodes": ["w1", "w2"],
             "start": ("w1", None),
             "end": ("w2", 10.0),
         },
         {
             "dist": 10.0,
-            "path": ["w1", "w3"],
+            "nodes": ["w1", "w3"],
             "start": ("w1", None),
             "end": ("w3", 10.0),
         },
     ]
 
     G = graph1()
-    routes = G.all_routes_from("w1", cutoff=5.0, offset=2.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_from("w1", cutoff=5.0, offset=2.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 5.0,
-            "path": ["w1"],
+            "nodes": ["w1"],
             "start": ("w1", 2.0),
             "end": ("w1", 7.0),
         }
     ]
-    routes = G.all_routes_from("w1", cutoff=15.0, offset=2.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
-        {"dist": 15.0, "path": ["w1", "w2"], "start": ("w1", 2.0), "end": ("w2", 7.0)},
-        {"dist": 15.0, "path": ["w1", "w3"], "start": ("w1", 2.0), "end": ("w3", 7.0)},
+    paths = G.all_paths_from("w1", cutoff=15.0, offset=2.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
+        {"dist": 15.0, "nodes": ["w1", "w2"], "start": ("w1", 2.0), "end": ("w2", 7.0)},
+        {"dist": 15.0, "nodes": ["w1", "w3"], "start": ("w1", 2.0), "end": ("w3", 7.0)},
     ]
 
-    routes = G.all_routes_from("w1", cutoff=25.0, offset=5.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_from("w1", cutoff=25.0, offset=5.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 25.0,
-            "path": ["w1", "w2", "w5"],
+            "nodes": ["w1", "w2", "w5"],
             "start": ("w1", 5.0),
             "end": ("w5", 5.0),
         },
         {
             "dist": 25.0,
-            "path": ["w1", "w3", "w4"],
+            "nodes": ["w1", "w3", "w4"],
             "start": ("w1", 5.0),
             "end": ("w4", 10.0),
         },
     ]
 
-    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
-        {"dist": 5.123, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.123)}
+    paths = G.all_paths_from("w1", cutoff=5.12345, offset=2.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
+        {"dist": 5.123, "nodes": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.123)}
     ]
 
     assert G.round_n == 3
@@ -396,145 +396,145 @@ def test_all_routes_from():
     assert G.round_n is None
     assert G.round_scale is None
     G = graph1(G)
-    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
-    routes = [r.to_dict() for r in routes]
+    paths = G.all_paths_from("w1", cutoff=5.12345, offset=2.0)
+    paths = [r.to_dict() for r in paths]
     assert [
-        {"dist": 5.12345, "path": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.12345)}
+        {"dist": 5.12345, "nodes": ["w1"], "start": ("w1", 2.0), "end": ("w1", 7.12345)}
     ]
 
     G = DiGraph(round_n=-1)
     assert G.round_n == -1
     assert G.round_scale == 0.1
     G = graph1(G)
-    routes = G.all_routes_from("w1", cutoff=5.12345, offset=2.0)
-    routes = [r.to_dict() for r in routes]
-    assert [{"dist": 10.0, "path": ["w1"], "start": ("w1", 0.0), "end": ("w1", 10.0)}]
+    paths = G.all_paths_from("w1", cutoff=5.12345, offset=2.0)
+    paths = [r.to_dict() for r in paths]
+    assert [{"dist": 10.0, "nodes": ["w1"], "start": ("w1", 0.0), "end": ("w1", 10.0)}]
 
 
-def test_all_routes_to():
+def test_all_paths_to():
     G = graph1()
-    routes = G.all_routes_to("w7", cutoff=30.0, offset=4.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_to("w7", cutoff=30.0, offset=4.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 30.0,
-            "path": ["w3", "w4", "w6", "w7"],
+            "nodes": ["w3", "w4", "w6", "w7"],
             "start": ("w3", 7.0),
             "end": ("w7", 4.0),
         },
         {
             "dist": 30.0,
-            "path": ["w2", "w5", "w7"],
+            "nodes": ["w2", "w5", "w7"],
             "start": ("w2", 4.0),
             "end": ("w7", 4.0),
         },
     ]
-    routes = G.all_routes_to("w7", cutoff=30.0)
-    routes = [r.to_dict() for r in routes]
-    assert routes == [
+    paths = G.all_paths_to("w7", cutoff=30.0)
+    paths = [r.to_dict() for r in paths]
+    assert paths == [
         {
             "dist": 30.0,
-            "path": ["w3", "w4", "w6", "w7"],
+            "nodes": ["w3", "w4", "w6", "w7"],
             "start": ("w3", 3.0),
             "end": ("w7", None),
         },
         {
             "dist": 30.0,
-            "path": ["w1", "w2", "w5", "w7"],
+            "nodes": ["w1", "w2", "w5", "w7"],
             "start": ("w1", 10.0),
             "end": ("w7", None),
         },
     ]
 
 
-def test_all_routes():
+def test_all_paths():
     G = graph2()
 
-    routes = G.all_routes("w1", "w1", cutoff=20)
-    assert not routes  # skip trivial
-    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=3.0, target_offset=4.0)
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = G.all_paths("w1", "w1", cutoff=20)
+    assert not paths  # skip trivial
+    paths = G.all_paths("w1", "w1", cutoff=20, source_offset=3.0, target_offset=4.0)
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 1.0,
-        "path": ["w1"],
+        "nodes": ["w1"],
         "start": ("w1", 3.0),
         "end": ("w1", 4.0),
     }
-    routes = G.all_routes("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
-    assert not routes
+    paths = G.all_paths("w1", "w1", cutoff=20, source_offset=13.0, target_offset=14.0)
+    assert not paths
 
-    routes = G.all_routes("w1", "w3", cutoff=10)
+    paths = G.all_paths("w1", "w3", cutoff=10)
     assert {
         "dist": 0.0,
-        "path": ["w1", "w3"],
+        "nodes": ["w1", "w3"],
         "start": ("w1", None),
         "end": ("w3", None),
     }
-    routes = G.all_routes("w1", "w4", cutoff=10)
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = G.all_paths("w1", "w4", cutoff=10)
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 10.0,
-        "path": ["w1", "w3", "w4"],
+        "nodes": ["w1", "w3", "w4"],
         "start": ("w1", None),
         "end": ("w4", None),
     }
-    routes = G.all_routes("w1", "w4", cutoff=9)
-    assert not routes
+    paths = G.all_paths("w1", "w4", cutoff=9)
+    assert not paths
 
-    routes = G.all_routes("w1", "w4", cutoff=20, target_offset=5)
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = G.all_paths("w1", "w4", cutoff=20, target_offset=5)
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 15.0,
-        "path": ["w1", "w3", "w4"],
+        "nodes": ["w1", "w3", "w4"],
         "start": ("w1", None),
         "end": ("w4", 5.0),
     }
-    routes = G.all_routes("w1", "w4", cutoff=14, target_offset=5)
-    assert not routes
-    routes = G.all_routes("w1", "w4", cutoff=20, source_offset=8, target_offset=5)
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = G.all_paths("w1", "w4", cutoff=14, target_offset=5)
+    assert not paths
+    paths = G.all_paths("w1", "w4", cutoff=20, source_offset=8, target_offset=5)
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 17.0,
-        "path": ["w1", "w3", "w4"],
+        "nodes": ["w1", "w3", "w4"],
         "start": ("w1", 8.0),
         "end": ("w4", 5.0),
     }
 
-    routes = G.all_routes("w1", "w7", cutoff=80)
-    assert len(routes) == 2
-    routes = [r.to_dict() for r in routes]
+    paths = G.all_paths("w1", "w7", cutoff=80)
+    assert len(paths) == 2
+    paths = [r.to_dict() for r in paths]
     r1 = {
         "dist": 30.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
     }
     r2 = {
         "dist": 30.0,
-        "path": ["w1", "w3", "w4", "w7"],
+        "nodes": ["w1", "w3", "w4", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
     }
-    assert routes in ([r1, r2], [r2, r1])
+    assert paths in ([r1, r2], [r2, r1])
 
-    routes = G.all_routes("w1", "w7", cutoff=80, source_offset=3.0, target_offset=4.0)
-    assert len(routes) == 2
-    routes = [r.to_dict() for r in routes]
+    paths = G.all_paths("w1", "w7", cutoff=80, source_offset=3.0, target_offset=4.0)
+    assert len(paths) == 2
+    paths = [r.to_dict() for r in paths]
     r1 = {
         "dist": 41.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 3.0),
         "end": ("w7", 4.0),
     }
     r2 = {
         "dist": 41.0,
-        "path": ["w1", "w3", "w4", "w7"],
+        "nodes": ["w1", "w3", "w4", "w7"],
         "start": ("w1", 3.0),
         "end": ("w7", 4.0),
     }
-    assert routes in ([r1, r2], [r2, r1])
+    assert paths in ([r1, r2], [r2, r1])
 
-    routes = G.all_routes(
+    paths = G.all_paths(
         "w1",
         "w7",
         cutoff=80,
@@ -542,13 +542,13 @@ def test_all_routes():
         target_offset=4.0,
         sinks=G.encode_sinks({"w4"}),
     )
-    assert len(routes) == 1
-    assert routes[0].to_dict() == r1
+    assert len(paths) == 1
+    assert paths[0].to_dict() == r1
 
 
 def test_routing():
     with pytest.raises(TypeError) as excinfo:
-        Route()
+        Path()
     assert "No constructor defined" in repr(excinfo.value)
     G = graph1()
 
@@ -560,21 +560,21 @@ def test_routing():
     decoded["w2"][-1][-1]["num"] = 42
     assert obj["num"] == 42
 
-    dists = G.shortest_routes_from("w1", cutoff=20.0).destinations()
+    dists = G.shortest_paths_from("w1", cutoff=20.0).destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
 
     sinks = G.encode_sinks({"w2", "w3"})
     assert sinks() == {"w2", "w3"}
 
-    dists = G.shortest_routes_from("w1", cutoff=20.0, sinks=sinks).destinations()
+    dists = G.shortest_paths_from("w1", cutoff=20.0, sinks=sinks).destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3")]
 
-    path_generator = G.shortest_routes_from("w1", cutoff=20.0, sinks=sinks)
+    path_generator = G.shortest_paths_from("w1", cutoff=20.0, sinks=sinks)
     assert path_generator.destinations() == [(0.0, "w2"), (0.0, "w3")]
     assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", None)}
 
     sinks = G.encode_sinks({"w6"})
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=20.0,
         offset=5.0,
@@ -588,7 +588,7 @@ def test_routing():
     ]
     assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", 5.0)}
 
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=80.0,
         offset=5.0,
@@ -621,138 +621,138 @@ def test_routing():
     assert path_generator.source() == ("w1", 5.0)
     assert path_generator.target() is None
 
-    routes = path_generator.routes()
-    assert len(routes) == 2
+    paths = path_generator.paths()
+    assert len(paths) == 2
     assert path_generator.cutoff() == 80.0
 
-    assert routes[0].to_dict() == {
+    assert paths[0].to_dict() == {
         "dist": 45.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 5.0),
         "end": ("w7", 10.0),
     }
-    assert routes[1].to_dict() == {
+    assert paths[1].to_dict() == {
         "dist": 38.0,
-        "path": ["w1", "w3", "w4", "w6"],
+        "nodes": ["w1", "w3", "w4", "w6"],
         "start": ("w1", 5.0),
         "end": ("w6", 3.0),
     }
 
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=2.0,
         offset=6.0,
     )
-    routes = path_generator.routes()
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = path_generator.paths()
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 2.0,
-        "path": ["w1"],
+        "nodes": ["w1"],
         "start": ("w1", 6.0),
         "end": ("w1", 8.0),
     }
-    path_generator = G.shortest_routes_to(
+    path_generator = G.shortest_paths_to(
         "w1",
         cutoff=2.0,
         offset=6.0,
     )
-    routes = path_generator.routes()
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = path_generator.paths()
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 2.0,
-        "path": ["w1"],
+        "nodes": ["w1"],
         "start": ("w1", 4.0),
         "end": ("w1", 6.0),
     }
 
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=40.0,
         offset=6.000001,
         sinks=sinks,
     )
-    routes = path_generator.routes()
-    assert len(routes) == 2
-    assert routes[0].to_dict() == {
+    paths = path_generator.paths()
+    assert len(paths) == 2
+    assert paths[0].to_dict() == {
         "dist": 40.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 6.0),
         "end": ("w7", 6.0),
     }
-    assert routes[1].to_dict() == {
+    assert paths[1].to_dict() == {
         "dist": 37.0,
-        "path": ["w1", "w3", "w4", "w6"],
+        "nodes": ["w1", "w3", "w4", "w6"],
         "start": ("w1", 6.0),
         "end": ("w6", 3.0),
     }
 
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w7",
         cutoff=20.0,
         offset=3.0,
     )
-    routes = path_generator.routes()
-    assert len(routes) == 1
-    assert routes[0].to_dict() == {
+    paths = path_generator.paths()
+    assert len(paths) == 1
+    assert paths[0].to_dict() == {
         "dist": 7.0,
-        "path": ["w7"],
+        "nodes": ["w7"],
         "start": ("w7", 3.0),
         "end": ("w7", 10.0),
     }
 
-    path_generator = G.shortest_routes_to(
+    path_generator = G.shortest_paths_to(
         "w7",
         cutoff=20.0,
         offset=3.0,
     )
-    routes = [r.to_dict() for r in path_generator.routes()]
-    assert len(routes) == 2
-    route1 = {
+    paths = [r.to_dict() for r in path_generator.paths()]
+    assert len(paths) == 2
+    path1 = {
         "dist": 20.0,
-        "path": ["w2", "w5", "w7"],
+        "nodes": ["w2", "w5", "w7"],
         "start": ("w2", 13.0),
         "end": ("w7", 3.0),
     }
-    route2 = {
+    path2 = {
         "dist": 20.0,
-        "path": ["w4", "w6", "w7"],
+        "nodes": ["w4", "w6", "w7"],
         "start": ("w4", 6.0),
         "end": ("w7", 3.0),
     }
-    assert routes in [[route1, route2], [route2, route1]]
+    assert paths in [[path1, path2], [path2, path1]]
     assert path_generator.to_dict() == {"cutoff": 20.0, "target": ("w7", 3.0)}
 
-    assert path_generator.route("w5").to_dict() == {
+    assert path_generator.path("w5").to_dict() == {
         "dist": 18.0,
-        "path": ["w5", "w7"],
+        "nodes": ["w5", "w7"],
         "start": ("w5", 0.0),
         "end": ("w7", 3.0),
     }
-    assert path_generator.route("w6").to_dict() == {
+    assert path_generator.path("w6").to_dict() == {
         "dist": 6.0,
-        "path": ["w6", "w7"],
+        "nodes": ["w6", "w7"],
         "start": ("w6", 0.0),
         "end": ("w7", 3.0),
     }
     assert path_generator.prevs() == {"w2": "w5", "w4": "w6", "w5": "w7", "w6": "w7"}
     assert path_generator.dists() == {"w2": 18.0, "w4": 6.0, "w5": 3.0, "w6": 3.0}
-    assert path_generator.route("w7") is None
+    assert path_generator.path("w7") is None
 
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=80.0,
         offset=6.0,
     )
-    assert len(path_generator.routes()) == 2
+    assert len(path_generator.paths()) == 2
 
     G = graph2()
-    path_generator = G.shortest_routes_from(
+    path_generator = G.shortest_paths_from(
         "w1",
         cutoff=80.0,
         offset=6.0,
     )
-    assert len(path_generator.routes()) == 2
-    destinations = [r.end for r in path_generator.routes()]
+    assert len(path_generator.paths()) == 2
+    destinations = [r.end for r in path_generator.paths()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
 
@@ -775,7 +775,7 @@ def test_shortest_path_to_bindings():
     forwards = forwards.to_dict()
     assert forwards == {
         "dist": 1.0,
-        "path": ["w1", "w3"],
+        "nodes": ["w1", "w3"],
         "start": ("w1", None),
         "end": ("w3", 1.0),
         "binding": ("w3", (1.0, 3.0, obj1)),
@@ -794,7 +794,7 @@ def test_shortest_path_to_bindings():
     )
     assert forwards.to_dict() == {
         "dist": 26.0,
-        "path": ["w3", "w4", "w6", "w7"],
+        "nodes": ["w3", "w4", "w6", "w7"],
         "start": ("w3", None),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj2")),
@@ -805,7 +805,7 @@ def test_shortest_path_to_bindings():
     )
     assert forwards.to_dict() == {
         "dist": 0.0,
-        "path": ["w3"],
+        "nodes": ["w3"],
         "start": ("w3", 1.0),
         "end": ("w3", 1.0),
         "binding": ("w3", (1.0, 3.0, {"key": "value"})),
@@ -816,7 +816,7 @@ def test_shortest_path_to_bindings():
     )
     assert forwards.to_dict() == {
         "dist": 35.0,
-        "path": ["w3", "w4", "w6", "w7"],
+        "nodes": ["w3", "w4", "w6", "w7"],
         "start": ("w3", 1.0),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj2")),
@@ -830,14 +830,14 @@ def test_shortest_path_to_bindings():
     )
     assert backwards.to_dict() == {
         "dist": 2.0,
-        "path": ["w3"],
+        "nodes": ["w3"],
         "start": ("w3", 3.0),
         "end": ("w3", 5.0),
         "binding": ("w3", (1.0, 3.0, {"key": "value"})),
     }
     assert forwards.to_dict() == {
         "dist": 31.0,
-        "path": ["w3", "w4", "w6", "w7"],
+        "nodes": ["w3", "w4", "w6", "w7"],
         "start": ("w3", 5.0),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj2")),
@@ -887,14 +887,14 @@ def test_shortest_path_to_bindings():
     )
     assert forwards.to_dict() == {
         "dist": 6.0,
-        "path": ["w4", "w6", "w7"],
+        "nodes": ["w4", "w6", "w7"],
         "start": ("w4", None),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj2")),
     }
     assert backwards.to_dict() == {
         "dist": 7.0,
-        "path": ["w3", "w4"],
+        "nodes": ["w3", "w4"],
         "start": ("w3", 3.0),
         "end": ("w4", None),
         "binding": ("w3", (1.0, 3.0, {"key": "value"})),
@@ -914,7 +914,7 @@ def test_shortest_path_to_bindings():
     assert forwards is None
     assert backwards.to_dict() == {
         "dist": 7.0,
-        "path": ["w5", "w7"],
+        "nodes": ["w5", "w7"],
         "start": ("w5", 8.0),
         "end": ("w7", None),
         "binding": ("w5", (8.0, 8.0, "obj5")),
@@ -940,14 +940,14 @@ def test_all_paths_to_bindings():
     assert len(forwards) == 1
     assert backwards[0].to_dict() == {
         "dist": 2.5,
-        "path": ["w3"],
+        "nodes": ["w3"],
         "start": ("w3", 3.0),
         "end": ("w3", 5.5),
         "binding": ("w3", (1.0, 3.0, "obj31")),
     }
     assert forwards[0].to_dict() == {
         "dist": 3.5,
-        "path": ["w3"],
+        "nodes": ["w3"],
         "start": ("w3", 5.5),
         "end": ("w3", 9.0),
         "binding": ("w3", (9.0, 10.0, "obj33")),
@@ -961,7 +961,7 @@ def test_all_paths_to_bindings():
     assert len(forwards) == 1
     assert forwards[0].to_dict() == {
         "dist": 6.0,
-        "path": ["w4", "w6", "w7"],
+        "nodes": ["w4", "w6", "w7"],
         "start": ("w4", None),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj7")),
@@ -969,7 +969,7 @@ def test_all_paths_to_bindings():
     assert len(backwards) == 1
     assert backwards[0].to_dict() == {
         "dist": 0.0,
-        "path": ["w3", "w4"],
+        "nodes": ["w3", "w4"],
         "start": ("w3", 10.0),
         "end": ("w4", None),
         "binding": ("w3", (9.0, 10.0, "obj33")),
@@ -984,7 +984,7 @@ def test_all_paths_to_bindings():
     assert len(forwards) == 1
     assert forwards[0].to_dict() == {
         "dist": 2.0,
-        "path": ["w7"],
+        "nodes": ["w7"],
         "start": ("w7", 1.0),
         "end": ("w7", 3.0),
         "binding": ("w7", (3.0, 4.0, "obj7")),
@@ -992,14 +992,14 @@ def test_all_paths_to_bindings():
     assert len(backwards) == 2
     assert backwards[0].to_dict() == {
         "dist": 24.0,
-        "path": ["w3", "w4", "w6", "w7"],
+        "nodes": ["w3", "w4", "w6", "w7"],
         "start": ("w3", 10.0),
         "end": ("w7", 1.0),
         "binding": ("w3", (9.0, 10.0, "obj33")),
     }
     assert backwards[1].to_dict() == {
         "dist": 37.0,
-        "path": ["w1", "w2", "w5", "w7"],
+        "nodes": ["w1", "w2", "w5", "w7"],
         "start": ("w1", 4.0),
         "end": ("w7", 1.0),
         "binding": ("w1", (4.0, 4.0, "obj1")),
