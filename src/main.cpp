@@ -127,6 +127,7 @@ struct Route
     std::vector<int64_t> path;
     std::optional<double> start_offset;
     std::optional<double> end_offset;
+    std::optional<Binding> binding;
 
     void round(double scale)
     {
@@ -547,6 +548,9 @@ struct DiGraph
         int direction = 0, // 0 -> forwards/backwards, 1->forwards, -1:backwards
         const Sinks *sinks = nullptr) const
     {
+        if (bindings.graph != this) {
+            return {};
+        }
         if (cutoff < 0) {
             return {};
         }
@@ -568,6 +572,14 @@ struct DiGraph
             backward_route =
                 __shortest_path_to_bindings(*src_idx, offset, length->second,
                                             cutoff, bindings, sinks, true);
+        }
+        if (round_scale_) {
+            if (forward_route) {
+                forward_route->round(*round_scale_);
+            }
+            if (backward_route) {
+                backward_route->round(*round_scale_);
+            }
         }
         return std::make_tuple(backward_route, forward_route);
     }
@@ -833,7 +845,41 @@ struct DiGraph
                                 bool reverse = false          //
     ) const
     {
-        // shit
+        auto &node2bindings = bindings.node2bindings;
+        if (source_offset) {
+            // may stop at source node
+            auto itr = node2bindings.find(source);
+            if (itr != node2bindings.end()) {
+                if (!reverse) {
+                    for (auto &t : itr->second) {
+                        if (std::get<0>(t) >= *source_offset) {
+                            auto route = Route(this);
+                            route.dist = std::get<0>(t) - *source_offset;
+                            route.path = {source};
+                            route.start_offset = source_offset;
+                            route.end_offset = std::get<0>(t);
+                            route.binding = t;
+                            return route;
+                        }
+                    }
+                } else {
+                    for (auto it = itr->second.rbegin();
+                         it != itr->second.rend(); ++it) {
+                        auto &t = *it;
+                        if (std::get<1>(t) <= *source_offset) {
+                            auto route = Route(this);
+                            route.dist = *source_offset - std::get<1>(t);
+                            route.path = {source};
+                            route.start_offset = std::get<1>(t);
+                            route.end_offset = source_offset;
+                            route.binding = t;
+                            return route;
+                        }
+                    }
+                }
+            }
+        }
+
         return {};
     }
 
@@ -1119,6 +1165,8 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.path.back()),
                                        self.end_offset);
             })
+        .def_property_readonly("binding",
+                               [](const Route &self) { return self.binding; })
         .def("through_sinks", &Route::through_sinks, "sinks"_a)
         .def("through_bindings", &Route::through_bindings, "bindings"_a)
         .def("through_jumps",
