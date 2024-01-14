@@ -11,7 +11,6 @@ from ._core import (
     __doc__,
     __version__,
     add,
-    rapidjson,
     subtract,
 )
 
@@ -41,7 +40,6 @@ __all__ = [
     "__version__",
     "add",
     "subtract",
-    "rapidjson",
     "Node",
     "Edge",
     "Route",

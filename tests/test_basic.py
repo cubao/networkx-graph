@@ -5,7 +5,7 @@ import json
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Route, rapidjson
+from networkx_graph import DiGraph, Node, Route
 
 
 def test_version():
@@ -35,27 +35,6 @@ def test_networkx():
     # G.edges[k]['path]
     print()
     """
-
-
-def test_rapidjson():
-    j = rapidjson()
-    assert j.dumps() == "null"
-    assert json.dumps(None) == "null"
-    j = rapidjson({})
-    assert j.dumps() == "{}"
-    j = rapidjson([])
-    assert j.dumps() == "[]"
-    assert rapidjson(5).dumps() == "5"
-    assert rapidjson(3.14).dumps() == "3.14"
-    assert rapidjson("text").dumps() == '"text"'
-    for text in [
-        "3.14",
-        "5",
-        '"text"',
-        '{"key": "value"}',
-        '["list", "items"]',
-    ]:
-        assert rapidjson().loads(text)() == json.loads(text)
 
 
 def test_digraph_networkx():
