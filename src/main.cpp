@@ -1724,4 +1724,3 @@ PYBIND11_MODULE(_core, m)
     m.attr("__version__") = "dev";
 #endif
 }
-
