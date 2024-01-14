@@ -1165,7 +1165,51 @@ struct DiGraph
                            const Sinks *sinks = nullptr, //
                            bool reverse = false) const
     {
-        //
+        auto &node2bindings = bindings.node2bindings;
+        if (source_offset) {
+            // may stop at source node
+            auto itr = node2bindings.find(source);
+            if (itr != node2bindings.end()) {
+                std::optional<Route> route;
+                if (!reverse) {
+                    for (auto &t : itr->second) {
+                        if (std::get<0>(t) >= *source_offset) {
+                            route = Route(this);
+                            route->dist = std::get<0>(t) - *source_offset;
+                            route->path = {source};
+                            route->start_offset = source_offset;
+                            route->end_offset = std::get<0>(t);
+                            route->binding = std::make_tuple(source, t);
+                            break;
+                        }
+                    }
+                } else {
+                    for (auto it = itr->second.rbegin();
+                         it != itr->second.rend(); ++it) {
+                        auto &t = *it;
+                        if (std::get<1>(t) <= *source_offset) {
+                            route = Route(this);
+                            route->dist = *source_offset - std::get<1>(t);
+                            route->path = {source};
+                            route->start_offset = std::get<1>(t);
+                            route->end_offset = source_offset;
+                            route->binding = std::make_tuple(source, t);
+                            break;
+                        }
+                    }
+                }
+                if (route) {
+                    if (route->dist <= cutoff) {
+                        return {std::move(*route)};
+                    } else {
+                        return {};
+                    }
+                }
+            }
+        }
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
         return {};
     }
 };
