@@ -215,6 +215,9 @@ struct DiGraph
 
     Node &add_node(const std::string &id, double length = 1.0)
     {
+        if (freezed_) {
+            throw std::logic_error("DiGraph already freezed!");
+        }
         reset();
         if (round_scale_) {
             length = ROUND(length, *round_scale_);
@@ -227,6 +230,9 @@ struct DiGraph
     }
     Edge &add_edge(const std::string &node0, const std::string &node1)
     {
+        if (freezed_) {
+            throw std::logic_error("DiGraph already freezed!");
+        }
         reset();
         auto idx0 = indexer_.id(node0);
         auto idx1 = indexer_.id(node1);
@@ -615,14 +621,50 @@ struct DiGraph
         return std::make_tuple(backward_dist, forward_dist);
     }
 
-    std::tuple<std::vector<Route>, std::vector<Route>> all_paths_onto_bindings(
-        const std::string &source, double cutoff, const Bindings &bindings,
-        std::optional<double> offset = {}, int direction = 0,
-        const Sinks *sinks = nullptr) const
+    std::tuple<std::vector<Route>, std::vector<Route>>
+    all_paths_to_bindings(const std::string &source,         //
+                          double cutoff,                     //
+                          const Bindings &bindings,          //
+                          std::optional<double> offset = {}, //
+                          int direction = 0,                 //
+                          const Sinks *sinks = nullptr) const
     {
+        if (bindings.graph != this) {
+            return {};
+        }
+        if (cutoff < 0) {
+            return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto length = lengths_.find(*src_idx);
+        if (length == lengths_.end()) {
+            return {};
+        }
         std::vector<Route> forwards;
+        if (direction >= 0) {
+            forwards = __all_path_to_bindings(*src_idx, offset, length->second,
+                                              cutoff, bindings, sinks);
+        }
         std::vector<Route> backwards;
-        return std::make_tuple(forwards, backwards);
+        if (direction <= 0) {
+            backwards = __all_path_to_bindings(*src_idx, offset, length->second,
+                                               cutoff, bindings, sinks, true);
+        }
+        if (round_scale_) {
+            for (auto &r : forwards) {
+                r.round(*round_scale_);
+            }
+            for (auto &r : backwards) {
+                r.round(*round_scale_);
+            }
+        }
+        return std::make_tuple(backwards, forwards);
     }
 
     // TODO, batching
@@ -844,8 +886,7 @@ struct DiGraph
                                 double cutoff,                //
                                 const Bindings &bindings,     //
                                 const Sinks *sinks = nullptr, //
-                                bool reverse = false          //
-    ) const
+                                bool reverse = false) const
     {
         auto &node2bindings = bindings.node2bindings;
         if (source_offset) {
@@ -1113,6 +1154,19 @@ struct DiGraph
             routes.begin(), routes.end(),
             [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
+    }
+
+    std::vector<Route>
+    __all_path_to_bindings(int64_t source,                      //
+                           std::optional<double> source_offset, //
+                           double source_length,
+                           double cutoff,                //
+                           const Bindings &bindings,     //
+                           const Sinks *sinks = nullptr, //
+                           bool reverse = false) const
+    {
+        //
+        return {};
     }
 };
 } // namespace nano_fmm
@@ -1709,6 +1763,25 @@ PYBIND11_MODULE(_core, m)
              py::call_guard<py::gil_scoped_release>())
         // shortest path to bindings
         .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
+             "source"_a,                //
+             py::kw_only(),             //
+             "cutoff"_a,                //
+             "bindings"_a,              //
+             "offset"_a = std::nullopt, //
+             "direction"_a = 0,
+             "sinks"_a = nullptr, //
+             py::call_guard<py::gil_scoped_release>())
+        .def("distance_to_bindings", &DiGraph::distance_to_bindings,
+             "source"_a,                //
+             py::kw_only(),             //
+             "cutoff"_a,                //
+             "bindings"_a,              //
+             "offset"_a = std::nullopt, //
+             "direction"_a = 0,
+             "sinks"_a = nullptr, //
+             py::call_guard<py::gil_scoped_release>())
+        // all paths to bindings
+        .def("all_paths_to_bindings", &DiGraph::all_paths_to_bindings,
              "source"_a,                //
              py::kw_only(),             //
              "cutoff"_a,                //
