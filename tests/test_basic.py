@@ -780,4 +780,26 @@ def test_routing():
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
 
 
-test_all_routes()
+def test_shortest_path_to_bindings():
+    G = graph1()
+    bindings = G.encode_bindings(
+        {
+            "w3": [(1, 3, "obj1")],
+            "w7": [(3, 4, "obj2")],
+        }
+    )
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w1", cutoff=50.0, bindings=bindings
+    )
+    assert backwards is None
+    assert forwards.to_dict() == {
+        "dist": 1.0,
+        "path": ["w1", "w3"],
+        "start": ("w1", None),
+        "end": ("w3", 1.0),
+    }
+
+    print()
+
+
+test_shortest_path_to_bindings()

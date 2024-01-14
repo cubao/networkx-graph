@@ -127,7 +127,7 @@ struct Route
     std::vector<int64_t> path;
     std::optional<double> start_offset;
     std::optional<double> end_offset;
-    std::optional<Binding> binding;
+    std::optional<std::tuple<int64_t, Binding>> binding;
 
     void round(double scale)
     {
@@ -859,7 +859,7 @@ struct DiGraph
                             route->path = {source};
                             route->start_offset = source_offset;
                             route->end_offset = std::get<0>(t);
-                            route->binding = t;
+                            route->binding = std::make_tuple(source, t);
                             break;
                         }
                     }
@@ -873,7 +873,7 @@ struct DiGraph
                             route->path = {source};
                             route->start_offset = std::get<1>(t);
                             route->end_offset = source_offset;
-                            route->binding = t;
+                            route->binding = std::make_tuple(source, t);
                             break;
                         }
                     }
@@ -925,7 +925,9 @@ struct DiGraph
                         route = Route(this);
                         route->dist = node.value + c;
                         route->path = {u};
+                        route->start_offset = source_offset;
                         route->end_offset = c;
+                        route->binding = std::make_tuple(u, t);
                     }
                 } else {
                     auto &t = hits->second.back();
@@ -934,7 +936,9 @@ struct DiGraph
                         route = Route(this);
                         route->dist = node.value + (length - c);
                         route->path = {u};
+                        route->start_offset = source_offset;
                         route->end_offset = c;
+                        route->binding = std::make_tuple(u, t);
                     }
                 }
                 break;
@@ -977,7 +981,6 @@ struct DiGraph
         }
         path.push_back(target);
         std::reverse(path.begin(), path.end());
-        route->start_offset = source_offset;
         return route;
     }
 
@@ -1197,7 +1200,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Node &self) {
+             [](const Node &self) {
                  py::dict ret;
                  ret["length"] = self.length;
                  auto kv = py::cast(self).attr("__dict__");
@@ -1229,7 +1232,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Edge &self) {
+             [](const Edge &self) {
                  py::dict ret;
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
@@ -1315,7 +1318,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Route &self) {
+             [](const Route &self) {
                  py::dict ret;
                  ret["dist"] = self.dist;
                  py::list path;
@@ -1327,6 +1330,11 @@ PYBIND11_MODULE(_core, m)
                  ret["start"] = py::make_tuple(start, self.start_offset);
                  auto end = self.graph->__node_id(self.path.back());
                  ret["end"] = py::make_tuple(end, self.end_offset);
+                 if (self.binding) {
+                     ret["binding"] = std::make_tuple( //
+                         self.graph->__node_id(std::get<0>(*self.binding)),
+                         std::get<1>(*self.binding));
+                 }
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
                      ret[k] = kv[k];
