@@ -1220,14 +1220,13 @@ struct DiGraph
                 init_offset = source_length - *source_offset;
             }
         }
-        std::vector<Route> routes;
-        std::function<void(std::vector<int64_t> &, double)> backtrace;
-
         auto &jumps = reverse ? prevs_ : nexts_;
         auto itr = jumps.find(source);
         if (itr == jumps.end()) {
             return {};
         }
+        std::vector<Route> routes;
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
         backtrace = [&routes, source, source_offset, cutoff, reverse, &jumps,
                      &node2bindings, sinks, this,
                      &backtrace](std::vector<int64_t> &path, double length) {
@@ -1289,7 +1288,15 @@ struct DiGraph
         };
         auto path = std::vector<int64_t>{source};
         backtrace(path, init_offset);
-
+        if (reverse) {
+            for (auto &r : routes) {
+                std::reverse(r.path.begin(), r.path.end());
+                std::swap(r.start_offset, r.end_offset);
+            }
+        }
+        std::sort(
+            routes.begin(), routes.end(),
+            [](const auto &r1, const auto &r2) { return r1.dist < r2.dist; });
         return routes;
     }
 };

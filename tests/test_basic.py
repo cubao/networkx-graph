@@ -952,3 +952,55 @@ def test_all_paths_to_bindings():
         "end": ("w3", 9.0),
         "binding": ("w3", (9.0, 10.0, "obj33")),
     }
+
+    backwards, forwards = G.all_paths_to_bindings(
+        "w4",
+        cutoff=30,
+        bindings=bindings,
+    )
+    assert len(forwards) == 1
+    assert forwards[0].to_dict() == {
+        "dist": 6.0,
+        "path": ["w4", "w6", "w7"],
+        "start": ("w4", None),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj7")),
+    }
+    assert len(backwards) == 1
+    assert backwards[0].to_dict() == {
+        "dist": 0.0,
+        "path": ["w3", "w4"],
+        "start": ("w3", 10.0),
+        "end": ("w4", None),
+        "binding": ("w3", (9.0, 10.0, "obj33")),
+    }
+
+    backwards, forwards = G.all_paths_to_bindings(
+        "w7",
+        cutoff=80,
+        offset=1.0,
+        bindings=bindings,
+    )
+    assert len(forwards) == 1
+    assert forwards[0].to_dict() == {
+        "dist": 2.0,
+        "path": ["w7"],
+        "start": ("w7", 1.0),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj7")),
+    }
+    assert len(backwards) == 2
+    assert backwards[0].to_dict() == {
+        "dist": 24.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 10.0),
+        "end": ("w7", 1.0),
+        "binding": ("w3", (9.0, 10.0, "obj33")),
+    }
+    assert backwards[1].to_dict() == {
+        "dist": 37.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 4.0),
+        "end": ("w7", 1.0),
+        "binding": ("w1", (4.0, 4.0, "obj1")),
+    }
