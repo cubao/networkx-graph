@@ -931,7 +931,7 @@ def test_all_paths_to_bindings():
         }
     )
     backwards, forwards = G.all_paths_to_bindings(
-        "w3", cutoff=30, offset=5.5, bindings=bindings
+        "w3", cutoff=30, offset=5.5, bindings=bindings,
     )
     assert len(backwards) == 1
     assert len(forwards) == 1

@@ -402,16 +402,12 @@ struct DiGraph
         }
         auto &pmap = shortest_path.prevs;
         auto &dmap = shortest_path.dists;
-        const unordered_set<int64_t> *sinks_nodes = nullptr;
-        if (sinks) {
-            sinks_nodes = &sinks->nodes;
-        }
         double init_offset =
             !offset ? 0.0
                     : (reverse ? std::max(0.0, *offset)
                                : std::max(0.0, length->second - *offset));
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
-                               pmap, dmap, sinks_nodes, init_offset);
+                               pmap, dmap, sinks, init_offset);
         return shortest_path;
     }
 
@@ -750,8 +746,7 @@ struct DiGraph
         int64_t start, double cutoff, //
         const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
         unordered_map<int64_t, int64_t> &pmap,
-        unordered_map<int64_t, double> &dmap,
-        const unordered_set<int64_t> *sinks = nullptr,
+        unordered_map<int64_t, double> &dmap, const Sinks *sinks = nullptr,
         double init_offset = 0.0) const
     {
         // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L234-L274
@@ -765,7 +760,7 @@ struct DiGraph
         }
         Heap Q;
         Q.push(start, 0.0);
-        if (!sinks || !sinks->count(start)) {
+        if (!sinks || !sinks->nodes.count(start)) {
             for (auto next : itr->second) {
                 Q.push(next, init_offset);
                 pmap.insert({next, start});
@@ -779,7 +774,7 @@ struct DiGraph
                 break;
             }
             auto u = node.index;
-            if (sinks && sinks->count(u)) {
+            if (sinks && sinks->nodes.count(u)) {
                 continue;
             }
             auto itr = jumps.find(u);
@@ -1210,6 +1205,64 @@ struct DiGraph
         if (sinks && sinks->nodes.count(source)) {
             return {};
         }
+        double init_offset = 0.0;
+        if (source_offset) {
+            source_offset = CLIP(0.0, *source_offset, source_length);
+            if (reverse) {
+                if (*source_offset > cutoff) {
+                    return {};
+                }
+                init_offset = *source_offset;
+            } else {
+                if (source_length - *source_offset > cutoff) {
+                    return {};
+                }
+                init_offset = source_length - *source_offset;
+            }
+        }
+        std::vector<Route> routes;
+        std::function<void(std::vector<int64_t> &, double)> backtrace;
+
+        auto &jumps = reverse ? prevs_ : nexts_;
+        auto itr = jumps.find(source);
+        if (itr == jumps.end()) {
+            return {};
+        }
+        backtrace = [&routes, cutoff, &jumps, sinks, this,
+                     &backtrace](std::vector<int64_t> &path, double length) {
+            if (length > cutoff) {
+                return;
+            }
+            auto tail = path.back();
+            if (path.size() > 1) {
+                double new_length = length + this->lengths_.at(tail);
+                if (new_length > cutoff) {
+                    routes.push_back(
+                        Route(this, cutoff, path, {}, cutoff - length));
+                    return;
+                }
+                length = new_length;
+            }
+            // check bindings on tail
+            // TODO
+
+            auto itr = jumps.find(tail);
+            if (itr == jumps.end() || itr->second.empty() ||
+                (sinks && sinks->nodes.count(tail))) {
+                return;
+            }
+            for (auto next : itr->second) {
+                if (std::find(path.begin(), path.end(), next) != path.end()) {
+                    continue;
+                }
+                path.push_back(next);
+                backtrace(path, length);
+                path.pop_back();
+            }
+        };
+        auto path = std::vector<int64_t>{source};
+        backtrace(path, init_offset);
+
         return {};
     }
 };
