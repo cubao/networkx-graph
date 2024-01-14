@@ -742,10 +742,11 @@ struct DiGraph
     }
 
     void single_source_dijkstra(
-        int64_t start, double cutoff, //
-        const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
-        unordered_map<int64_t, int64_t> &pmap,
-        unordered_map<int64_t, double> &dmap, const Sinks *sinks = nullptr,
+        int64_t start, double cutoff,                                //
+        const unordered_map<int64_t, unordered_set<int64_t>> &jumps, //
+        unordered_map<int64_t, int64_t> &pmap,                       //
+        unordered_map<int64_t, double> &dmap,                        //
+        const Sinks *sinks = nullptr,                                //
         double init_offset = 0.0) const
     {
         // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L234-L274
