@@ -895,11 +895,17 @@ struct DiGraph
         unordered_map<int64_t, double> dmap;
         Heap Q;
         Q.push(source, 0.0);
-        for (auto next : itr->second) {
-            Q.push(next, 0.0);
-            pmap.insert({next, source});
-            dmap.insert({next, 0.0});
+        double init_offset = 0.0;
+        if (source_offset) {
+            init_offset =
+                reverse ? *source_offset : source_length - *source_offset;
         }
+        for (auto next : itr->second) {
+            Q.push(next, init_offset);
+            pmap.insert({next, source});
+            dmap.insert({next, init_offset});
+        }
+        std::optional<Route> route;
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
@@ -907,6 +913,32 @@ struct DiGraph
                 break;
             }
             auto u = node.index;
+            auto hits = node2bindings.find(u);
+            if (hits != node2bindings.end() && !hits->second.empty()) {
+                // check bindings
+                auto &t = reverse ? hits->second.back() : hits->second.front();
+                double length = lengths_.at(u);
+                if (!reverse) {
+                    auto &t = hits->second.front();
+                    auto c = CLIP(0.0, std::get<0>(t), length);
+                    if (node.value + c <= cutoff) {
+                        route = Route(this);
+                        route->dist = node.value + c;
+                        route->path = {u};
+                        route->end_offset = c;
+                    }
+                } else {
+                    auto &t = hits->second.back();
+                    auto c = CLIP(0.0, std::get<1>(t), length);
+                    if (node.value + (length - c) <= cutoff) {
+                        route = Route(this);
+                        route->dist = node.value + (length - c);
+                        route->path = {u};
+                        route->end_offset = c;
+                    }
+                }
+                break;
+            }
             if (sinks && sinks->nodes.count(u)) {
                 continue;
             }
@@ -933,7 +965,20 @@ struct DiGraph
                 }
             }
         }
-        return {};
+        if (!route) {
+            return {};
+        }
+        auto &path = route->path;
+        int64_t target = route->path.back();
+        path.clear();
+        while (target != source) {
+            path.push_back(target);
+            target = pmap.at(target);
+        }
+        path.push_back(target);
+        std::reverse(path.begin(), path.end());
+        route->start_offset = source_offset;
+        return route;
     }
 
     std::vector<Route>
@@ -1584,7 +1629,7 @@ PYBIND11_MODULE(_core, m)
         //
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
-        //
+        // shortest routes
         .def(
             "shortest_route",
             [](const DiGraph &self,
@@ -1631,6 +1676,7 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
+        // all routes
         .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
              py::kw_only(),             //
              "cutoff"_a,                //
@@ -1652,6 +1698,16 @@ PYBIND11_MODULE(_core, m)
              "source_offset"_a = std::nullopt, //
              "target_offset"_a = std::nullopt, //
              "sinks"_a = nullptr,              //
+             py::call_guard<py::gil_scoped_release>())
+        // shortest path to bindings
+        .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
+             "source"_a,                       //
+             py::kw_only(),                    //
+             "cutoff"_a,                       //
+             "bindings"_a,                     //
+             "source_offset"_a = std::nullopt, //
+             "direction"_a = 0,
+             "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
         //
         ;
