@@ -547,8 +547,29 @@ struct DiGraph
         int direction = 0, // 0 -> forwards/backwards, 1->forwards, -1:backwards
         const Sinks *sinks = nullptr) const
     {
-        std::tuple<std::optional<Route>, std::optional<Route>> ret;
-        return ret;
+        if (cutoff < 0) {
+            return {};
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto length = lengths_.find(*src_idx);
+        if (length == lengths_.end()) {
+            return {};
+        }
+        std::optional<Route> forward_route;
+        if (direction >= 0) {
+            forward_route = __shortest_path_to_bindings(
+                *src_idx, offset, length->second, cutoff, bindings, sinks);
+        }
+        std::optional<Route> backward_route;
+        if (direction <= 0) {
+            backward_route =
+                __shortest_path_to_bindings(*src_idx, offset, length->second,
+                                            cutoff, bindings, sinks, true);
+        }
+        return std::make_tuple(backward_route, forward_route);
     }
     std::tuple<std::optional<double>, std::optional<double>>
     distance_to_bindings(const std::string &source,         //
@@ -570,11 +591,10 @@ struct DiGraph
         return std::make_tuple(backward_dist, forward_dist);
     }
 
-    std::tuple<std::vector<Route>, std::vector<Route>>
-    all_path_onto_bindings(const std::string &source, double cutoff,
-                           const Bindings &bindings,
-                           std::optional<double> offset = {}, int direction = 0,
-                           const Sinks *sinks = nullptr) const
+    std::tuple<std::vector<Route>, std::vector<Route>> all_paths_onto_bindings(
+        const std::string &source, double cutoff, const Bindings &bindings,
+        std::optional<double> offset = {}, int direction = 0,
+        const Sinks *sinks = nullptr) const
     {
         // TODO, routing
     }
@@ -801,6 +821,20 @@ struct DiGraph
         route.path.push_back(target);
         std::reverse(route.path.begin(), route.path.end());
         return route;
+    }
+
+    std::optional<Route>
+    __shortest_path_to_bindings(int64_t source,
+                                std::optional<double> source_offset,
+                                double source_length,
+                                double cutoff,                //
+                                const Bindings &bindings,     //
+                                const Sinks *sinks = nullptr, //
+                                bool reverse = false          //
+    ) const
+    {
+        // shit
+        return {};
     }
 
     std::vector<Route>
