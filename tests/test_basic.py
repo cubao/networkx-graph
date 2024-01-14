@@ -1,11 +1,9 @@
 from __future__ import annotations
 
-import json
-
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Route, rapidjson
+from networkx_graph import DiGraph, Node, Route
 
 
 def test_version():
@@ -35,27 +33,6 @@ def test_networkx():
     # G.edges[k]['path]
     print()
     """
-
-
-def test_rapidjson():
-    j = rapidjson()
-    assert j.dumps() == "null"
-    assert json.dumps(None) == "null"
-    j = rapidjson({})
-    assert j.dumps() == "{}"
-    j = rapidjson([])
-    assert j.dumps() == "[]"
-    assert rapidjson(5).dumps() == "5"
-    assert rapidjson(3.14).dumps() == "3.14"
-    assert rapidjson("text").dumps() == '"text"'
-    for text in [
-        "3.14",
-        "5",
-        '"text"',
-        '{"key": "value"}',
-        '["list", "items"]',
-    ]:
-        assert rapidjson().loads(text)() == json.loads(text)
 
 
 def test_digraph_networkx():
@@ -244,6 +221,52 @@ def test_digraph_shortest_paths():
         dists[:-1] == G.shortest_routes_to("w7", cutoff=17.0, offset=3.0).destinations()
     )
 
+    path = G.shortest_route("w1", "w7", cutoff=37.0, source_offset=3.0)
+    assert path is not None
+    assert path.to_dict() == {
+        "dist": 37.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", None),
+    }
+    path = G.shortest_route("w1", "w7", cutoff=37.0 - 1e-3, source_offset=3.0)
+    assert path is None
+    path = G.shortest_route("w1", "w7", cutoff=30.0)
+    assert path is not None
+    assert path.to_dict() == {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    path = G.shortest_route("w1", "w7", cutoff=30.0 - 1e-3)
+    assert path is None
+
+    path = G.shortest_route("w1", "w7", cutoff=33, source_offset=9, target_offset=1)
+    assert path.to_dict() == {
+        "dist": 32.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 9.0),
+        "end": ("w7", 1.0),
+    }
+
+    path = G.shortest_route("w1", "w7", cutoff=40.0)
+    assert path.path == ["w1", "w2", "w5", "w7"]
+    assert path.to_dict() == {
+        "dist": 30.0,
+        "path": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+    # take a detour
+    path = G.shortest_route("w1", "w7", cutoff=40.0, sinks=G.encode_sinks({"w5"}))
+    assert path.to_dict() == {
+        "dist": 33.0,
+        "path": ["w1", "w3", "w4", "w6", "w7"],
+        "start": ("w1", None),
+        "end": ("w7", None),
+    }
+
 
 def all_routes_from(G, start, cutoff):
     """python implementation"""
@@ -306,6 +329,22 @@ def test_all_routes_from():
             "path": ["w1", "w3", "w4"],
             "start": ("w1", None),
             "end": ("w4", 0.0),
+        },
+    ]
+    routes = G.all_routes_from("w1", cutoff=10.0, sinks=G.encode_sinks({"w3"}))
+    routes = [r.to_dict() for r in routes]
+    assert routes == [
+        {
+            "dist": 10.0,
+            "path": ["w1", "w2"],
+            "start": ("w1", None),
+            "end": ("w2", 10.0),
+        },
+        {
+            "dist": 10.0,
+            "path": ["w1", "w3"],
+            "start": ("w1", None),
+            "end": ("w3", 10.0),
         },
     ]
 
@@ -494,6 +533,17 @@ def test_all_routes():
         "end": ("w7", 4.0),
     }
     assert routes in ([r1, r2], [r2, r1])
+
+    routes = G.all_routes(
+        "w1",
+        "w7",
+        cutoff=80,
+        source_offset=3.0,
+        target_offset=4.0,
+        sinks=G.encode_sinks({"w4"}),
+    )
+    assert len(routes) == 1
+    assert routes[0].to_dict() == r1
 
 
 def test_routing():
@@ -705,3 +755,167 @@ def test_routing():
     destinations = [r.end for r in path_generator.routes()]
     assert ("w7", 10.0) in destinations
     assert ("w5", 15.0) in destinations or ("w4", 20.0) in destinations
+
+
+def test_shortest_path_to_bindings():
+    G = graph1()
+    obj1 = {}
+    bindings = G.encode_bindings(
+        {
+            "w3": [(1, 3, obj1)],
+            "w7": [(3, 4, "obj2")],
+        }
+    )
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w1",
+        cutoff=50.0,
+        bindings=bindings,
+    )
+    assert backwards is None
+    forwards = forwards.to_dict()
+    assert forwards == {
+        "dist": 1.0,
+        "path": ["w1", "w3"],
+        "start": ("w1", None),
+        "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, obj1)),
+    }
+    forwards["binding"][-1][-1]["key"] = "value"
+    assert obj1 == {"key": "value"}
+
+    _, forwards2 = G.shortest_path_to_bindings(
+        "w1", cutoff=50.0, bindings=bindings, sinks=G.encode_sinks({"w3"})
+    )
+    assert forwards2.to_dict() == forwards
+    _, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+    )
+    assert forwards.to_dict() == {
+        "dist": 26.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", None),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
+
+    _, forwards = G.shortest_path_to_bindings(
+        "w3", cutoff=50.0, bindings=bindings, offset=1.0
+    )
+    assert forwards.to_dict() == {
+        "dist": 0.0,
+        "path": ["w3"],
+        "start": ("w3", 1.0),
+        "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+
+    _, forwards = G.shortest_path_to_bindings(
+        "w3", cutoff=50.0, bindings=bindings, offset=1.0 + 1e-8
+    )
+    assert forwards.to_dict() == {
+        "dist": 35.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 1.0),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards.to_dict() == {
+        "dist": 2.0,
+        "path": ["w3"],
+        "start": ("w3", 3.0),
+        "end": ("w3", 5.0),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+    assert forwards.to_dict() == {
+        "dist": 31.0,
+        "path": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 5.0),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+        direction=1,  # forwards
+    )
+    assert backwards is None
+    assert forwards is not None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=50.0,
+        bindings=bindings,
+        offset=5.0,
+        direction=-1,  # backwards
+    )
+    assert backwards is not None
+    assert forwards is None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=2.0,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards is not None
+    assert forwards is None
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w3",
+        cutoff=2.0 - 1e-3,
+        bindings=bindings,
+        offset=5.0,
+    )
+    assert backwards is None
+    assert forwards is None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w4",
+        cutoff=30,
+        bindings=bindings,
+    )
+    assert forwards.to_dict() == {
+        "dist": 6.0,
+        "path": ["w4", "w6", "w7"],
+        "start": ("w4", None),
+        "end": ("w7", 3.0),
+        "binding": ("w7", (3.0, 4.0, "obj2")),
+    }
+    assert backwards.to_dict() == {
+        "dist": 7.0,
+        "path": ["w3", "w4"],
+        "start": ("w3", 3.0),
+        "end": ("w4", None),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w7",
+        cutoff=30,
+        bindings=G.encode_bindings(
+            {
+                "w3": [(3, 8, "obj3")],
+                "w2": [(2, 3, "obj4")],
+                "w5": [(8, 8, "obj5")],
+            }
+        ),
+    )
+    assert forwards is None
+    assert backwards.to_dict() == {
+        "dist": 7.0,
+        "path": ["w5", "w7"],
+        "start": ("w5", 8.0),
+        "end": ("w7", None),
+        "binding": ("w5", (8.0, 8.0, "obj5")),
+    }

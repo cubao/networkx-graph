@@ -7,12 +7,6 @@
 #include <iostream>
 #include <set>
 
-#include "rapidjson/error/en.h"
-#include "rapidjson/filereadstream.h"
-#include "rapidjson/filewritestream.h"
-#include "rapidjson/prettywriter.h"
-#include "rapidjson/stringbuffer.h"
-
 #define DBG_MACRO_NO_WARNING
 #include "dbg.h"
 
@@ -97,7 +91,7 @@ inline double CLIP(double low, double v, double high)
 
 struct Sinks
 {
-    // you stop at (on) sinks, not passing through
+    // you stop at (on) sinks, no passing through
     const DiGraph *graph{nullptr};
     unordered_set<int64_t> nodes;
 };
@@ -127,6 +121,7 @@ struct Route
     std::vector<int64_t> path;
     std::optional<double> start_offset;
     std::optional<double> end_offset;
+    std::optional<std::tuple<int64_t, Binding>> binding;
 
     void round(double scale)
     {
@@ -146,6 +141,7 @@ struct Route
         }
         for (const auto &p : path) {
             if (sinks.nodes.count(p)) {
+                // TODO, accept p == nodes[-1]?
                 return true;
             }
         }
@@ -299,14 +295,75 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    std::optional<Route>
-    shortest_path(const std::string &source,           //
-                  const std::string &target,           //
-                  double cutoff,                       //
-                  std::optional<double> source_offset, //
-                  std::optional<double> target_offset) const
+    std::optional<Route> shortest_path(const std::string &source,           //
+                                       const std::string &target,           //
+                                       double cutoff,                       //
+                                       std::optional<double> source_offset, //
+                                       std::optional<double> target_offset,
+                                       const Sinks *sinks = nullptr) const
     {
-        return {};
+        if (cutoff < 0) {
+            return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto src_length = lengths_.find(*src_idx);
+        if (src_length == lengths_.end()) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto dst_length = lengths_.find(*dst_idx);
+        if (dst_length == lengths_.end()) {
+            return {};
+        }
+        if (source_offset) {
+            source_offset = CLIP(0.0, *source_offset, src_length->second);
+        }
+        if (target_offset) {
+            target_offset = CLIP(0.0, *target_offset, dst_length->second);
+        }
+        std::optional<Route> route;
+        if (*src_idx == *dst_idx) {
+            if (!source_offset || !target_offset) {
+                return {};
+            }
+            if (*target_offset - *source_offset > cutoff) {
+                return {};
+            }
+            double dist = *target_offset - *source_offset;
+            if (dist <= 0) {
+                return {};
+            }
+            route = Route(this, dist, std::vector<int64_t>{*src_idx},
+                          source_offset, target_offset);
+        } else {
+            double delta = 0.0;
+            if (source_offset) {
+                delta += src_length->second - *source_offset;
+            }
+            if (target_offset) {
+                delta += *target_offset;
+            }
+            cutoff -= delta;
+            route = __dijkstra(*src_idx, *dst_idx, cutoff, sinks);
+            if (route) {
+                route->dist += delta;
+                route->start_offset = source_offset;
+                route->end_offset = target_offset;
+            }
+        }
+        if (route && round_scale_) {
+            route->round(*round_scale_);
+        }
+        return route;
     }
 
     ShortestPathGenerator shortest_paths(const std::string &start,          //
@@ -317,6 +374,9 @@ struct DiGraph
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto start_idx = indexer_.get_id(start);
         if (!start_idx) {
@@ -350,16 +410,21 @@ struct DiGraph
     }
 
     std::vector<Route> all_routes_from(const std::string &source, double cutoff,
-                                       std::optional<double> offset = {}) const
+                                       std::optional<double> offset = {},
+                                       const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
             return {};
         }
-        auto routes = __all_routes(*src_idx, cutoff, offset, lengths_, nexts_);
+        auto routes =
+            __all_routes(*src_idx, cutoff, offset, lengths_, nexts_, sinks);
         if (round_scale_) {
             for (auto &r : routes) {
                 r.round(*round_scale_);
@@ -369,10 +434,14 @@ struct DiGraph
     }
 
     std::vector<Route> all_routes_to(const std::string &target, double cutoff,
-                                     std::optional<double> offset = {}) const
+                                     std::optional<double> offset = {},
+                                     const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto dst_idx = indexer_.get_id(target);
         if (!dst_idx) {
@@ -386,7 +455,8 @@ struct DiGraph
             offset = CLIP(0.0, *offset, length->second);
             offset = length->second - *offset;
         }
-        auto routes = __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_);
+        auto routes =
+            __all_routes(*dst_idx, cutoff, offset, lengths_, prevs_, sinks);
         for (auto &r : routes) {
             if (r.start_offset) {
                 r.start_offset = lengths_.at(r.path.front()) - *r.start_offset;
@@ -409,10 +479,14 @@ struct DiGraph
                                   const std::string &target,           //
                                   double cutoff,                       //
                                   std::optional<double> source_offset, //
-                                  std::optional<double> target_offset) const
+                                  std::optional<double> target_offset,
+                                  const Sinks *sinks = nullptr) const
     {
         if (cutoff < 0) {
             return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
         }
         auto src_idx = indexer_.get_id(source);
         if (!src_idx) {
@@ -445,7 +519,7 @@ struct DiGraph
                 return {};
             }
             double dist = *target_offset - *source_offset;
-            if (dist == 0) {
+            if (dist <= 0) {
                 return {};
             }
             routes.emplace_back(this, dist, std::vector<int64_t>{*src_idx},
@@ -459,7 +533,7 @@ struct DiGraph
                 delta += *target_offset;
             }
             cutoff -= delta;
-            routes = __all_routes(*src_idx, *dst_idx, cutoff);
+            routes = __all_routes(*src_idx, *dst_idx, cutoff, sinks);
             for (auto &r : routes) {
                 r.dist += delta;
                 r.start_offset = source_offset;
@@ -474,17 +548,84 @@ struct DiGraph
         return routes;
     }
 
-    DiGraph &from_rapidjson(const RapidjsonValue &json) { return *this; }
-    RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
+    std::tuple<std::optional<Route>, std::optional<Route>>
+    shortest_path_to_bindings(
+        const std::string &source,         //
+        double cutoff,                     //
+        const Bindings &bindings,          //
+        std::optional<double> offset = {}, //
+        int direction = 0, // 0 -> forwards/backwards, 1->forwards, -1:backwards
+        const Sinks *sinks = nullptr) const
     {
-        RapidjsonValue json(rapidjson::kObjectType);
-        return json;
+        if (bindings.graph != this) {
+            return {};
+        }
+        if (cutoff < 0) {
+            return {};
+        }
+        if (sinks && sinks->graph != this) {
+            sinks = nullptr;
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto length = lengths_.find(*src_idx);
+        if (length == lengths_.end()) {
+            return {};
+        }
+        std::optional<Route> forward_route;
+        if (direction >= 0) {
+            forward_route = __shortest_path_to_bindings(
+                *src_idx, offset, length->second, cutoff, bindings, sinks);
+        }
+        std::optional<Route> backward_route;
+        if (direction <= 0) {
+            backward_route =
+                __shortest_path_to_bindings(*src_idx, offset, length->second,
+                                            cutoff, bindings, sinks, true);
+        }
+        if (round_scale_) {
+            if (forward_route) {
+                forward_route->round(*round_scale_);
+            }
+            if (backward_route) {
+                backward_route->round(*round_scale_);
+            }
+        }
+        return std::make_tuple(backward_route, forward_route);
     }
-    RapidjsonValue to_rapidjson() const
+    std::tuple<std::optional<double>, std::optional<double>>
+    distance_to_bindings(const std::string &source,         //
+                         double cutoff,                     //
+                         const Bindings &bindings,          //
+                         std::optional<double> offset = {}, //
+                         int direction = 0, const Sinks *sinks = nullptr) const
     {
-        RapidjsonAllocator allocator;
-        return to_rapidjson(allocator);
+        auto [backwards, forwards] = shortest_path_to_bindings(
+            source, cutoff, bindings, offset, direction, sinks);
+        std::optional<double> backward_dist;
+        std::optional<double> forward_dist;
+        if (backwards) {
+            backward_dist = backwards->dist;
+        }
+        if (forwards) {
+            forward_dist = forwards->dist;
+        }
+        return std::make_tuple(backward_dist, forward_dist);
     }
+
+    std::tuple<std::vector<Route>, std::vector<Route>> all_paths_onto_bindings(
+        const std::string &source, double cutoff, const Bindings &bindings,
+        std::optional<double> offset = {}, int direction = 0,
+        const Sinks *sinks = nullptr) const
+    {
+        std::vector<Route> forwards;
+        std::vector<Route> backwards;
+        return std::make_tuple(forwards, backwards);
+    }
+
+    // TODO, batching
 
     void freeze() { freezed_ = true; }
     void build() const {}
@@ -571,6 +712,7 @@ struct DiGraph
         const unordered_set<int64_t> *sinks = nullptr,
         double init_offset = 0.0) const
     {
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L234-L274
         // https://github.com/cubao/nano-fmm/blob/37d2979503f03d0a2759fc5f110e2b812d963014/src/nano_fmm/network.cpp#L449C67-L449C72
         if (cutoff < init_offset) {
             return;
@@ -624,10 +766,236 @@ struct DiGraph
         dmap.erase(start);
     }
 
-    std::vector<Route> __all_routes(
-        int64_t source, double cutoff, std::optional<double> offset,
-        const unordered_map<int64_t, double> &lengths,
-        const unordered_map<int64_t, unordered_set<int64_t>> &jumps) const
+    std::optional<Route> __dijkstra(int64_t source, int64_t target,
+                                    double cutoff,
+                                    const Sinks *sinks = nullptr) const
+    {
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L54-L97
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto itr = nexts_.find(source);
+        if (itr == nexts_.end()) {
+            return {};
+        }
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (u == target) {
+                break;
+            }
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        Q.decrease_key(v, c);
+                    }
+                } else {
+                    if (c <= cutoff) {
+                        pmap.insert({v, u});
+                        dmap.insert({v, c});
+                        Q.push(v, c);
+                    }
+                }
+            }
+        }
+        if (!pmap.count(target)) {
+            return {};
+        }
+        auto route = Route(this);
+        route.dist = dmap.at(target);
+        while (target != source) {
+            route.path.push_back(target);
+            target = pmap.at(target);
+        }
+        route.path.push_back(target);
+        std::reverse(route.path.begin(), route.path.end());
+        return route;
+    }
+
+    std::optional<Route>
+    __shortest_path_to_bindings(int64_t source,
+                                std::optional<double> source_offset,
+                                double source_length,
+                                double cutoff,                //
+                                const Bindings &bindings,     //
+                                const Sinks *sinks = nullptr, //
+                                bool reverse = false          //
+    ) const
+    {
+        auto &node2bindings = bindings.node2bindings;
+        if (source_offset) {
+            // may stop at source node
+            auto itr = node2bindings.find(source);
+            if (itr != node2bindings.end()) {
+                std::optional<Route> route;
+                if (!reverse) {
+                    for (auto &t : itr->second) {
+                        if (std::get<0>(t) >= *source_offset) {
+                            route = Route(this);
+                            route->dist = std::get<0>(t) - *source_offset;
+                            route->path = {source};
+                            route->start_offset = source_offset;
+                            route->end_offset = std::get<0>(t);
+                            route->binding = std::make_tuple(source, t);
+                            break;
+                        }
+                    }
+                } else {
+                    for (auto it = itr->second.rbegin();
+                         it != itr->second.rend(); ++it) {
+                        auto &t = *it;
+                        if (std::get<1>(t) <= *source_offset) {
+                            route = Route(this);
+                            route->dist = *source_offset - std::get<1>(t);
+                            route->path = {source};
+                            route->start_offset = std::get<1>(t);
+                            route->end_offset = source_offset;
+                            route->binding = std::make_tuple(source, t);
+                            break;
+                        }
+                    }
+                }
+                if (route) {
+                    return route->dist <= cutoff ? route : std::nullopt;
+                }
+            }
+        }
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto &jumps = reverse ? prevs_ : nexts_;
+        auto itr = jumps.find(source);
+        if (itr == jumps.end()) {
+            return {};
+        }
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, 0.0);
+        double init_offset = 0.0;
+        if (source_offset) {
+            init_offset =
+                reverse ? *source_offset : source_length - *source_offset;
+        }
+        for (auto next : itr->second) {
+            Q.push(next, init_offset);
+            pmap.insert({next, source});
+            dmap.insert({next, init_offset});
+        }
+        std::optional<Route> route;
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            auto hits = node2bindings.find(u);
+            if (u != source && hits != node2bindings.end() &&
+                !hits->second.empty()) {
+                // check bindings
+                auto &t = reverse ? hits->second.back() : hits->second.front();
+                double length = lengths_.at(u);
+                if (!reverse) {
+                    auto &t = hits->second.front();
+                    auto c = CLIP(0.0, std::get<0>(t), length);
+                    if (node.value + c <= cutoff) {
+                        route = Route(this);
+                        route->dist = node.value + c;
+                        route->path = {u};
+                        route->start_offset = source_offset;
+                        route->end_offset = c;
+                        route->binding = std::make_tuple(u, t);
+                    }
+                } else {
+                    auto &t = hits->second.back();
+                    auto c = CLIP(0.0, std::get<1>(t), length);
+                    if (node.value + (length - c) <= cutoff) {
+                        route = Route(this);
+                        route->dist = node.value + (length - c);
+                        route->path = {u};
+                        route->start_offset = source_offset;
+                        route->end_offset = c;
+                        route->binding = std::make_tuple(u, t);
+                    }
+                }
+                break;
+            }
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        Q.decrease_key(v, c);
+                    }
+                } else {
+                    if (c <= cutoff) {
+                        pmap.insert({v, u});
+                        dmap.insert({v, c});
+                        Q.push(v, c);
+                    }
+                }
+            }
+        }
+        if (!route) {
+            return {};
+        }
+        auto &path = route->path;
+        int64_t target = route->path.back();
+        path.clear();
+        while (target != source) {
+            path.push_back(target);
+            target = pmap.at(target);
+        }
+        path.push_back(target);
+        if (!reverse) {
+            std::reverse(path.begin(), path.end());
+        } else {
+            std::swap(route->start_offset, route->end_offset);
+        }
+        return route;
+    }
+
+    std::vector<Route>
+    __all_routes(int64_t source, double cutoff, std::optional<double> offset,
+                 const unordered_map<int64_t, double> &lengths,
+                 const unordered_map<int64_t, unordered_set<int64_t>> &jumps,
+                 const Sinks *sinks = nullptr) const
     {
         auto length = lengths.find(source);
         if (length == lengths.end()) {
@@ -645,7 +1013,7 @@ struct DiGraph
         }
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, cutoff, &lengths, &jumps, this,
+        backtrace = [&routes, cutoff, &lengths, &jumps, sinks, this,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
@@ -661,7 +1029,8 @@ struct DiGraph
                 length = new_length;
             }
             auto itr = jumps.find(tail);
-            if (itr == jumps.end() || itr->second.empty()) {
+            if (itr == jumps.end() || itr->second.empty() ||
+                (sinks && sinks->nodes.count(tail))) {
                 routes.push_back(
                     Route(this, length, path, {}, this->lengths_.at(tail)));
                 return;
@@ -697,11 +1066,12 @@ struct DiGraph
     }
 
     std::vector<Route> __all_routes(int64_t source, int64_t target,
-                                    double cutoff) const
+                                    double cutoff,
+                                    const Sinks *sinks = nullptr) const
     {
         std::vector<Route> routes;
         std::function<void(std::vector<int64_t> &, double)> backtrace;
-        backtrace = [&routes, target, cutoff, this,
+        backtrace = [&routes, target, cutoff, this, sinks,
                      &backtrace](std::vector<int64_t> &path, double length) {
             if (length > cutoff) {
                 return;
@@ -722,7 +1092,8 @@ struct DiGraph
                 return;
             }
             auto itr = this->nexts_.find(tail);
-            if (itr == this->nexts_.end() || itr->second.empty()) {
+            if (itr == this->nexts_.end() || itr->second.empty() ||
+                (sinks && sinks->nodes.count(tail))) {
                 return;
             }
             const auto N = routes.size();
@@ -747,8 +1118,6 @@ struct DiGraph
 } // namespace nano_fmm
 
 using namespace nano_fmm;
-
-void bind_rapidjson(py::module &m);
 
 PYBIND11_MODULE(_core, m)
 {
@@ -778,8 +1147,6 @@ PYBIND11_MODULE(_core, m)
         Some other explanation about the subtract function.
     )pbdoc");
 
-    bind_rapidjson(m);
-
     py::class_<Indexer>(m, "Indexer", py::module_local()) //
         .def(py::init<>())
         .def("contains",
@@ -801,10 +1168,6 @@ PYBIND11_MODULE(_core, m)
              py::overload_cast<const std::string &, int64_t>(&Indexer::index),
              "str_id"_a, "int_id"_a)
         .def("index", py::overload_cast<>(&Indexer::index, py::const_))
-        //
-        .def("from_rapidjson", &Indexer::from_rapidjson, "json"_a)
-        .def("to_rapidjson",
-             py::overload_cast<>(&Indexer::to_rapidjson, py::const_))
         //
         ;
 
@@ -836,7 +1199,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Node &self) {
+             [](const Node &self) {
                  py::dict ret;
                  ret["length"] = self.length;
                  auto kv = py::cast(self).attr("__dict__");
@@ -868,7 +1231,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Edge &self) {
+             [](const Edge &self) {
                  py::dict ret;
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
@@ -902,8 +1265,18 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.path.back()),
                                        self.end_offset);
             })
+        .def_property_readonly("binding",
+                               [](const Route &self) { return self.binding; })
         .def("through_sinks", &Route::through_sinks, "sinks"_a)
-        .def("through_bindings", &Route::through_bindings, "sinks"_a)
+        .def("through_bindings", &Route::through_bindings, "bindings"_a)
+        .def("through_jumps",
+             [](const Route &r,
+                const std::unordered_map<std::string, std::vector<std::string>>
+                    &jumps) -> bool {
+                 // TODO, implement
+                 // maybe integrate into dijkstra(source,target)?
+                 return true;
+             })
         .def(
             "__getitem__",
             [](Route &self, const std::string &attr_name) -> py::object {
@@ -944,7 +1317,7 @@ PYBIND11_MODULE(_core, m)
                  return obj;
              })
         .def("to_dict",
-             [](Route &self) {
+             [](const Route &self) {
                  py::dict ret;
                  ret["dist"] = self.dist;
                  py::list path;
@@ -956,6 +1329,11 @@ PYBIND11_MODULE(_core, m)
                  ret["start"] = py::make_tuple(start, self.start_offset);
                  auto end = self.graph->__node_id(self.path.back());
                  ret["end"] = py::make_tuple(end, self.end_offset);
+                 if (self.binding) {
+                     ret["binding"] = std::make_tuple( //
+                         self.graph->__node_id(std::get<0>(*self.binding)),
+                         std::get<1>(*self.binding));
+                 }
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
                      ret[k] = kv[k];
@@ -1258,17 +1636,18 @@ PYBIND11_MODULE(_core, m)
         //
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
-        //
+        // shortest routes
         .def(
             "shortest_route",
             [](const DiGraph &self,
-               const std::string &source, //
-               const std::string &target, //
-               double cutoff,             //
-               std::optional<double> source_offset,
-               std::optional<double> target_offset) {
-                return self.shortest_path(source, target, cutoff, source_offset,
-                                          target_offset);
+               const std::string &source,           //
+               const std::string &target,           //
+               double cutoff,                       //
+               std::optional<double> source_offset, //
+               std::optional<double> target_offset, //
+               const Sinks *sinks) {
+                return self.shortest_path(source, target, cutoff, //
+                                          source_offset, target_offset, sinks);
             },
             "source"_a,                       //
             "target"_a,                       //
@@ -1276,6 +1655,7 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                       //
             "source_offset"_a = std::nullopt, //
             "target_offset"_a = std::nullopt, //
+            "sinks"_a = nullptr,              //
             py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_routes_from",
@@ -1303,16 +1683,20 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
-        .def("all_routes_from", &DiGraph::all_routes_from, "source"_a,
-             py::kw_only(),             //
-             "cutoff"_a,                //
-             "offset"_a = std::nullopt, //
+        // all routes
+        .def("all_routes_from", &DiGraph::all_routes_from, //
+             "source"_a,                                   //
+             py::kw_only(),                                //
+             "cutoff"_a,                                   //
+             "offset"_a = std::nullopt,                    //
+             "sinks"_a = nullptr,                          //
              py::call_guard<py::gil_scoped_release>())
         .def("all_routes_to", &DiGraph::all_routes_to, //
-             "target"_a,
-             py::kw_only(), //
-             "cutoff"_a,    //
+             "target"_a,                               //
+             py::kw_only(),                            //
+             "cutoff"_a,                               //
              "offset"_a = std::nullopt,
+             "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
         .def("all_routes", &DiGraph::all_routes,
              "source"_a,                       //
@@ -1321,6 +1705,17 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                       //
              "source_offset"_a = std::nullopt, //
              "target_offset"_a = std::nullopt, //
+             "sinks"_a = nullptr,              //
+             py::call_guard<py::gil_scoped_release>())
+        // shortest path to bindings
+        .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
+             "source"_a,                //
+             py::kw_only(),             //
+             "cutoff"_a,                //
+             "bindings"_a,              //
+             "offset"_a = std::nullopt, //
+             "direction"_a = 0,
+             "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
         //
         ;
@@ -1330,554 +1725,4 @@ PYBIND11_MODULE(_core, m)
 #else
     m.attr("__version__") = "dev";
 #endif
-}
-
-constexpr const auto RJFLAGS = rapidjson::kParseDefaultFlags |      //
-                               rapidjson::kParseCommentsFlag |      //
-                               rapidjson::kParseFullPrecisionFlag | //
-                               rapidjson::kParseTrailingCommasFlag;
-
-inline RapidjsonValue deepcopy(const RapidjsonValue &json,
-                               RapidjsonAllocator &allocator)
-{
-    RapidjsonValue copy;
-    copy.CopyFrom(json, allocator);
-    return copy;
-}
-inline RapidjsonValue deepcopy(const RapidjsonValue &json)
-{
-    RapidjsonAllocator allocator;
-    return deepcopy(json, allocator);
-}
-
-inline RapidjsonValue __py_int_to_rapidjson(const py::handle &obj)
-{
-    try {
-        auto num = obj.cast<int64_t>();
-        if (py::int_(num).equal(obj)) {
-            return RapidjsonValue(num);
-        }
-    } catch (...) {
-    }
-    try {
-        auto num = obj.cast<uint64_t>();
-        if (py::int_(num).equal(obj)) {
-            return RapidjsonValue(num);
-        }
-    } catch (...) {
-    }
-    throw std::runtime_error(
-        "failed to convert to rapidjson, invalid integer: " +
-        py::repr(obj).cast<std::string>());
-}
-
-inline RapidjsonValue to_rapidjson(const py::handle &obj,
-                                   RapidjsonAllocator &allocator)
-{
-    if (obj.ptr() == nullptr || obj.is_none()) {
-        return {};
-    }
-    if (py::isinstance<py::bool_>(obj)) {
-        return RapidjsonValue(obj.cast<bool>());
-    }
-    if (py::isinstance<py::int_>(obj)) {
-        return __py_int_to_rapidjson(obj);
-    }
-    if (py::isinstance<py::float_>(obj)) {
-        return RapidjsonValue(obj.cast<double>());
-    }
-    if (py::isinstance<py::bytes>(obj)) {
-        // https://github.com/pybind/pybind11_json/blob/master/include/pybind11_json/pybind11_json.hpp#L112
-        py::module base64 = py::module::import("base64");
-        auto str = base64.attr("b64encode")(obj)
-                       .attr("decode")("utf-8")
-                       .cast<std::string>();
-        return RapidjsonValue(str.data(), str.size(), allocator);
-    }
-    if (py::isinstance<py::str>(obj)) {
-        auto str = obj.cast<std::string>();
-        return RapidjsonValue(str.data(), str.size(), allocator);
-    }
-    if (py::isinstance<py::tuple>(obj) || py::isinstance<py::list>(obj)) {
-        RapidjsonValue arr(rapidjson::kArrayType);
-        for (const py::handle &value : obj) {
-            arr.PushBack(to_rapidjson(value, allocator), allocator);
-        }
-        return arr;
-    }
-    if (py::isinstance<py::dict>(obj)) {
-        RapidjsonValue kv(rapidjson::kObjectType);
-        for (const py::handle &key : obj) {
-            auto k = py::str(key).cast<std::string>();
-            kv.AddMember(RapidjsonValue(k.data(), k.size(), allocator),
-                         to_rapidjson(obj[key], allocator), allocator);
-        }
-        return kv;
-    }
-    if (py::isinstance<RapidjsonValue>(obj)) {
-        auto ptr = py::cast<const RapidjsonValue *>(obj);
-        return deepcopy(*ptr, allocator);
-    }
-    throw std::runtime_error(
-        "to_rapidjson not implemented for this type of object: " +
-        py::repr(obj).cast<std::string>());
-}
-
-inline RapidjsonValue to_rapidjson(const py::handle &obj)
-{
-    RapidjsonAllocator allocator;
-    return to_rapidjson(obj, allocator);
-}
-
-inline py::object to_python(const RapidjsonValue &j)
-{
-    if (j.IsNull()) {
-        return py::none();
-    } else if (j.IsBool()) {
-        return py::bool_(j.GetBool());
-    } else if (j.IsNumber()) {
-        if (j.IsUint64()) {
-            return py::int_(j.GetUint64());
-        } else if (j.IsInt64()) {
-            return py::int_(j.GetInt64());
-        } else {
-            return py::float_(j.GetDouble());
-        }
-    } else if (j.IsString()) {
-        return py::str(std::string{j.GetString(), j.GetStringLength()});
-    } else if (j.IsArray()) {
-        py::list ret;
-        for (const auto &e : j.GetArray()) {
-            ret.append(to_python(e));
-        }
-        return ret;
-    } else {
-        py::dict ret;
-        for (auto &m : j.GetObject()) {
-            ret[py::str(
-                std::string{m.name.GetString(), m.name.GetStringLength()})] =
-                to_python(m.value);
-        }
-        return ret;
-    }
-}
-
-inline void sort_keys_inplace(RapidjsonValue &json)
-{
-    if (json.IsArray()) {
-        for (auto &e : json.GetArray()) {
-            sort_keys_inplace(e);
-        }
-    } else if (json.IsObject()) {
-        auto obj = json.GetObject();
-        // https://rapidjson.docsforge.com/master/sortkeys.cpp/
-        std::sort(obj.MemberBegin(), obj.MemberEnd(), [](auto &lhs, auto &rhs) {
-            return strcmp(lhs.name.GetString(), rhs.name.GetString()) < 0;
-        });
-        for (auto &kv : obj) {
-            sort_keys_inplace(kv.value);
-        }
-    }
-}
-
-inline RapidjsonValue sort_keys(const RapidjsonValue &json)
-{
-    RapidjsonAllocator allocator;
-    RapidjsonValue copy;
-    copy.CopyFrom(json, allocator);
-    sort_keys_inplace(copy);
-    return copy;
-}
-
-inline RapidjsonValue load_json(const std::string &path)
-{
-    FILE *fp = fopen(path.c_str(), "rb");
-    if (!fp) {
-        throw std::runtime_error("can't open for reading: " + path);
-    }
-    char readBuffer[65536];
-    rapidjson::FileReadStream is(fp, readBuffer, sizeof(readBuffer));
-    RapidjsonDocument d;
-    d.ParseStream<RJFLAGS>(is);
-    fclose(fp);
-    return RapidjsonValue{std::move(d.Move())};
-}
-inline bool dump_json(const std::string &path, const RapidjsonValue &json,
-                      bool indent = false, bool _sort_keys = false)
-{
-    FILE *fp = fopen(path.c_str(), "wb");
-    if (!fp) {
-        std::cerr << "can't open for writing: " + path << std::endl;
-        return false;
-    }
-    using namespace rapidjson;
-    char writeBuffer[65536];
-    bool succ = false;
-    FileWriteStream os(fp, writeBuffer, sizeof(writeBuffer));
-    if (indent) {
-        PrettyWriter<FileWriteStream> writer(os);
-        if (_sort_keys) {
-            succ = sort_keys(json).Accept(writer);
-        } else {
-            succ = json.Accept(writer);
-        }
-    } else {
-        Writer<FileWriteStream> writer(os);
-        if (_sort_keys) {
-            succ = sort_keys(json).Accept(writer);
-        } else {
-            succ = json.Accept(writer);
-        }
-    }
-    fclose(fp);
-    return succ;
-}
-
-inline RapidjsonValue loads(const std::string &json)
-{
-    RapidjsonDocument d;
-    rapidjson::StringStream ss(json.data());
-    d.ParseStream<RJFLAGS>(ss);
-    if (d.HasParseError()) {
-        throw std::invalid_argument(
-            "invalid json, offset: " + std::to_string(d.GetErrorOffset()) +
-            ", error: " + rapidjson::GetParseError_En(d.GetParseError()));
-    }
-    return RapidjsonValue{std::move(d.Move())};
-}
-inline std::string dumps(const RapidjsonValue &json, bool indent = false,
-                         bool _sort_keys = false)
-{
-    if (_sort_keys) {
-        return dumps(sort_keys(json), indent, !sort_keys);
-    }
-    rapidjson::StringBuffer buffer;
-    if (indent) {
-        rapidjson::PrettyWriter<rapidjson::StringBuffer> writer(buffer);
-        json.Accept(writer);
-    } else {
-        rapidjson::Writer<rapidjson::StringBuffer> writer(buffer);
-        json.Accept(writer);
-    }
-    return buffer.GetString();
-}
-
-inline bool __bool__(const RapidjsonValue &self)
-{
-    if (self.IsArray()) {
-        return !self.Empty();
-    } else if (self.IsObject()) {
-        return !self.ObjectEmpty();
-    } else if (self.IsString()) {
-        return self.GetStringLength() != 0u;
-    } else if (self.IsBool()) {
-        return self.GetBool();
-    } else if (self.IsNumber()) {
-        if (self.IsUint64()) {
-            return self.GetUint64() != 0;
-        } else if (self.IsInt64()) {
-            return self.GetInt64() != 0;
-        } else {
-            return self.GetDouble() != 0.0;
-        }
-    }
-    return !self.IsNull();
-}
-
-inline int __len__(const RapidjsonValue &self)
-{
-    if (self.IsArray()) {
-        return self.Size();
-    } else if (self.IsObject()) {
-        return self.MemberCount();
-    }
-    return 0;
-}
-
-void bind_rapidjson(py::module &m)
-{
-    auto rj =
-        py::class_<RapidjsonValue>(m, "rapidjson", py::module_local()) //
-            .def(py::init<>())
-            .def(py::init(
-                [](const py::object &obj) { return to_rapidjson(obj); }))
-            // type checks
-            .def("GetType", &RapidjsonValue::GetType)   //
-            .def("IsNull", &RapidjsonValue::IsNull)     //
-            .def("IsFalse", &RapidjsonValue::IsFalse)   //
-            .def("IsTrue", &RapidjsonValue::IsTrue)     //
-            .def("IsBool", &RapidjsonValue::IsBool)     //
-            .def("IsObject", &RapidjsonValue::IsObject) //
-            .def("IsArray", &RapidjsonValue::IsArray)   //
-            .def("IsNumber", &RapidjsonValue::IsNumber) //
-            .def("IsInt", &RapidjsonValue::IsInt)       //
-            .def("IsUint", &RapidjsonValue::IsUint)     //
-            .def("IsInt64", &RapidjsonValue::IsInt64)   //
-            .def("IsUint64", &RapidjsonValue::IsUint64) //
-            .def("IsDouble", &RapidjsonValue::IsDouble) //
-            .def("IsFloat", &RapidjsonValue::IsFloat)   //
-            .def("IsString", &RapidjsonValue::IsString) //
-            //
-            .def("IsLosslessDouble", &RapidjsonValue::IsLosslessDouble) //
-            .def("IsLosslessFloat", &RapidjsonValue::IsLosslessFloat)   //
-            //
-            .def("SetNull", &RapidjsonValue::SetNull)     //
-            .def("SetObject", &RapidjsonValue::SetObject) //
-            .def("SetArray", &RapidjsonValue::SetArray)   //
-            .def("SetInt", &RapidjsonValue::SetInt)       //
-            .def("SetUint", &RapidjsonValue::SetUint)     //
-            .def("SetInt64", &RapidjsonValue::SetInt64)   //
-            .def("SetUint64", &RapidjsonValue::SetUint64) //
-            .def("SetDouble", &RapidjsonValue::SetDouble) //
-            .def("SetFloat", &RapidjsonValue::SetFloat)   //
-            // setstring
-            // get string
-            //
-            .def("Empty",
-                 [](const RapidjsonValue &self) { return !__bool__(self); })
-            .def("__bool__",
-                 [](const RapidjsonValue &self) { return __bool__(self); })
-            .def(
-                "Size",
-                [](const RapidjsonValue &self) -> int { return __len__(self); })
-            .def(
-                "__len__",
-                [](const RapidjsonValue &self) -> int { return __len__(self); })
-            .def("HasMember",
-                 [](const RapidjsonValue &self, const std::string &key) {
-                     return self.HasMember(key.c_str());
-                 })
-            .def("__contains__",
-                 [](const RapidjsonValue &self, const std::string &key) {
-                     return self.HasMember(key.c_str());
-                 })
-            .def("keys",
-                 [](const RapidjsonValue &self) {
-                     std::vector<std::string> keys;
-                     if (self.IsObject()) {
-                         keys.reserve(self.MemberCount());
-                         for (auto &m : self.GetObject()) {
-                             keys.emplace_back(m.name.GetString(),
-                                               m.name.GetStringLength());
-                         }
-                     }
-                     return keys;
-                 })
-            .def(
-                "values",
-                [](RapidjsonValue &self) {
-                    std::vector<RapidjsonValue *> values;
-                    if (self.IsObject()) {
-                        values.reserve(self.MemberCount());
-                        for (auto &m : self.GetObject()) {
-                            values.push_back(&m.value);
-                        }
-                    }
-                    return values;
-                },
-                rvp::reference_internal)
-            // load/dump file
-            .def(
-                "load",
-                [](RapidjsonValue &self,
-                   const std::string &path) -> RapidjsonValue & {
-                    self = load_json(path);
-                    return self;
-                },
-                rvp::reference_internal)
-            .def(
-                "dump",
-                [](const RapidjsonValue &self, const std::string &path,
-                   bool indent, bool sort_keys) -> bool {
-                    return dump_json(path, self, indent, sort_keys);
-                },
-                "path"_a, py::kw_only(), "indent"_a = false, "sort_keys"_a = false)
-            // loads/dumps string
-            .def(
-                "loads",
-                [](RapidjsonValue &self,
-                   const std::string &json) -> RapidjsonValue & {
-                    self = loads(json);
-                    return self;
-                },
-                rvp::reference_internal)
-            .def(
-                "dumps",
-                [](const RapidjsonValue &self, bool indent, bool sort_keys) -> std::string {
-                    return dumps(self, indent, sort_keys);
-                },
-                py::kw_only(), "indent"_a = false, "sort_keys"_a = false)
-            .def(
-                "get",
-                [](RapidjsonValue &self,
-                   const std::string &key) -> RapidjsonValue * {
-                    auto itr = self.FindMember(key.c_str());
-                    if (itr == self.MemberEnd()) {
-                        return nullptr;
-                    } else {
-                        return &itr->value;
-                    }
-                },
-                "key"_a, rvp::reference_internal)
-            .def(
-                "__getitem__",
-                [](RapidjsonValue &self,
-                   const std::string &key) -> RapidjsonValue * {
-                    auto itr = self.FindMember(key.c_str());
-                    if (itr == self.MemberEnd()) {
-                        throw pybind11::key_error(key);
-                    }
-                    return &itr->value;
-                },
-                rvp::reference_internal)
-            .def(
-                "__getitem__",
-                [](RapidjsonValue &self, int index) -> RapidjsonValue & {
-                    return self[index >= 0 ? index : index + (int)self.Size()];
-                },
-                rvp::reference_internal)
-            .def("__delitem__",
-                 [](RapidjsonValue &self, const std::string &key) {
-                     return self.EraseMember(key.c_str());
-                 })
-            .def("__delitem__",
-                 [](RapidjsonValue &self, int index) {
-                     self.Erase(
-                         self.Begin() +
-                         (index >= 0 ? index : index + (int)self.Size()));
-                 })
-            .def("clear",
-                 [](RapidjsonValue &self) -> RapidjsonValue & {
-                     if (self.IsObject()) {
-                         self.RemoveAllMembers();
-                     } else if (self.IsArray()) {
-                         self.Clear();
-                     }
-                     return self;
-                 }, rvp::reference_internal)
-            // get (python copy)
-            .def("GetBool", &RapidjsonValue::GetBool)
-            .def("GetInt", &RapidjsonValue::GetInt)
-            .def("GetUint", &RapidjsonValue::GetUint)
-            .def("GetInt64", &RapidjsonValue::GetInt64)
-            .def("GetUInt64", &RapidjsonValue::GetUint64)
-            .def("GetFloat", &RapidjsonValue::GetFloat)
-            .def("GetDouble", &RapidjsonValue::GetDouble)
-            .def("GetString",
-                 [](const RapidjsonValue &self) {
-                     return std::string{self.GetString(),
-                                        self.GetStringLength()};
-                 })
-            .def("GetStringLength", &RapidjsonValue::GetStringLength)
-            // https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html?highlight=MemoryView#memory-view
-            .def("GetRawString", [](const RapidjsonValue &self) {
-                return py::memoryview::from_memory(
-                    self.GetString(),
-                    self.GetStringLength()
-                );
-            }, rvp::reference_internal)
-            .def("Get",
-                 [](const RapidjsonValue &self) { return to_python(self); })
-            .def("__call__",
-                 [](const RapidjsonValue &self) { return to_python(self); })
-            // set
-            .def(
-                "set",
-                [](RapidjsonValue &self,
-                   const py::object &obj) -> RapidjsonValue & {
-                    self = to_rapidjson(obj);
-                    return self;
-                },
-                rvp::reference_internal)
-            .def(
-                "set",
-                [](RapidjsonValue &self,
-                   const RapidjsonValue &obj) -> RapidjsonValue & {
-                    self = deepcopy(obj);
-                    return self;
-                },
-                rvp::reference_internal)
-            .def( // same as set
-                "copy_from",
-                [](RapidjsonValue &self,
-                   const RapidjsonValue &obj) -> RapidjsonValue & {
-                    self = deepcopy(obj);
-                    return self;
-                },
-                rvp::reference_internal)
-            .def(
-                "__setitem__",
-                [](RapidjsonValue &self, int index, const py::object &obj) {
-                    self[index >= 0 ? index : index + (int)self.Size()] =
-                        to_rapidjson(obj);
-                    return obj;
-                },
-                "index"_a, "value"_a, rvp::reference_internal)
-            .def(
-                "__setitem__",
-                [](RapidjsonValue &self, const std::string &key,
-                   const py::object &obj) {
-                    auto itr = self.FindMember(key.c_str());
-                    if (itr == self.MemberEnd()) {
-                        RapidjsonAllocator allocator;
-                        self.AddMember(
-                            RapidjsonValue(key.data(), key.size(), allocator),
-                            to_rapidjson(obj, allocator), allocator);
-                    } else {
-                        RapidjsonAllocator allocator;
-                        itr->value = to_rapidjson(obj, allocator);
-                    }
-                    return obj;
-                },
-                rvp::reference_internal)
-            .def(
-                "push_back",
-                [](RapidjsonValue &self,
-                   const py::object &obj) -> RapidjsonValue & {
-                    RapidjsonAllocator allocator;
-                    self.PushBack(to_rapidjson(obj), allocator);
-                    return self;
-                },
-                rvp::reference_internal)
-            //
-            .def(
-                "pop_back",
-                [](RapidjsonValue &self) -> RapidjsonValue
-                                             & {
-                                                 self.PopBack();
-                                                 return self;
-                                             },
-                rvp::reference_internal)
-            // https://pybind11.readthedocs.io/en/stable/advanced/classes.html?highlight=__deepcopy__#deepcopy-support
-            .def("__copy__",
-                 [](const RapidjsonValue &self, py::dict) -> RapidjsonValue {
-                     return deepcopy(self);
-                 })
-            .def(
-                "__deepcopy__",
-                [](const RapidjsonValue &self, py::dict) -> RapidjsonValue {
-                    return deepcopy(self);
-                },
-                "memo"_a)
-            .def("clone",
-                 [](const RapidjsonValue &self) -> RapidjsonValue {
-                     return deepcopy(self);
-                 })
-            // https://pybind11.readthedocs.io/en/stable/advanced/classes.html?highlight=pickle#pickling-support
-            .def(py::pickle(
-                [](const RapidjsonValue &self) { return to_python(self); },
-                [](py::object o) -> RapidjsonValue { return to_rapidjson(o); }))
-            .def(py::self == py::self)
-            .def(py::self != py::self)
-        //
-        ;
-    py::enum_<rapidjson::Type>(rj, "type")
-        .value("kNullType", rapidjson::kNullType)
-        .value("kFalseType", rapidjson::kFalseType)
-        .value("kTrueType", rapidjson::kTrueType)
-        .value("kObjectType", rapidjson::kObjectType)
-        .value("kArrayType", rapidjson::kArrayType)
-        .value("kStringType", rapidjson::kStringType)
-        .value("kNumberType", rapidjson::kNumberType)
-        .export_values();
 }

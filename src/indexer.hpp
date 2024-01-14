@@ -98,34 +98,6 @@ struct Indexer
         return {str2int_.begin(), str2int_.end()};
     }
 
-    Indexer &from_rapidjson(const RapidjsonValue &json)
-    {
-        for (auto &m : json.GetObject()) {
-            index(std::string(m.name.GetString(), m.name.GetStringLength()),
-                  m.value.GetInt64());
-        }
-        return *this;
-    }
-    RapidjsonValue to_rapidjson(RapidjsonAllocator &allocator) const
-    {
-        RapidjsonValue json(rapidjson::kObjectType);
-        for (auto &pair : str2int_) {
-            auto &str = pair.first;
-            json.AddMember(RapidjsonValue(str.data(), str.size(), allocator),
-                           RapidjsonValue(pair.second), allocator);
-        }
-        std::sort(
-            json.MemberBegin(), json.MemberEnd(), [](auto &lhs, auto &rhs) {
-                return strcmp(lhs.name.GetString(), rhs.name.GetString()) < 0;
-            });
-        return json;
-    }
-    RapidjsonValue to_rapidjson() const
-    {
-        RapidjsonAllocator allocator;
-        return to_rapidjson(allocator);
-    }
-
   private:
     unordered_map<std::string, int64_t> str2int_;
     unordered_map<int64_t, std::string> int2str_;
