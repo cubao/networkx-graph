@@ -400,10 +400,11 @@ struct DiGraph
         }
         auto &pmap = shortest_path.prevs;
         auto &dmap = shortest_path.dists;
-        double init_offset =
-            !offset ? 0.0
-                    : (reverse ? std::max(0.0, *offset)
-                               : std::max(0.0, length->second - *offset));
+        double init_offset = 0.0;
+        if (offset) {
+            offset = CLIP(0.0, *offset, length->second);
+            init_offset = reverse ? *offset : length->second - *offset;
+        }
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
                                pmap, dmap, sinks, init_offset);
         return shortest_path;
@@ -843,11 +844,12 @@ struct DiGraph
             if (itr == nexts_.end()) {
                 continue;
             }
-            // if (node.value)
-            // TODO
             double u_cost = lengths_.at(u);
             for (auto v : itr->second) {
                 auto c = node.value + u_cost;
+                if (c > cutoff) {
+                    continue;
+                }
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
@@ -856,11 +858,9 @@ struct DiGraph
                         Q.decrease_key(v, c);
                     }
                 } else {
-                    if (c <= cutoff) {
-                        pmap.insert({v, u});
-                        dmap.insert({v, c});
-                        Q.push(v, c);
-                    }
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c);
                 }
             }
         }
