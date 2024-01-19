@@ -337,18 +337,18 @@ struct DiGraph
         }
         std::optional<Path> path;
         if (*src_idx == *dst_idx) {
-            if (!source_offset || !target_offset) {
+            if (!source_offset && !target_offset) {
+                path = Path(this, 0.0, std::vector<int64_t>{*src_idx});
+            } else if (source_offset && target_offset) {
+                double dist = *target_offset - *source_offset;
+                if (dist < 0 || dist > cutoff) {
+                    return {};
+                }
+                path = Path(this, dist, std::vector<int64_t>{*src_idx},
+                            source_offset, target_offset);
+            } else {
                 return {};
             }
-            if (*target_offset - *source_offset > cutoff) {
-                return {};
-            }
-            double dist = *target_offset - *source_offset;
-            if (dist <= 0) {
-                return {};
-            }
-            path = Path(this, dist, std::vector<int64_t>{*src_idx},
-                        source_offset, target_offset);
         } else {
             double delta = 0.0;
             if (source_offset) {
@@ -357,8 +357,7 @@ struct DiGraph
             if (target_offset) {
                 delta += *target_offset;
             }
-            cutoff -= delta;
-            path = __dijkstra(*src_idx, *dst_idx, cutoff, sinks);
+            path = __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
             if (path) {
                 path->dist += delta;
                 path->start_offset = source_offset;
@@ -808,6 +807,9 @@ struct DiGraph
                                    const Sinks *sinks = nullptr) const
     {
         // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L54-L97
+        if (source == target) {
+            return Path(this, 0.0, {source});
+        }
         if (sinks && sinks->nodes.count(source)) {
             return {};
         }
@@ -841,6 +843,8 @@ struct DiGraph
             if (itr == nexts_.end()) {
                 continue;
             }
+            // if (node.value)
+            // TODO
             double u_cost = lengths_.at(u);
             for (auto v : itr->second) {
                 auto c = node.value + u_cost;
