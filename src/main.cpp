@@ -1953,7 +1953,8 @@ PYBIND11_MODULE(_core, m)
              py::kw_only(),                                          //
              "cutoff"_a,                                             //
              "source_offset"_a = std::nullopt,                       //
-             "target_offset"_a = std::nullopt)
+             "target_offset"_a = std::nullopt,                       //
+             "direction"_a = 0)
         // all paths
         .def("all_paths_from", &DiGraph::all_paths_from, //
              "source"_a,                                 //
