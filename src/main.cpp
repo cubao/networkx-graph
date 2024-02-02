@@ -843,6 +843,8 @@ struct DiGraph
                         dmap[v] = c;
                         if (Q.contain_node(v)) {
                             Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
                         }
                     }
                 } else {
@@ -911,6 +913,8 @@ struct DiGraph
                         dmap[v] = c;
                         if (Q.contain_node(v)) {
                             Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
                         }
                     }
                 } else {
@@ -1067,6 +1071,8 @@ struct DiGraph
                         dmap[v] = c;
                         if (Q.contain_node(v)) {
                             Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
                         }
                     }
                 } else {
