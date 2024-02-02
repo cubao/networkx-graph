@@ -7,7 +7,7 @@ from networkx_graph import DiGraph, Node, Path
 
 
 def test_version():
-    assert m.__version__ == "0.0.8"
+    assert m.__version__ == "0.0.9"
 
 
 def test_add():

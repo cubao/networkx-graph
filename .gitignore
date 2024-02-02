@@ -141,3 +141,5 @@ cython_debug/
 
 _skbuild/
 .pyodide-xbuildenv/
+tests/graph.py
+core.*

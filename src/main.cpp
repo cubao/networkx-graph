@@ -179,6 +179,15 @@ struct Path
     }
 };
 
+struct ZigzagPath : Path
+{
+    // two-way routing on a DiGraph
+    ZigzagPath() = default;
+
+    std::vector<double> lengths;
+    std::vector<int> directions;
+};
+
 struct ShortestPathGenerator
 {
     const DiGraph *graph{nullptr};
@@ -337,18 +346,18 @@ struct DiGraph
         }
         std::optional<Path> path;
         if (*src_idx == *dst_idx) {
-            if (!source_offset || !target_offset) {
+            if (!source_offset && !target_offset) {
+                path = Path(this, 0.0, std::vector<int64_t>{*src_idx});
+            } else if (source_offset && target_offset) {
+                double dist = *target_offset - *source_offset;
+                if (dist < 0 || dist > cutoff) {
+                    return {};
+                }
+                path = Path(this, dist, std::vector<int64_t>{*src_idx},
+                            source_offset, target_offset);
+            } else {
                 return {};
             }
-            if (*target_offset - *source_offset > cutoff) {
-                return {};
-            }
-            double dist = *target_offset - *source_offset;
-            if (dist <= 0) {
-                return {};
-            }
-            path = Path(this, dist, std::vector<int64_t>{*src_idx},
-                        source_offset, target_offset);
         } else {
             double delta = 0.0;
             if (source_offset) {
@@ -357,14 +366,56 @@ struct DiGraph
             if (target_offset) {
                 delta += *target_offset;
             }
-            cutoff -= delta;
-            path = __dijkstra(*src_idx, *dst_idx, cutoff, sinks);
+            path = __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
             if (path) {
                 path->dist += delta;
                 path->start_offset = source_offset;
                 path->end_offset = target_offset;
             }
         }
+        if (path && round_scale_) {
+            path->round(*round_scale_);
+        }
+        return path;
+    }
+
+    std::optional<ZigzagPath>
+    shortest_zigzag_path(const std::string &source,           //
+                         const std::string &target,           //
+                         double cutoff,                       //
+                         std::optional<double> source_offset, //
+                         std::optional<double> target_offset,
+                         int direction = 0) const
+    {
+        if (cutoff < 0) {
+            return {};
+        }
+        auto src_idx = indexer_.get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto src_length = lengths_.find(*src_idx);
+        if (src_length == lengths_.end()) {
+            return {};
+        }
+        auto dst_idx = indexer_.get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto dst_length = lengths_.find(*dst_idx);
+        if (dst_length == lengths_.end()) {
+            return {};
+        }
+        if (source_offset) {
+            source_offset = CLIP(0.0, *source_offset, src_length->second);
+        }
+        if (target_offset) {
+            target_offset = CLIP(0.0, *target_offset, dst_length->second);
+        }
+        auto path = __shortest_zigzag_path(
+            std::make_tuple(*src_idx, source_offset, src_length->second),
+            std::make_tuple(*dst_idx, target_offset, dst_length->second),
+            cutoff, direction);
         if (path && round_scale_) {
             path->round(*round_scale_);
         }
@@ -401,10 +452,11 @@ struct DiGraph
         }
         auto &pmap = shortest_path.prevs;
         auto &dmap = shortest_path.dists;
-        double init_offset =
-            !offset ? 0.0
-                    : (reverse ? std::max(0.0, *offset)
-                               : std::max(0.0, length->second - *offset));
+        double init_offset = 0.0;
+        if (offset) {
+            offset = CLIP(0.0, *offset, length->second);
+            init_offset = reverse ? *offset : length->second - *offset;
+        }
         single_source_dijkstra(*start_idx, cutoff, reverse ? prevs_ : nexts_,
                                pmap, dmap, sinks, init_offset);
         return shortest_path;
@@ -789,7 +841,11 @@ struct DiGraph
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
+                        }
                     }
                 } else {
                     if (c <= cutoff) {
@@ -808,6 +864,9 @@ struct DiGraph
                                    const Sinks *sinks = nullptr) const
     {
         // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L54-L97
+        if (source == target) {
+            return Path(this, 0.0, {source});
+        }
         if (sinks && sinks->nodes.count(source)) {
             return {};
         }
@@ -844,19 +903,24 @@ struct DiGraph
             double u_cost = lengths_.at(u);
             for (auto v : itr->second) {
                 auto c = node.value + u_cost;
+                if (c > cutoff) {
+                    continue;
+                }
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
+                        }
                     }
                 } else {
-                    if (c <= cutoff) {
-                        pmap.insert({v, u});
-                        dmap.insert({v, c});
-                        Q.push(v, c);
-                    }
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c);
                 }
             }
         }
@@ -872,6 +936,14 @@ struct DiGraph
         path.nodes.push_back(target);
         std::reverse(path.nodes.begin(), path.nodes.end());
         return path;
+    }
+
+    std::optional<ZigzagPath> __shortest_zigzag_path(
+        std::tuple<int64_t, std::optional<double>, double> source,
+        std::tuple<int64_t, std::optional<double>, double> target,
+        double cutoff, int direction) const
+    {
+        return {};
     }
 
     std::optional<Path>
@@ -997,7 +1069,11 @@ struct DiGraph
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
+                        }
                     }
                 } else {
                     if (c <= cutoff) {
@@ -1533,6 +1609,16 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    // ZigzagPath
+    py::class_<ZigzagPath, Path>(m, "ZigzagPath", py::module_local(),
+                                 py::dynamic_attr()) //
+        //
+        .def("lengths", [](const ZigzagPath &self) { return self.lengths; })
+        .def("directions",
+             [](const ZigzagPath &self) { return self.directions; })
+        //
+        ;
+
     py::class_<Sinks>(m, "Sinks", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Sinks &self) { return self.graph; },
@@ -1873,6 +1959,15 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
+        // zigzag path
+        .def("shortest_zigzag_path", &DiGraph::shortest_zigzag_path, //
+             "source"_a,                                             //
+             "target"_a,                                             //
+             py::kw_only(),                                          //
+             "cutoff"_a,                                             //
+             "source_offset"_a = std::nullopt,                       //
+             "target_offset"_a = std::nullopt,                       //
+             "direction"_a = 0)
         // all paths
         .def("all_paths_from", &DiGraph::all_paths_from, //
              "source"_a,                                 //
