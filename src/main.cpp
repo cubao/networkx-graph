@@ -413,8 +413,9 @@ struct DiGraph
             target_offset = CLIP(0.0, *target_offset, dst_length->second);
         }
         auto path = __shortest_zigzag_path(
-            std::make_tuple(*src_idx, src_length->second),
-            std::make_tuple(*dst_idx, dst_length->second), cutoff, direction);
+            std::make_tuple(*src_idx, source_offset, src_length->second),
+            std::make_tuple(*dst_idx, target_offset, dst_length->second),
+            cutoff, direction);
         if (path && round_scale_) {
             path->round(*round_scale_);
         }
@@ -929,11 +930,76 @@ struct DiGraph
         return path;
     }
 
-    std::optional<ZigzagPath>
-    __shortest_zigzag_path(std::tuple<int64_t, std::optional<double>> source,
-                           std::tuple<int64_t, std::optional<double>> target,
-                           double cutoff, int direction) const
+    std::optional<ZigzagPath> __shortest_zigzag_path(
+        std::tuple<int64_t, std::optional<double>, double> source,
+        std::tuple<int64_t, std::optional<double>, double> target,
+        double cutoff, int direction) const
     {
+        int64_t src_idx = std::get<0>(source);
+        std::optional<double> src_off = std::get<1>(source);
+        double src_len = std::get<2>(source);
+        int64_t dst_idx = std::get<0>(target);
+        std::optional<double> dst_off = std::get<1>(target);
+        double dst_len = std::get<2>(target);
+        if (src_idx == dst_idx) {
+            return {}; // TODO, handle this?
+        }
+
+        using NodeDir = std::pair<int64_t, int>; // node, direction
+        unordered_map<NodeDir, NodeDir> pmap;
+        unordered_map<NodeDir, double> dmap;
+        if (direction >= 0) {
+            dmap[{src_idx, 1}] = src_off ? src_len - *src_off : 0.0;
+            auto itr = nexts_.find(src_idx);
+            if (itr != nexts_.end()) {
+                for (auto n: itr->second) {
+                    pmap[{n, 1}] = {src_idx, 1};
+                }
+            }
+        }
+
+        Heap Q;
+        Q.push(source, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (u == target) {
+                break;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                if (c > cutoff) {
+                    continue;
+                }
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        Q.decrease_key(v, c);
+                    }
+                } else {
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c);
+                }
+            }
+        }
+
         return {};
     }
 
