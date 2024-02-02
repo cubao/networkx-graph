@@ -772,6 +772,7 @@ def test_shortest_path_to_bindings():
         bindings=bindings,
     )
     assert backwards is None
+    assert forwards.binding == ("w3", (1.0, 3.0, obj1))
     forwards = forwards.to_dict()
     assert forwards == {
         "dist": 1.0,

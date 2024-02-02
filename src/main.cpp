@@ -1531,8 +1531,13 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.nodes.back()),
                                        self.end_offset);
             })
-        .def_property_readonly("binding",
-                               [](const Path &self) { return self.binding; })
+        .def_property_readonly(
+            "binding",
+            [](const Path &self) {
+                return std::make_tuple( //
+                    self.graph->__node_id(std::get<0>(*self.binding)),
+                    std::get<1>(*self.binding));
+            })
         .def("through_sinks", &Path::through_sinks, "sinks"_a)
         .def("through_bindings", &Path::through_bindings, "bindings"_a)
         .def("through_jumps",
