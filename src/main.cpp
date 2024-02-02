@@ -935,6 +935,7 @@ struct DiGraph
         std::tuple<int64_t, std::optional<double>, double> target,
         double cutoff, int direction) const
     {
+        /*
         int64_t src_idx = std::get<0>(source);
         std::optional<double> src_off = std::get<1>(source);
         double src_len = std::get<2>(source);
@@ -1000,6 +1001,7 @@ struct DiGraph
             }
         }
 
+        */
         return {};
     }
 
