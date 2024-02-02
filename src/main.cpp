@@ -132,51 +132,6 @@ struct Path
             end_offset = ROUND(*end_offset, scale);
         }
     }
-
-    bool through_sinks(const Sinks &sinks) const
-    {
-        if (sinks.graph != this->graph) {
-            return false;
-        }
-        for (const auto &p : nodes) {
-            if (sinks.nodes.count(p)) {
-                // TODO, accept p == nodes[-1]?
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool through_bindings(const Bindings &bindings) const
-    {
-        if (bindings.graph != this->graph || nodes.empty()) {
-            return false;
-        }
-        auto &kv = bindings.node2bindings;
-        if (start_offset) {
-            auto itr = kv.find(nodes.front());
-            if (itr != kv.end() && !itr->second.empty()) {
-                if (*start_offset <= std::get<1>(itr->second.back())) {
-                    return true;
-                }
-            }
-        }
-        if (end_offset) {
-            auto itr = kv.find(nodes.back());
-            if (itr != kv.end() && !itr->second.empty()) {
-                if (*start_offset >= std::get<0>(itr->second.front())) {
-                    return true;
-                }
-            }
-        }
-        for (int i = 1, N = nodes.size(); i < N - 1; ++i) {
-            auto itr = kv.find(nodes[i]);
-            if (itr != kv.end() && !itr->second.empty()) {
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
 struct ZigzagPath : Path
@@ -1538,16 +1493,6 @@ PYBIND11_MODULE(_core, m)
                     self.graph->__node_id(std::get<0>(*self.binding)),
                     std::get<1>(*self.binding));
             })
-        .def("through_sinks", &Path::through_sinks, "sinks"_a)
-        .def("through_bindings", &Path::through_bindings, "bindings"_a)
-        .def("through_jumps",
-             [](const Path &p,
-                const std::unordered_map<std::string, std::vector<std::string>>
-                    &jumps) -> bool {
-                 // TODO, implement
-                 // maybe integrate into dijkstra(source,target)?
-                 return true;
-             })
         .def(
             "__getitem__",
             [](const Path &self, const std::string &attr_name) -> py::object {
@@ -1566,6 +1511,14 @@ PYBIND11_MODULE(_core, m)
                 } else if (attr_name == "end") {
                     auto end = self.graph->__node_id(self.nodes.back());
                     return py::make_tuple(end, self.end_offset);
+                } else if (attr_name == "binding") {
+                    if (self.binding) {
+                        return py::make_tuple( //
+                            self.graph->__node_id(std::get<0>(*self.binding)),
+                            std::get<1>(*self.binding));
+                    } else {
+                        return py::none();
+                    }
                 }
                 auto py_obj = py::cast(self);
                 if (!py::hasattr(py_obj, attr_name.c_str())) {
@@ -1580,7 +1533,7 @@ PYBIND11_MODULE(_core, m)
                 py::object obj) -> py::object {
                  if (attr_name == "graph" || attr_name == "dist" ||
                      attr_name == "nodes" || attr_name == "start" ||
-                     attr_name == "end") {
+                     attr_name == "end" || attr_name == "binding") {
                      throw py::key_error(
                          fmt::format("{} is readonly", attr_name));
                  }
