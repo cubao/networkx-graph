@@ -1023,3 +1023,18 @@ def test_all_paths_to_bindings():
     )
     assert len(backwards) == 2
     assert len(forwards) == 0
+
+
+from graph import DiGraph
+
+GG = DiGraph.Load("build/ev.json")
+
+road = "false_0_0_122892_66202_0"
+click = 0.0
+cutoff = 100.0
+
+bindings = GG.bindings_of_deadends
+head_dist, tail_dist = GG.distance_to_bindings(
+    (road, click), cutoff=cutoff, bindings=bindings
+)
+print()
