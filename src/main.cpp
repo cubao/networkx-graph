@@ -841,7 +841,9 @@ struct DiGraph
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        }
                     }
                 } else {
                     if (c <= cutoff) {
@@ -907,7 +909,9 @@ struct DiGraph
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        }
                     }
                 } else {
                     pmap.insert({v, u});
@@ -1061,7 +1065,9 @@ struct DiGraph
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
-                        Q.decrease_key(v, c);
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        }
                     }
                 } else {
                     if (c <= cutoff) {
