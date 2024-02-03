@@ -976,39 +976,60 @@ struct DiGraph
             return {};
         }
 
+        const auto &sibs_under_next = cache().sibs_under_next;
+        const auto &sibs_under_prev = cache().sibs_under_prev;
+
+        const auto src_idx = std::get<0>(source);
+        const auto src_len = std::get<2>(source);
+        const auto dst_idx = std::get<0>(target);
+        const auto dst_len = std::get<2>(target);
+
         using State = std::tuple<int64_t, int>;
         unordered_map<State, State> pmap;
         unordered_map<State, double> dmap;
-        auto src_idx = std::get<0>(source);
-        auto src_len = std::get<2>(source);
+        Heap<State> Q;
         if (std::get<1>(source)) {
             double src_off = *std::get<1>(source);
             if (direction >= 0) {
                 dmap.insert({{src_idx, 1}, src_len - src_off});
                 pmap.insert({{src_idx, 1}, {src_idx, 0}});
+                Q.push({src_idx, 1}, src_len - src_off);
             }
             if (direction <= 0) {
                 dmap.insert({{src_idx, -1}, src_off});
                 pmap.insert({{src_idx, -1}, {src_idx, 0}});
+                Q.push({src_idx, -1}, src_off);
             }
         } else {
             if (direction >= 0) {
                 dmap.insert({{src_idx, 1}, 0.0});
                 pmap.insert({{src_idx, 1}, {src_idx, 0}});
+                Q.push({src_idx, 1}, 0.0);
             }
             if (direction <= 0) {
                 dmap.insert({{src_idx, -1}, 0.0});
                 pmap.insert({{src_idx, -1}, {src_idx, 0}});
+                Q.push({src_idx, -1}, 0.0);
             }
         }
 
-        auto dst_idx = std::get<0>(target);
-        auto dst_len = std::get<2>(target);
+        auto update_state = [&](const State &state, double dist) -> bool {
+            auto dist_itr = dmap.find(state);
+            if (dist_itr == dmap.end()) {
+                Q.push(state, dist);
+                return true;
+            } else if (dist < dist_itr->second) {
+                if (Q.contain_node(state)) {
+                    Q.decrease_key(state, dist);
+                } else {
+                    Q.push(state, dist);
+                }
+                dmap[state] = dist;
+                return true;
+            }
+            return false;
+        };
 
-        auto &sibs_under_next = cache().sibs_under_next;
-        auto &sibs_under_prev = cache().sibs_under_prev;
-
-        Heap<State> Q;
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
@@ -1017,8 +1038,12 @@ struct DiGraph
             }
             auto idx = std::get<0>(node.index);
             auto dir = std::get<1>(node.index);
+            double dist = dmap[node.index];
             if (idx == dst_idx) {
+                if (dir == 1) {
+                }
                 // TODO
+                continue;
             }
 
             if (dir == 1) {
@@ -1026,23 +1051,31 @@ struct DiGraph
                 auto next_itr = nexts_.find(idx);
                 if (next_itr != nexts_.end()) {
                     for (auto n : next_itr->second) {
+                        update_state({n, -1}, dist);
+                        update_state({n, 1}, dist + lengths_.at(n));
                     }
                 }
                 auto sib_itr = sibs_under_prev.find(idx);
                 if (sib_itr != sibs_under_prev.end()) {
                     for (auto s : sib_itr->second) {
+                        update_state({s, 1}, dist);
+                        update_state({s, -1}, dist + lengths_.at(s));
                     }
                 }
-            } else {
+            } else if (dir == -1) {
                 // backwards to prevs, or reverse to sibs
                 auto prev_itr = prevs_.find(idx);
                 if (prev_itr != prevs_.end()) {
                     for (auto p : prev_itr->second) {
+                        update_state({p, 1}, dist);
+                        update_state({p, -1}, dist + lengths_.at(p));
                     }
                 }
                 auto sib_itr = sibs_under_next.find(idx);
                 if (sib_itr != sibs_under_next.end()) {
                     for (auto s : sib_itr->second) {
+                        update_state({s, -1}, dist);
+                        update_state({s, 1}, dist + lengths_.at(s));
                     }
                 }
             }
