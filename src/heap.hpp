@@ -548,11 +548,11 @@ template <class T, class Comp = std::less<T>> class FibHeap
 };
 
 // https://github.com/cyang-kth/fmm/tree/master/src/network/heap.hpp
-struct HeapNode
+template <typename T = int64_t> struct HeapNode
 {
-    int64_t index;
+    T index;
     double value;
-    bool operator<(const HeapNode &rhs) const
+    bool operator<(const HeapNode<T> &rhs) const
     {
         if (value == rhs.value)
             return index < rhs.index;
@@ -560,35 +560,34 @@ struct HeapNode
     }
 };
 
-struct Heap
+template <typename T = int64_t> struct Heap
 {
-    inline void push(int64_t index, double value)
+    inline void push(T index, double value)
     {
-        HeapNodeHandle handle = heap.push({index, value});
+        auto handle = heap.push({index, value});
         handle_data.insert({index, handle});
     }
     inline void pop()
     {
-        HeapNode &node = heap.top();
+        auto &node = heap.top();
         handle_data.erase(node.index);
         heap.pop();
     }
-    inline HeapNode top() const { return heap.top(); }
+    inline HeapNode<T> top() const { return heap.top(); }
     inline bool empty() const { return heap.empty(); }
     inline unsigned int size() const { return heap.size(); }
-    inline bool contain_node(int64_t index) const
+    inline bool contain_node(T index) const
     {
         return handle_data.find(index) != handle_data.end();
     }
-    inline void decrease_key(int64_t index, double value)
+    inline void decrease_key(T index, double value)
     {
-        HeapNodeHandle handle = handle_data[index];
-        heap.decrease_key(handle, {index, value});
+        heap.decrease_key(handle_data[index], {index, value});
     }
 
   private:
-    FibHeap<HeapNode> heap;
-    typedef FibHeap<HeapNode>::FibNode *HeapNodeHandle;
-    unordered_map<int64_t, HeapNodeHandle> handle_data;
+    FibHeap<HeapNode<T>> heap;
+    typedef FibHeap<HeapNode<T>>::FibNode *HeapNodeHandle;
+    unordered_map<T, HeapNodeHandle> handle_data;
 };
 } // namespace nano_fmm

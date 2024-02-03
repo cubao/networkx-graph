@@ -936,7 +936,48 @@ struct DiGraph
             dmap.insert({{src_idx, 0.0}, 0.0});
             dmap.insert({{src_idx, src_len}, 0.0});
         }
-        Heap Q;
+        Heap<State> Q;
+
+        /*
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                return {};
+            }
+            auto u = node.index;
+            // if (u == target) {
+            //     break;
+            // }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                if (c > cutoff) {
+                    continue;
+                }
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
+                        }
+                    }
+                } else {
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c);
+                }
+            }
+        }
+        */
         return {};
     }
 
