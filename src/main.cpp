@@ -1051,15 +1051,17 @@ struct DiGraph
                 auto next_itr = nexts_.find(idx);
                 if (next_itr != nexts_.end()) {
                     for (auto n : next_itr->second) {
-                        update_state({n, -1}, dist);
-                        update_state({n, 1}, dist + lengths_.at(n));
+                        if (update_state({n, -1}, dist)) {
+                            update_state({n, 1}, dist + lengths_.at(n));
+                        }
                     }
                 }
                 auto sib_itr = sibs_under_prev.find(idx);
                 if (sib_itr != sibs_under_prev.end()) {
                     for (auto s : sib_itr->second) {
-                        update_state({s, 1}, dist);
-                        update_state({s, -1}, dist + lengths_.at(s));
+                        if (update_state({s, 1}, dist)) {
+                            update_state({s, -1}, dist + lengths_.at(s));
+                        }
                     }
                 }
             } else if (dir == -1) {
@@ -1067,15 +1069,17 @@ struct DiGraph
                 auto prev_itr = prevs_.find(idx);
                 if (prev_itr != prevs_.end()) {
                     for (auto p : prev_itr->second) {
-                        update_state({p, 1}, dist);
-                        update_state({p, -1}, dist + lengths_.at(p));
+                        if (update_state({p, 1}, dist)) {
+                            update_state({p, -1}, dist + lengths_.at(p));
+                        }
                     }
                 }
                 auto sib_itr = sibs_under_next.find(idx);
                 if (sib_itr != sibs_under_next.end()) {
                     for (auto s : sib_itr->second) {
-                        update_state({s, -1}, dist);
-                        update_state({s, 1}, dist + lengths_.at(s));
+                        if (update_state({s, -1}, dist)) {
+                            update_state({s, 1}, dist + lengths_.at(s));
+                        }
                     }
                 }
             }
