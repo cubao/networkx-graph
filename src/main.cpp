@@ -734,7 +734,7 @@ struct DiGraph
         }
         {
             auto &sibs = cache_->sibs_under_next;
-            for (auto &kv : prevs_) {
+            for (auto &kv : nexts_) {
                 if (kv.second.size() > 1) {
                     for (auto pid : kv.second) {
                         sibs[pid].insert(kv.second.begin(), kv.second.end());
@@ -747,7 +747,7 @@ struct DiGraph
         }
         {
             auto &sibs = cache_->sibs_under_prev;
-            for (auto &kv : nexts_) {
+            for (auto &kv : prevs_) {
                 if (kv.second.size() > 1) {
                     for (auto nid : kv.second) {
                         sibs[nid].insert(kv.second.begin(), kv.second.end());
@@ -942,6 +942,7 @@ struct DiGraph
                                                      double cutoff,
                                                      int direction) const
     {
+        dbg(source, target);
         if (!lengths_.count(source) || !lengths_.count(target)) {
             return {};
         }
@@ -972,6 +973,10 @@ struct DiGraph
                 Q.push(state, dist);
                 dmap[state] = dist;
                 pmap[state] = prev;
+                dbg("update, init");
+                dbg(indexer_.id(std::get<0>(state)), std::get<1>(state));
+                dbg(dist);
+                dbg(indexer_.id(std::get<0>(prev)), std::get<1>(prev));
                 return true;
             } else if (dist < dist_itr->second) {
                 if (Q.contain_node(state)) {
@@ -981,6 +986,10 @@ struct DiGraph
                 }
                 dmap[state] = dist;
                 pmap[state] = prev;
+                dbg("update, less");
+                dbg(indexer_.id(std::get<0>(state)), std::get<1>(state));
+                dbg(dist);
+                dbg(indexer_.id(std::get<0>(prev)), std::get<1>(prev));
                 return true;
             }
             return false;
@@ -989,13 +998,13 @@ struct DiGraph
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
-            if (node.value > cutoff) {
+            double dist = node.value;
+            if (dist > cutoff) {
                 return {};
             }
             auto &state = node.index;
             auto idx = std::get<0>(state);
             auto dir = std::get<1>(state);
-            double dist = dmap[node.index];
             if (idx == target) {
                 // backtrace from node.index to source
                 // ZigzagPath path();

@@ -1024,3 +1024,17 @@ def test_all_paths_to_bindings():
     )
     assert len(backwards) == 2
     assert len(forwards) == 0
+
+
+def test_shortest_zigzag_path():
+    G = graph1()
+    assert G.shortest_zigzag_path("w3", "w3", cutoff=100).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w3"],
+        "directions": [1],
+    }
+    path = G.shortest_zigzag_path("w3", "w5", cutoff=100)
+    print()
+
+
+test_shortest_zigzag_path()
