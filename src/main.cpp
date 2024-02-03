@@ -132,60 +132,23 @@ struct Path
             end_offset = ROUND(*end_offset, scale);
         }
     }
-
-    bool through_sinks(const Sinks &sinks) const
-    {
-        if (sinks.graph != this->graph) {
-            return false;
-        }
-        for (const auto &p : nodes) {
-            if (sinks.nodes.count(p)) {
-                // TODO, accept p == nodes[-1]?
-                return true;
-            }
-        }
-        return false;
-    }
-
-    bool through_bindings(const Bindings &bindings) const
-    {
-        if (bindings.graph != this->graph || nodes.empty()) {
-            return false;
-        }
-        auto &kv = bindings.node2bindings;
-        if (start_offset) {
-            auto itr = kv.find(nodes.front());
-            if (itr != kv.end() && !itr->second.empty()) {
-                if (*start_offset <= std::get<1>(itr->second.back())) {
-                    return true;
-                }
-            }
-        }
-        if (end_offset) {
-            auto itr = kv.find(nodes.back());
-            if (itr != kv.end() && !itr->second.empty()) {
-                if (*start_offset >= std::get<0>(itr->second.front())) {
-                    return true;
-                }
-            }
-        }
-        for (int i = 1, N = nodes.size(); i < N - 1; ++i) {
-            auto itr = kv.find(nodes[i]);
-            if (itr != kv.end() && !itr->second.empty()) {
-                return true;
-            }
-        }
-        return false;
-    }
 };
 
 struct ZigzagPath : Path
 {
     // two-way routing on a DiGraph
     ZigzagPath() = default;
-
-    std::vector<double> lengths;
+    ZigzagPath(const DiGraph *graph, double dist,
+               const std::vector<int64_t> &nodes,
+               const std::vector<int> &directions)
+        : graph(graph), dist(dist), nodes(nodes), directions(directions)
+    {
+    }
+    const DiGraph *graph{nullptr};
+    double dist{0.0};
+    std::vector<int64_t> nodes;
     std::vector<int> directions;
+    void round(double scale) { dist = ROUND(dist, scale); }
 };
 
 struct ShortestPathGenerator
@@ -250,6 +213,33 @@ struct DiGraph
         lengths_[idx1] = nodes_[idx1].length;
         auto &edge = edges_[std::make_tuple(idx0, idx1)];
         return edge;
+    }
+
+    const std::unordered_map<std::string, std::unordered_set<std::string>>
+    sibs_under_next() const
+    {
+        auto ret =
+            std::unordered_map<std::string, std::unordered_set<std::string>>{};
+        for (auto &kv : cache().sibs_under_next) {
+            auto &sibs = ret[indexer_.id(kv.first)];
+            for (auto s : kv.second) {
+                sibs.insert(indexer_.id(s));
+            }
+        }
+        return ret;
+    }
+    const std::unordered_map<std::string, std::unordered_set<std::string>>
+    sibs_under_prev() const
+    {
+        auto ret =
+            std::unordered_map<std::string, std::unordered_set<std::string>>{};
+        for (auto &kv : cache().sibs_under_prev) {
+            auto &sibs = ret[indexer_.id(kv.first)];
+            for (auto s : kv.second) {
+                sibs.insert(indexer_.id(s));
+            }
+        }
+        return ret;
     }
 
     const std::unordered_map<std::string, Node *> &nodes() const
@@ -379,13 +369,10 @@ struct DiGraph
         return path;
     }
 
-    std::optional<ZigzagPath>
-    shortest_zigzag_path(const std::string &source,           //
-                         const std::string &target,           //
-                         double cutoff,                       //
-                         std::optional<double> source_offset, //
-                         std::optional<double> target_offset,
-                         int direction = 0) const
+    std::optional<ZigzagPath> shortest_zigzag_path(const std::string &source, //
+                                                   const std::string &target, //
+                                                   double cutoff,             //
+                                                   int direction = 0) const
     {
         if (cutoff < 0) {
             return {};
@@ -394,28 +381,12 @@ struct DiGraph
         if (!src_idx) {
             return {};
         }
-        auto src_length = lengths_.find(*src_idx);
-        if (src_length == lengths_.end()) {
-            return {};
-        }
         auto dst_idx = indexer_.get_id(target);
         if (!dst_idx) {
             return {};
         }
-        auto dst_length = lengths_.find(*dst_idx);
-        if (dst_length == lengths_.end()) {
-            return {};
-        }
-        if (source_offset) {
-            source_offset = CLIP(0.0, *source_offset, src_length->second);
-        }
-        if (target_offset) {
-            target_offset = CLIP(0.0, *target_offset, dst_length->second);
-        }
-        auto path = __shortest_zigzag_path(
-            std::make_tuple(*src_idx, source_offset, src_length->second),
-            std::make_tuple(*dst_idx, target_offset, dst_length->second),
-            cutoff, direction);
+        auto path =
+            __shortest_zigzag_path(*src_idx, *dst_idx, cutoff, direction);
         if (path && round_scale_) {
             path->round(*round_scale_);
         }
@@ -741,6 +712,8 @@ struct DiGraph
     {
         std::unordered_map<std::string, Node *> nodes;
         std::unordered_map<std::tuple<std::string, std::string>, Edge *> edges;
+        unordered_map<int64_t, unordered_set<int64_t>> sibs_under_prev,
+            sibs_under_next;
     };
     mutable std::optional<Cache> cache_;
     Cache &cache() const
@@ -758,6 +731,32 @@ struct DiGraph
                 std::make_tuple(indexer_.id(std::get<0>(pair.first)),
                                 indexer_.id(std::get<1>(pair.first))),
                 const_cast<Edge *>(&pair.second));
+        }
+        {
+            auto &sibs = cache_->sibs_under_next;
+            for (auto &kv : nexts_) {
+                if (kv.second.size() > 1) {
+                    for (auto pid : kv.second) {
+                        sibs[pid].insert(kv.second.begin(), kv.second.end());
+                    }
+                }
+            }
+            for (auto &kv : sibs) {
+                kv.second.erase(kv.first);
+            }
+        }
+        {
+            auto &sibs = cache_->sibs_under_prev;
+            for (auto &kv : prevs_) {
+                if (kv.second.size() > 1) {
+                    for (auto nid : kv.second) {
+                        sibs[nid].insert(kv.second.begin(), kv.second.end());
+                    }
+                }
+            }
+            for (auto &kv : sibs) {
+                kv.second.erase(kv.first);
+            }
         }
         return *cache_;
     }
@@ -938,11 +937,146 @@ struct DiGraph
         return path;
     }
 
-    std::optional<ZigzagPath> __shortest_zigzag_path(
-        std::tuple<int64_t, std::optional<double>, double> source,
-        std::tuple<int64_t, std::optional<double>, double> target,
-        double cutoff, int direction) const
+    std::optional<ZigzagPath> __shortest_zigzag_path(int64_t source,
+                                                     int64_t target,
+                                                     double cutoff,
+                                                     int direction) const
     {
+        if (!lengths_.count(source) || !lengths_.count(target)) {
+            return {};
+        }
+        if (source == target) {
+            return ZigzagPath(this, 0.0, {source}, {1});
+        }
+
+        const auto &sibs_under_next = cache().sibs_under_next;
+        const auto &sibs_under_prev = cache().sibs_under_prev;
+
+        using State = std::tuple<int64_t, int>;
+        unordered_map<State, State> pmap;
+        unordered_map<State, double> dmap;
+        Heap<State> Q;
+        if (direction >= 0) {
+            dmap.insert({{source, 1}, 0.0});
+            Q.push({source, 1}, 0.0);
+        }
+        if (direction <= 0) {
+            dmap.insert({{source, -1}, 0.0});
+            Q.push({source, -1}, 0.0);
+        }
+
+        auto update_state = [&](const State &state, double dist,
+                                const State &prev) -> bool {
+            auto dist_itr = dmap.find(state);
+            if (dist_itr == dmap.end()) {
+                Q.push(state, dist);
+                dmap[state] = dist;
+                pmap[state] = prev;
+                return true;
+            } else if (dist < dist_itr->second) {
+                if (Q.contain_node(state)) {
+                    Q.decrease_key(state, dist);
+                } else {
+                    Q.push(state, dist);
+                }
+                dmap[state] = dist;
+                pmap[state] = prev;
+                return true;
+            }
+            return false;
+        };
+
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            double dist = node.value;
+            if (dist > cutoff) {
+                return {};
+            }
+            const auto &state = node.index;
+            auto idx = std::get<0>(state);
+            auto dir = std::get<1>(state);
+            if (idx == target) {
+                // backtrace from node.index to source
+                std::vector<State> states;
+                auto cursor = state;
+                while (true) {
+                    auto prev = pmap.find(cursor);
+                    if (prev == pmap.end()) {
+                        // assert cursor at source
+                        if (std::get<0>(cursor) != source) {
+                            return {};
+                        }
+                        states.push_back({source, -std::get<1>(cursor)});
+                        break;
+                    }
+                    cursor = prev->second;
+                    states.push_back(cursor);
+                }
+                std::reverse(states.begin(), states.end());
+                size_t N = states.size();
+                if (N % 2 != 0) {
+                    return {};
+                }
+                auto nodes = std::vector<int64_t>{};
+                auto dirs = std::vector<int>{};
+                for (size_t i = 0; i < N; i += 2) {
+                    if (std::get<0>(states[i]) != std::get<0>(states[i + 1])) {
+                        return {};
+                    }
+                    nodes.push_back(std::get<0>(states[i]));
+                    dirs.push_back(std::get<1>(states[i]) <
+                                           std::get<1>(states[i + 1])
+                                       ? 1
+                                       : -1);
+                }
+                nodes.push_back(target);
+                dirs.push_back(-dir);
+                return ZigzagPath(this, dist, nodes, dirs);
+            }
+
+            if (dir == 1) {
+                // forwards to nexts, or reverse to sibs
+                auto next_itr = nexts_.find(idx);
+                if (next_itr != nexts_.end()) {
+                    for (auto n : next_itr->second) {
+                        if (update_state({n, -1}, dist, state)) {
+                            update_state({n, 1}, dist + lengths_.at(n),
+                                         {n, -1});
+                        }
+                    }
+                }
+                auto sib_itr = sibs_under_prev.find(idx);
+                if (sib_itr != sibs_under_prev.end()) {
+                    for (auto s : sib_itr->second) {
+                        if (update_state({s, 1}, dist, state)) {
+                            update_state({s, -1}, dist + lengths_.at(s),
+                                         {s, 1});
+                        }
+                    }
+                }
+            } else if (dir == -1) {
+                // backwards to prevs, or reverse to sibs
+                auto prev_itr = prevs_.find(idx);
+                if (prev_itr != prevs_.end()) {
+                    for (auto p : prev_itr->second) {
+                        if (update_state({p, 1}, dist, state)) {
+                            update_state({p, -1}, dist + lengths_.at(p),
+                                         {p, 1});
+                        }
+                    }
+                }
+                auto sib_itr = sibs_under_next.find(idx);
+                if (sib_itr != sibs_under_next.end()) {
+                    for (auto s : sib_itr->second) {
+                        if (update_state({s, -1}, dist, state)) {
+                            update_state({s, 1}, dist + lengths_.at(s),
+                                         {s, -1});
+                        }
+                    }
+                }
+            }
+        }
         return {};
     }
 
@@ -1531,18 +1665,13 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(self.graph->__node_id(self.nodes.back()),
                                        self.end_offset);
             })
-        .def_property_readonly("binding",
-                               [](const Path &self) { return self.binding; })
-        .def("through_sinks", &Path::through_sinks, "sinks"_a)
-        .def("through_bindings", &Path::through_bindings, "bindings"_a)
-        .def("through_jumps",
-             [](const Path &p,
-                const std::unordered_map<std::string, std::vector<std::string>>
-                    &jumps) -> bool {
-                 // TODO, implement
-                 // maybe integrate into dijkstra(source,target)?
-                 return true;
-             })
+        .def_property_readonly(
+            "binding",
+            [](const Path &self) {
+                return std::make_tuple( //
+                    self.graph->__node_id(std::get<0>(*self.binding)),
+                    std::get<1>(*self.binding));
+            })
         .def(
             "__getitem__",
             [](const Path &self, const std::string &attr_name) -> py::object {
@@ -1561,6 +1690,14 @@ PYBIND11_MODULE(_core, m)
                 } else if (attr_name == "end") {
                     auto end = self.graph->__node_id(self.nodes.back());
                     return py::make_tuple(end, self.end_offset);
+                } else if (attr_name == "binding") {
+                    if (self.binding) {
+                        return py::make_tuple( //
+                            self.graph->__node_id(std::get<0>(*self.binding)),
+                            std::get<1>(*self.binding));
+                    } else {
+                        return py::none();
+                    }
                 }
                 auto py_obj = py::cast(self);
                 if (!py::hasattr(py_obj, attr_name.c_str())) {
@@ -1575,7 +1712,7 @@ PYBIND11_MODULE(_core, m)
                 py::object obj) -> py::object {
                  if (attr_name == "graph" || attr_name == "dist" ||
                      attr_name == "nodes" || attr_name == "start" ||
-                     attr_name == "end") {
+                     attr_name == "end" || attr_name == "binding") {
                      throw py::key_error(
                          fmt::format("{} is readonly", attr_name));
                  }
@@ -1613,9 +1750,37 @@ PYBIND11_MODULE(_core, m)
     py::class_<ZigzagPath, Path>(m, "ZigzagPath", py::module_local(),
                                  py::dynamic_attr()) //
         //
-        .def("lengths", [](const ZigzagPath &self) { return self.lengths; })
-        .def("directions",
-             [](const ZigzagPath &self) { return self.directions; })
+        .def_property_readonly(
+            "graph", [](const ZigzagPath &self) { return self.graph; })
+        .def_property_readonly("dist",
+                               [](const ZigzagPath &self) { return self.dist; })
+        .def_property_readonly("nodes",
+                               [](const ZigzagPath &self) {
+                                   return self.graph->__node_ids(self.nodes);
+                               })
+        .def_property_readonly(
+            "directions",
+            [](const ZigzagPath &self) { return self.directions; })
+        .def("to_dict",
+             [](const ZigzagPath &self) {
+                 py::dict ret;
+                 ret["dist"] = self.dist;
+                 py::list nodes;
+                 for (auto &node : self.graph->__node_ids(self.nodes)) {
+                     nodes.append(node);
+                 }
+                 ret["nodes"] = nodes;
+                 py::list dirs;
+                 for (auto d : self.directions) {
+                     dirs.append(d);
+                 }
+                 ret["directions"] = dirs;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
@@ -1902,6 +2067,8 @@ PYBIND11_MODULE(_core, m)
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
              rvp::reference_internal)
         //
+        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next)
+        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev)
         .def_property_readonly("nodes", &DiGraph::nodes,
                                rvp::reference_internal)
         .def_property_readonly("edges", &DiGraph::edges,
@@ -1965,8 +2132,6 @@ PYBIND11_MODULE(_core, m)
              "target"_a,                                             //
              py::kw_only(),                                          //
              "cutoff"_a,                                             //
-             "source_offset"_a = std::nullopt,                       //
-             "target_offset"_a = std::nullopt,                       //
              "direction"_a = 0)
         // all paths
         .def("all_paths_from", &DiGraph::all_paths_from, //

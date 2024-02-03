@@ -7,7 +7,7 @@ from networkx_graph import DiGraph, Node, Path
 
 
 def test_version():
-    assert m.__version__ == "0.1.0"
+    assert m.__version__ == "0.1.1"
 
 
 def test_add():
@@ -772,6 +772,7 @@ def test_shortest_path_to_bindings():
         bindings=bindings,
     )
     assert backwards is None
+    assert forwards.binding == ("w3", (1.0, 3.0, obj1))
     forwards = forwards.to_dict()
     assert forwards == {
         "dist": 1.0,
@@ -1023,3 +1024,33 @@ def test_all_paths_to_bindings():
     )
     assert len(backwards) == 2
     assert len(forwards) == 0
+
+
+def test_shortest_zigzag_path():
+    G = graph1()
+    assert G.shortest_zigzag_path("w3", "w3", cutoff=100).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w3"],
+        "directions": [1],
+    }
+    path = G.shortest_zigzag_path("w3", "w5", cutoff=15)
+    assert path.to_dict() == {
+        "dist": 15.0,
+        "nodes": ["w3", "w2", "w5"],
+        "directions": [-1, 1, 1],
+    }
+    path = G.shortest_zigzag_path("w3", "w5", cutoff=10)
+    assert path is None
+
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    assert path.to_dict() == {
+        "dist": 10.0,
+        "nodes": ["w4", "w3", "w2"],
+        "directions": [-1, -1, 1],
+    }
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30, direction=1)
+    assert path.to_dict() == {
+        "dist": 18.0,
+        "nodes": ["w4", "w6", "w5", "w2"],
+        "directions": [1, 1, -1, -1],
+    }
