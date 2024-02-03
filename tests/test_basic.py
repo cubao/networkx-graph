@@ -7,7 +7,7 @@ from networkx_graph import DiGraph, Node, Path
 
 
 def test_version():
-    assert m.__version__ == "0.1.0"
+    assert m.__version__ == "0.1.1"
 
 
 def test_add():
@@ -1033,8 +1033,24 @@ def test_shortest_zigzag_path():
         "nodes": ["w3"],
         "directions": [1],
     }
-    path = G.shortest_zigzag_path("w3", "w5", cutoff=100)
-    print()
+    path = G.shortest_zigzag_path("w3", "w5", cutoff=15)
+    assert path.to_dict() == {
+        "dist": 15.0,
+        "nodes": ["w3", "w2", "w5"],
+        "directions": [-1, 1, 1],
+    }
+    path = G.shortest_zigzag_path("w3", "w5", cutoff=10)
+    assert path is None
 
-
-test_shortest_zigzag_path()
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    assert path.to_dict() == {
+        "dist": 10.0,
+        "nodes": ["w4", "w3", "w2"],
+        "directions": [-1, -1, 1],
+    }
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30, direction=1)
+    assert path.to_dict() == {
+        "dist": 18.0,
+        "nodes": ["w4", "w6", "w5", "w2"],
+        "directions": [1, 1, -1, -1],
+    }
