@@ -942,7 +942,6 @@ struct DiGraph
                                                      double cutoff,
                                                      int direction) const
     {
-        dbg(source, target);
         if (!lengths_.count(source) || !lengths_.count(target)) {
             return {};
         }
@@ -973,10 +972,6 @@ struct DiGraph
                 Q.push(state, dist);
                 dmap[state] = dist;
                 pmap[state] = prev;
-                dbg("update, init");
-                dbg(indexer_.id(std::get<0>(state)), std::get<1>(state));
-                dbg(dist);
-                dbg(indexer_.id(std::get<0>(prev)), std::get<1>(prev));
                 return true;
             } else if (dist < dist_itr->second) {
                 if (Q.contain_node(state)) {
@@ -986,10 +981,6 @@ struct DiGraph
                 }
                 dmap[state] = dist;
                 pmap[state] = prev;
-                dbg("update, less");
-                dbg(indexer_.id(std::get<0>(state)), std::get<1>(state));
-                dbg(dist);
-                dbg(indexer_.id(std::get<0>(prev)), std::get<1>(prev));
                 return true;
             }
             return false;
@@ -1002,17 +993,46 @@ struct DiGraph
             if (dist > cutoff) {
                 return {};
             }
-            auto &state = node.index;
+            const auto &state = node.index;
             auto idx = std::get<0>(state);
             auto dir = std::get<1>(state);
             if (idx == target) {
                 // backtrace from node.index to source
-                // ZigzagPath path();
-                for (auto &kv : dmap) {
-                    dbg(indexer_.id(std::get<0>(kv.first)),
-                        std::get<1>(kv.first), kv.second);
+                std::vector<State> states;
+                auto cursor = state;
+                while (true) {
+                    auto prev = pmap.find(cursor);
+                    if (prev == pmap.end()) {
+                        // assert cursor at source
+                        if (std::get<0>(cursor) != source) {
+                            return {};
+                        }
+                        states.push_back({source, -std::get<1>(cursor)});
+                        break;
+                    }
+                    cursor = prev->second;
+                    states.push_back(cursor);
                 }
-                return {};
+                std::reverse(states.begin(), states.end());
+                size_t N = states.size();
+                if (N % 2 != 0) {
+                    return {};
+                }
+                auto nodes = std::vector<int64_t>{};
+                auto dirs = std::vector<int>{};
+                for (size_t i = 0; i < N; i += 2) {
+                    if (std::get<0>(states[i]) != std::get<0>(states[i + 1])) {
+                        return {};
+                    }
+                    nodes.push_back(std::get<0>(states[i]));
+                    dirs.push_back(std::get<1>(states[i]) <
+                                           std::get<1>(states[i + 1])
+                                       ? 1
+                                       : -1);
+                }
+                nodes.push_back(target);
+                dirs.push_back(-dir);
+                return ZigzagPath(this, dist, nodes, dirs);
             }
 
             if (dir == 1) {
