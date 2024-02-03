@@ -1005,6 +1005,9 @@ struct DiGraph
         auto dst_idx = std::get<0>(target);
         auto dst_len = std::get<2>(target);
 
+        auto &sibs_under_next = cache().sibs_under_next;
+        auto &sibs_under_prev = cache().sibs_under_prev;
+
         Heap<State> Q;
         while (!Q.empty()) {
             HeapNode node = Q.top();
@@ -1019,42 +1022,32 @@ struct DiGraph
             }
 
             if (dir == 1) {
-                // nexts
-                // sibs
-                auto itr = nexts_.find(idx);
-                if (itr == nexts_.end()) {
-                    continue;
+                // forwards to nexts, or reverse to sibs
+                auto next_itr = nexts_.find(idx);
+                if (next_itr != nexts_.end()) {
+                    for (auto n : next_itr->second) {
+                    }
+                }
+                auto sib_itr = sibs_under_prev.find(idx);
+                if (sib_itr != sibs_under_prev.end()) {
+                    for (auto s : sib_itr->second) {
+                    }
                 }
             } else {
-                // prevs
-                // sibs
-            }
-
-            double u_cost = lengths_.at(u);
-            for (auto v : itr->second) {
-                auto c = node.value + u_cost;
-                if (c > cutoff) {
-                    continue;
-                }
-                auto iter = dmap.find(v);
-                if (iter != dmap.end()) {
-                    if (c < iter->second) {
-                        pmap[v] = u;
-                        dmap[v] = c;
-                        if (Q.contain_node(v)) {
-                            Q.decrease_key(v, c);
-                        } else {
-                            Q.push(v, c);
-                        }
+                // backwards to prevs, or reverse to sibs
+                auto prev_itr = prevs_.find(idx);
+                if (prev_itr != prevs_.end()) {
+                    for (auto p : prev_itr->second) {
                     }
-                } else {
-                    pmap.insert({v, u});
-                    dmap.insert({v, c});
-                    Q.push(v, c);
+                }
+                auto sib_itr = sibs_under_next.find(idx);
+                if (sib_itr != sibs_under_next.end()) {
+                    for (auto s : sib_itr->second) {
+                    }
                 }
             }
         }
-        * / return {};
+        return {};
     }
 
     std::optional<Path>
