@@ -225,6 +225,33 @@ struct DiGraph
         return edge;
     }
 
+    const std::unordered_map<std::string, std::unordered_set<std::string>>
+    sibs_under_next() const
+    {
+        auto ret =
+            std::unordered_map<std::string, std::unordered_set<std::string>>{};
+        for (auto &kv : cache().sibs_under_next) {
+            auto &sibs = ret[indexer_.id(kv.first)];
+            for (auto s : kv.second) {
+                sibs.insert(indexer_.id(s));
+            }
+        }
+        return ret;
+    }
+    const std::unordered_map<std::string, std::unordered_set<std::string>>
+    sibs_under_prev() const
+    {
+        auto ret =
+            std::unordered_map<std::string, std::unordered_set<std::string>>{};
+        for (auto &kv : cache().sibs_under_prev) {
+            auto &sibs = ret[indexer_.id(kv.first)];
+            for (auto s : kv.second) {
+                sibs.insert(indexer_.id(s));
+            }
+        }
+        return ret;
+    }
+
     const std::unordered_map<std::string, Node *> &nodes() const
     {
         return cache().nodes;
@@ -714,6 +741,8 @@ struct DiGraph
     {
         std::unordered_map<std::string, Node *> nodes;
         std::unordered_map<std::tuple<std::string, std::string>, Edge *> edges;
+        unordered_map<int64_t, unordered_set<int64_t>> sibs_under_prev,
+            sibs_under_next;
     };
     mutable std::optional<Cache> cache_;
     Cache &cache() const
@@ -731,6 +760,32 @@ struct DiGraph
                 std::make_tuple(indexer_.id(std::get<0>(pair.first)),
                                 indexer_.id(std::get<1>(pair.first))),
                 const_cast<Edge *>(&pair.second));
+        }
+        {
+            auto &sibs = cache_->sibs_under_next;
+            for (auto &kv : prevs_) {
+                if (kv.second.size() > 1) {
+                    for (auto pid : kv.second) {
+                        sibs[pid].insert(kv.second.begin(), kv.second.end());
+                    }
+                }
+            }
+            for (auto &kv : sibs) {
+                kv.second.erase(kv.first);
+            }
+        }
+        {
+            auto &sibs = cache_->sibs_under_prev;
+            for (auto &kv : nexts_) {
+                if (kv.second.size() > 1) {
+                    for (auto nid : kv.second) {
+                        sibs[nid].insert(kv.second.begin(), kv.second.end());
+                    }
+                }
+            }
+            for (auto &kv : sibs) {
+                kv.second.erase(kv.first);
+            }
         }
         return *cache_;
     }
@@ -916,43 +971,65 @@ struct DiGraph
         std::tuple<int64_t, std::optional<double>, double> target,
         double cutoff, int direction) const
     {
-        using State = std::tuple<int64_t, double>;
+        if (std::get<0>(source) == std::get<0>(target)) {
+            // TODO
+            return {};
+        }
+
+        using State = std::tuple<int64_t, int>;
         unordered_map<State, State> pmap;
         unordered_map<State, double> dmap;
         auto src_idx = std::get<0>(source);
         auto src_len = std::get<2>(source);
         if (std::get<1>(source)) {
             double src_off = *std::get<1>(source);
-            dmap.insert({{src_idx, src_off}, 0.0});
             if (direction >= 0) {
-                dmap.insert({{src_idx, src_len}, src_len - src_off});
-                pmap.insert({{src_idx, src_len}, {src_idx, src_off}});
+                dmap.insert({{src_idx, 1}, src_len - src_off});
+                pmap.insert({{src_idx, 1}, {src_idx, 0}});
             }
             if (direction <= 0) {
-                dmap.insert({{src_idx, 0.0}, src_off});
-                pmap.insert({{src_idx, 0.0}, {src_idx, src_off}});
+                dmap.insert({{src_idx, -1}, src_off});
+                pmap.insert({{src_idx, -1}, {src_idx, 0}});
             }
         } else {
-            dmap.insert({{src_idx, 0.0}, 0.0});
-            dmap.insert({{src_idx, src_len}, 0.0});
+            if (direction >= 0) {
+                dmap.insert({{src_idx, 1}, 0.0});
+                pmap.insert({{src_idx, 1}, {src_idx, 0}});
+            }
+            if (direction <= 0) {
+                dmap.insert({{src_idx, -1}, 0.0});
+                pmap.insert({{src_idx, -1}, {src_idx, 0}});
+            }
         }
-        Heap<State> Q;
 
-        /*
+        auto dst_idx = std::get<0>(target);
+        auto dst_len = std::get<2>(target);
+
+        Heap<State> Q;
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
             if (node.value > cutoff) {
                 return {};
             }
-            auto u = node.index;
-            // if (u == target) {
-            //     break;
-            // }
-            auto itr = nexts_.find(u);
-            if (itr == nexts_.end()) {
-                continue;
+            auto idx = std::get<0>(node.index);
+            auto dir = std::get<1>(node.index);
+            if (idx == dst_idx) {
+                // TODO
             }
+
+            if (dir == 1) {
+                // nexts
+                // sibs
+                auto itr = nexts_.find(idx);
+                if (itr == nexts_.end()) {
+                    continue;
+                }
+            } else {
+                // prevs
+                // sibs
+            }
+
             double u_cost = lengths_.at(u);
             for (auto v : itr->second) {
                 auto c = node.value + u_cost;
@@ -977,8 +1054,7 @@ struct DiGraph
                 }
             }
         }
-        */
-        return {};
+        * / return {};
     }
 
     std::optional<Path>
@@ -1940,6 +2016,8 @@ PYBIND11_MODULE(_core, m)
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
              rvp::reference_internal)
         //
+        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next)
+        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev)
         .def_property_readonly("nodes", &DiGraph::nodes,
                                rvp::reference_internal)
         .def_property_readonly("edges", &DiGraph::edges,
