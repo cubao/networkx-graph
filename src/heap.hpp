@@ -587,7 +587,7 @@ template <typename T = int64_t> struct Heap
 
   private:
     FibHeap<HeapNode<T>> heap;
-    typedef FibHeap<HeapNode<T>>::FibNode *HeapNodeHandle;
+    typedef typename FibHeap<HeapNode<T>>::FibNode *HeapNodeHandle;
     unordered_map<T, HeapNodeHandle> handle_data;
 };
 } // namespace nano_fmm
