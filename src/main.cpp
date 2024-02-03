@@ -965,10 +965,13 @@ struct DiGraph
             Q.push({source, -1}, 0.0);
         }
 
-        auto update_state = [&](const State &state, double dist) -> bool {
+        auto update_state = [&](const State &state, double dist,
+                                const State &prev) -> bool {
             auto dist_itr = dmap.find(state);
             if (dist_itr == dmap.end()) {
                 Q.push(state, dist);
+                dmap[state] = dist;
+                pmap[state] = prev;
                 return true;
             } else if (dist < dist_itr->second) {
                 if (Q.contain_node(state)) {
@@ -977,6 +980,7 @@ struct DiGraph
                     Q.push(state, dist);
                 }
                 dmap[state] = dist;
+                pmap[state] = prev;
                 return true;
             }
             return false;
@@ -988,11 +992,18 @@ struct DiGraph
             if (node.value > cutoff) {
                 return {};
             }
-            auto idx = std::get<0>(node.index);
-            auto dir = std::get<1>(node.index);
+            auto &state = node.index;
+            auto idx = std::get<0>(state);
+            auto dir = std::get<1>(state);
             double dist = dmap[node.index];
             if (idx == target) {
                 // backtrace from node.index to source
+                // ZigzagPath path();
+                for (auto &kv : dmap) {
+                    dbg(indexer_.id(std::get<0>(kv.first)),
+                        std::get<1>(kv.first), kv.second);
+                }
+                return {};
             }
 
             if (dir == 1) {
@@ -1000,16 +1011,18 @@ struct DiGraph
                 auto next_itr = nexts_.find(idx);
                 if (next_itr != nexts_.end()) {
                     for (auto n : next_itr->second) {
-                        if (update_state({n, -1}, dist)) {
-                            update_state({n, 1}, dist + lengths_.at(n));
+                        if (update_state({n, -1}, dist, state)) {
+                            update_state({n, 1}, dist + lengths_.at(n),
+                                         {n, -1});
                         }
                     }
                 }
                 auto sib_itr = sibs_under_prev.find(idx);
                 if (sib_itr != sibs_under_prev.end()) {
                     for (auto s : sib_itr->second) {
-                        if (update_state({s, 1}, dist)) {
-                            update_state({s, -1}, dist + lengths_.at(s));
+                        if (update_state({s, 1}, dist, state)) {
+                            update_state({s, -1}, dist + lengths_.at(s),
+                                         {s, 1});
                         }
                     }
                 }
@@ -1018,16 +1031,18 @@ struct DiGraph
                 auto prev_itr = prevs_.find(idx);
                 if (prev_itr != prevs_.end()) {
                     for (auto p : prev_itr->second) {
-                        if (update_state({p, 1}, dist)) {
-                            update_state({p, -1}, dist + lengths_.at(p));
+                        if (update_state({p, 1}, dist, state)) {
+                            update_state({p, -1}, dist + lengths_.at(p),
+                                         {p, 1});
                         }
                     }
                 }
                 auto sib_itr = sibs_under_next.find(idx);
                 if (sib_itr != sibs_under_next.end()) {
                     for (auto s : sib_itr->second) {
-                        if (update_state({s, -1}, dist)) {
-                            update_state({s, 1}, dist + lengths_.at(s));
+                        if (update_state({s, -1}, dist, state)) {
+                            update_state({s, 1}, dist + lengths_.at(s),
+                                         {s, -1});
                         }
                     }
                 }
