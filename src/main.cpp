@@ -138,9 +138,27 @@ struct ZigzagPath : Path
 {
     // two-way routing on a DiGraph
     ZigzagPath() = default;
-
+    const DiGraph *graph{nullptr};
+    double dist{0.0};
+    std::vector<int64_t> nodes;
     std::vector<double> lengths;
     std::vector<int> directions;
+    std::optional<double> start_offset;
+    std::optional<double> end_offset;
+
+    void round(double scale)
+    {
+        dist = ROUND(dist, scale);
+        if (start_offset) {
+            start_offset = ROUND(*start_offset, scale);
+        }
+        if (end_offset) {
+            end_offset = ROUND(*end_offset, scale);
+        }
+        for (auto &l : lengths) {
+            l = ROUND(l, scale);
+        }
+    }
 };
 
 struct ShortestPathGenerator
@@ -898,6 +916,27 @@ struct DiGraph
         std::tuple<int64_t, std::optional<double>, double> target,
         double cutoff, int direction) const
     {
+        using State = std::tuple<int64_t, double>;
+        unordered_map<State, State> pmap;
+        unordered_map<State, double> dmap;
+        auto src_idx = std::get<0>(source);
+        auto src_len = std::get<2>(source);
+        if (std::get<1>(source)) {
+            double src_off = *std::get<1>(source);
+            dmap.insert({{src_idx, src_off}, 0.0});
+            if (direction >= 0) {
+                dmap.insert({{src_idx, src_len}, src_len - src_off});
+                pmap.insert({{src_idx, src_len}, {src_idx, src_off}});
+            }
+            if (direction <= 0) {
+                dmap.insert({{src_idx, 0.0}, src_off});
+                pmap.insert({{src_idx, 0.0}, {src_idx, src_off}});
+            }
+        } else {
+            dmap.insert({{src_idx, 0.0}, 0.0});
+            dmap.insert({{src_idx, src_len}, 0.0});
+        }
+        Heap Q;
         return {};
     }
 
