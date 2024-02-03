@@ -1721,9 +1721,37 @@ PYBIND11_MODULE(_core, m)
     py::class_<ZigzagPath, Path>(m, "ZigzagPath", py::module_local(),
                                  py::dynamic_attr()) //
         //
-        .def("lengths", [](const ZigzagPath &self) { return self.lengths; })
-        .def("directions",
-             [](const ZigzagPath &self) { return self.directions; })
+        .def_property_readonly(
+            "graph", [](const ZigzagPath &self) { return self.graph; })
+        .def_property_readonly("dist",
+                               [](const ZigzagPath &self) { return self.dist; })
+        .def_property_readonly("nodes",
+                               [](const ZigzagPath &self) {
+                                   return self.graph->__node_ids(self.nodes);
+                               })
+        .def_property_readonly(
+            "directions",
+            [](const ZigzagPath &self) { return self.directions; })
+        .def("to_dict",
+             [](const ZigzagPath &self) {
+                 py::dict ret;
+                 ret["dist"] = self.dist;
+                 py::list nodes;
+                 for (auto &node : self.graph->__node_ids(self.nodes)) {
+                     nodes.append(node);
+                 }
+                 ret["nodes"] = nodes;
+                 py::list dirs;
+                 for (auto d : self.directions) {
+                     dirs.append(d);
+                 }
+                 ret["directions"] = dirs;
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
         //
         ;
 
