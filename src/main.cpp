@@ -1191,8 +1191,8 @@ struct DiGraph
             if (sinks && sinks->nodes.count(u)) {
                 continue;
             }
-            auto itr = nexts_.find(u);
-            if (itr == nexts_.end()) {
+            auto itr = jumps.find(u);
+            if (itr == jumps.end()) {
                 continue;
             }
             double u_cost = lengths_.at(u);
