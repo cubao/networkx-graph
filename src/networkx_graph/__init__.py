@@ -9,6 +9,7 @@ from ._core import (
     Path,
     ShortestPathGenerator,
     ZigzagPath,
+    ZigzagPathGenerator,
     __doc__,
     __version__,
     add,
@@ -47,4 +48,5 @@ __all__ = [
     "DiGraph",
     "ZigzagPath",
     "ShortestPathGenerator",
+    "ZigzagPathGenerator",
 ]

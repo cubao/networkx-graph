@@ -560,8 +560,23 @@ def test_routing():
     decoded["w2"][-1][-1]["num"] = 42
     assert obj["num"] == 42
 
-    dists = G.shortest_paths_from("w1", cutoff=20.0).destinations()
+    generator = G.shortest_paths_from("w1", cutoff=20.0)
+    dists = generator.destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
+    paths = generator.paths()
+    assert len(paths) == 2
+    assert paths[0].to_dict() == {
+        "dist": 20.0,
+        "nodes": ["w1", "w3", "w4"],
+        "start": ("w1", None),
+        "end": ("w4", 10.0),
+    }
+    assert paths[1].to_dict() == {
+        "dist": 20.0,
+        "nodes": ["w1", "w2", "w5"],
+        "start": ("w1", None),
+        "end": ("w5", 5.0),
+    }
 
     sinks = G.encode_sinks({"w2", "w3"})
     assert sinks() == {"w2", "w3"}
@@ -1059,4 +1074,65 @@ def test_shortest_zigzag_path():
         "dist": 18.0,
         "nodes": ["w4", "w6", "w5", "w2"],
         "directions": [1, 1, -1, -1],
+    }
+
+    generator = G.shortest_zigzag_path("w4", cutoff=30, direction=1)
+    assert generator.dists() == {
+        ("w2", 1): 18.0,
+        ("w5", -1): 18.0,
+        ("w5", 1): 3.0,
+        ("w7", 1): 13.0,
+        ("w4", 1): 0.0,
+        ("w6", -1): 0.0,
+        ("w6", 1): 3.0,
+        ("w7", -1): 3.0,
+    }
+    assert generator.prevs() == {
+        ("w2", 1): ("w5", -1),
+        ("w5", -1): ("w5", 1),
+        ("w5", 1): ("w6", 1),
+        ("w6", 1): ("w6", -1),
+        ("w6", -1): ("w4", 1),
+        ("w7", -1): ("w6", 1),
+        ("w7", 1): ("w7", -1),
+    }
+    assert generator.path("w2").to_dict() == {
+        "dist": 18.0,
+        "nodes": ["w4", "w6", "w5", "w2"],
+        "directions": [1, 1, -1, -1],
+    }
+    assert generator.path("w1") is None
+    assert generator.path("w7").to_dict() == {
+        "dist": 3.0,
+        "nodes": ["w4", "w6", "w7"],
+        "directions": [1, 1, 1],
+    }
+    assert generator.destinations() == [
+        (0.0, "w4"),
+        (0.0, "w6"),
+        (3.0, "w5"),
+        (3.0, "w7"),
+        (18.0, "w2"),
+    ]
+    paths = generator.paths()
+    assert len(paths) == 4
+    assert paths[0].to_dict() == {
+        "dist": 18.0,
+        "nodes": ["w4", "w6", "w5", "w2"],
+        "directions": [1, 1, -1, -1],
+    }
+    assert paths[1].to_dict() == {
+        "dist": 3.0,
+        "nodes": ["w4", "w6", "w7"],
+        "directions": [1, 1, 1],
+    }
+    assert paths[2].to_dict() == {
+        "dist": 3.0,
+        "nodes": ["w4", "w6", "w5"],
+        "directions": [1, 1, -1],
+    }
+    assert paths[3].to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w4", "w6"],
+        "directions": [1, 1],
     }

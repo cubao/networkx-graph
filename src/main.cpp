@@ -2161,13 +2161,25 @@ PYBIND11_MODULE(_core, m)
                  if (!self.ready()) {
                      return {};
                  }
-                 auto ret = std::vector<std::tuple<double, std::string>>{};
-                 ret.reserve(self.dists.size());
+                 auto node2dist = std::unordered_map<std::string, double>{};
                  for (auto &kv : self.dists) {
-                     ret.push_back(std::make_tuple(
-                         kv.second,
-                         self.graph->__node_id(std::get<0>(kv.first))));
+                     auto node = self.graph->__node_id(std::get<0>(kv.first));
+                     double dist = kv.second;
+                     auto itr = node2dist.find(node);
+                     if (itr == node2dist.end() || dist < itr->second) {
+                         node2dist[node] = dist;
+                     }
                  }
+                 auto ret = std::vector<std::tuple<double, std::string>>{};
+                 ret.reserve(node2dist.size());
+                 for (auto &kv : node2dist) {
+                     ret.push_back(
+                         std::make_tuple(std::get<1>(kv), std::get<0>(kv)));
+                 }
+                 std::sort(ret.begin(), ret.end(),
+                           [](const auto &n1, const auto &n2) {
+                               return std::get<0>(n1) < std::get<0>(n2);
+                           });
                  return ret;
              })
         .def("paths",
