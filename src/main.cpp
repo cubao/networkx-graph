@@ -170,6 +170,7 @@ struct ShortestPathGenerator
 struct ZigzagPathGenerator
 {
     using State = std::tuple<int64_t, int>;
+    ZigzagPathGenerator() = default;
     ZigzagPathGenerator(const DiGraph *graph, double cutoff)
         : graph(graph), cutoff(cutoff)
     {
@@ -183,12 +184,9 @@ struct ZigzagPathGenerator
 
     bool ready() const { return graph && cutoff > 0 && source; }
 
-    std::vector<ZigzagPath> paths() const { return {}; }
-    std::optional<ZigzagPath> path(const std::string &node) const { return {}; }
-
     static std::optional<ZigzagPath>
-    Path(const State &state, int64_t source, //
-         const DiGraph *self,                //
+    Path(const State &state, const int64_t source, //
+         const DiGraph *self,                      //
          const unordered_map<State, State> &pmap,
          const unordered_map<State, double> &dmap)
     {
@@ -1071,15 +1069,15 @@ struct DiGraph
             Q.pop();
             double dist = node.value;
             if (dist > cutoff) {
-                return {};
+                break;
             }
             const auto &state = node.index;
             auto idx = std::get<0>(state);
             auto dir = std::get<1>(state);
             if (target && idx == *target) {
                 // backtrace from current state to source
-                return ZigzagPathGenerator::Path(state, source, this, pmap,
-                                                 dmap);
+                return ZigzagPathGenerator::Path(state, source, this, //
+                                                 pmap, dmap);
             }
 
             if (dir == 1) {
@@ -1126,6 +1124,7 @@ struct DiGraph
         }
 
         if (generator) {
+            generator->source = source;
             generator->prevs = std::move(pmap);
             generator->dists = std::move(dmap);
         }
@@ -2152,6 +2151,7 @@ PYBIND11_MODULE(_core, m)
                      return {};
                  }
                  auto node_idx = self.graph->__node_id(node);
+                 return {};
              })
         .def("to_dict",
              [](const ZigzagPathGenerator &self) {
