@@ -177,10 +177,58 @@ struct ZigzagPathGenerator
 
     const DiGraph *graph{nullptr};
     double cutoff{0.0};
+    std::optional<int64_t> source;
     unordered_map<State, State> prevs;
     unordered_map<State, double> dists;
 
-    bool ready() const { return graph && cutoff > 0; }
+    bool ready() const { return graph && cutoff > 0 && source; }
+
+    std::vector<ZigzagPath> paths() const { return {}; }
+    std::optional<ZigzagPath> path(const std::string &node) const { return {}; }
+
+    static std::optional<ZigzagPath>
+    Path(const State &state, int64_t source, //
+         const DiGraph *self,                //
+         const unordered_map<State, State> &pmap,
+         const unordered_map<State, double> &dmap)
+    {
+        std::vector<State> states;
+        int64_t target = std::get<0>(state);
+        int dir = -std::get<1>(state);
+        double dist = dmap.at(state);
+        auto cursor = state;
+        while (true) {
+            auto prev = pmap.find(cursor);
+            if (prev == pmap.end()) {
+                // assert cursor at source
+                if (std::get<0>(cursor) != source) {
+                    return {};
+                }
+                states.push_back({source, -std::get<1>(cursor)});
+                break;
+            }
+            cursor = prev->second;
+            states.push_back(cursor);
+        }
+        std::reverse(states.begin(), states.end());
+        size_t N = states.size();
+        if (N % 2 != 0) {
+            return {};
+        }
+        auto nodes = std::vector<int64_t>{};
+        auto dirs = std::vector<int>{};
+        for (size_t i = 0; i < N; i += 2) {
+            if (std::get<0>(states[i]) != std::get<0>(states[i + 1])) {
+                return {};
+            }
+            nodes.push_back(std::get<0>(states[i]));
+            dirs.push_back(
+                std::get<1>(states[i]) < std::get<1>(states[i + 1]) ? 1 : -1);
+        }
+        nodes.push_back(target);
+        dirs.push_back(dir);
+        return ZigzagPath(self, dist, nodes, dirs);
+    }
 };
 
 struct DiGraph
@@ -996,6 +1044,9 @@ struct DiGraph
 
         auto update_state = [&](const State &state, double dist,
                                 const State &prev) -> bool {
+            if (dist > cutoff) {
+                return false;
+            }
             auto dist_itr = dmap.find(state);
             if (dist_itr == dmap.end()) {
                 Q.push(state, dist);
@@ -1026,42 +1077,9 @@ struct DiGraph
             auto idx = std::get<0>(state);
             auto dir = std::get<1>(state);
             if (target && idx == *target) {
-                // backtrace from node.index to source
-                std::vector<State> states;
-                auto cursor = state;
-                while (true) {
-                    auto prev = pmap.find(cursor);
-                    if (prev == pmap.end()) {
-                        // assert cursor at source
-                        if (std::get<0>(cursor) != source) {
-                            return {};
-                        }
-                        states.push_back({source, -std::get<1>(cursor)});
-                        break;
-                    }
-                    cursor = prev->second;
-                    states.push_back(cursor);
-                }
-                std::reverse(states.begin(), states.end());
-                size_t N = states.size();
-                if (N % 2 != 0) {
-                    return {};
-                }
-                auto nodes = std::vector<int64_t>{};
-                auto dirs = std::vector<int>{};
-                for (size_t i = 0; i < N; i += 2) {
-                    if (std::get<0>(states[i]) != std::get<0>(states[i + 1])) {
-                        return {};
-                    }
-                    nodes.push_back(std::get<0>(states[i]));
-                    dirs.push_back(std::get<1>(states[i]) <
-                                           std::get<1>(states[i + 1])
-                                       ? 1
-                                       : -1);
-                }
-                nodes.push_back(*target);
-                dirs.push_back(-dir);
-                return ZigzagPath(this, dist, nodes, dirs);
+                // backtrace from current state to source
+                return ZigzagPathGenerator::Path(state, source, this, pmap,
+                                                 dmap);
             }
 
             if (dir == 1) {
@@ -2089,6 +2107,68 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<ZigzagPathGenerator>(m, "ZigzagPathGenerator",
+                                    py::module_local(),
+                                    py::dynamic_attr()) //
+                                                        //
+        .def(py::init<>())
+        //
+        .def("prevs",
+             [](const ZigzagPathGenerator &self) {
+                 using State = std::tuple<std::string, int>;
+                 std::unordered_map<State, State> ret;
+                 return ret;
+             })
+        .def("cutoff",
+             [](const ZigzagPathGenerator &self) { return self.cutoff; })
+        .def("source",
+             [](const ZigzagPathGenerator &self) {
+                 std::optional<std::string> source;
+                 if (self.ready()) {
+                     source = self.graph->__node_id(*self.source);
+                 }
+                 return source;
+             })
+        .def("destinations",
+             [](const ZigzagPathGenerator &self)
+                 -> std::vector<std::tuple<double, std::string>> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 auto ret = std::vector<std::tuple<double, std::string>>{};
+                 return ret;
+             })
+        .def("paths",
+             [](const ZigzagPathGenerator &self) -> std::vector<ZigzagPath> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 return {};
+             })
+        .def("path",
+             [](const ZigzagPathGenerator &self,
+                const std::string &node) -> std::optional<Path> {
+                 if (!self.ready()) {
+                     return {};
+                 }
+                 auto node_idx = self.graph->__node_id(node);
+             })
+        .def("to_dict",
+             [](const ZigzagPathGenerator &self) {
+                 py::dict ret;
+                 if (self.ready()) {
+                     ret["cutoff"] = self.cutoff;
+                     ret["source"] = self.graph->__node_id(*self.source);
+                 }
+                 auto kv = py::cast(self).attr("__dict__");
+                 for (const py::handle &k : kv) {
+                     ret[k] = kv[k];
+                 }
+                 return ret;
+             })
+        //
+        ;
+
     py::class_<DiGraph>(m, "DiGraph", py::module_local(),
                         py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
@@ -2163,10 +2243,13 @@ PYBIND11_MODULE(_core, m)
         // zigzag path
         .def(
             "shortest_zigzag_path",
-            [](const DiGraph &self, const std::string &source,
-               const std::string &target, double cutoff, int direction) {
-                return self.shortest_zigzag_path(source, target, cutoff,
-                                                 direction);
+            [](const DiGraph &self,       //
+               const std::string &source, //
+               const std::string &target, //
+               double cutoff,             //
+               int direction) {
+                return self.shortest_zigzag_path(source, target, //
+                                                 cutoff, direction);
             },             //
             "source"_a,    //
             "target"_a,    //
@@ -2175,11 +2258,13 @@ PYBIND11_MODULE(_core, m)
             "direction"_a = 0)
         .def(
             "shortest_zigzag_path",
-            [](const DiGraph &self, const std::string &source, double cutoff,
+            [](const DiGraph &self,       //
+               const std::string &source, //
+               double cutoff,             //
                int direction) {
                 ZigzagPathGenerator generator(&self, cutoff);
-                self.shortest_zigzag_path(source, {}, cutoff, direction,
-                                          &generator);
+                self.shortest_zigzag_path(source, {}, cutoff, //
+                                          direction, &generator);
                 return generator;
             },             //
             "source"_a,    //
