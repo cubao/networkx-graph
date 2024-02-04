@@ -3,7 +3,14 @@ from __future__ import annotations
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Path, ZigzagPath
+from networkx_graph import (
+    DiGraph,
+    Node,
+    Path,
+    ShortestPathGenerator,
+    ZigzagPath,
+    ZigzagPathGenerator,
+)
 
 
 def test_version():
@@ -561,6 +568,7 @@ def test_routing():
     assert obj["num"] == 42
 
     generator = G.shortest_paths_from("w1", cutoff=20.0)
+    assert isinstance(generator, ShortestPathGenerator)
     dists = generator.destinations()
     assert dists == [(0.0, "w2"), (0.0, "w3"), (10.0, "w4"), (15.0, "w5")]
     paths = generator.paths()
@@ -1077,6 +1085,7 @@ def test_shortest_zigzag_path():
     }
 
     generator = G.shortest_zigzag_path("w4", cutoff=30)
+    assert isinstance(generator, ZigzagPathGenerator)
     assert generator.dists() == {
         ("w1", -1): 20.0,
         ("w1", 1): 10.0,
