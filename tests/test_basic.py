@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 
 import networkx_graph as m
-from networkx_graph import DiGraph, Node, Path
+from networkx_graph import DiGraph, Node, Path, ZigzagPath
 
 
 def test_version():
@@ -1034,11 +1034,17 @@ def test_shortest_zigzag_path():
         "directions": [1],
     }
     path = G.shortest_zigzag_path("w3", "w5", cutoff=15)
+    assert isinstance(path, ZigzagPath)
+    assert path.dist == 15.0
+    assert path.nodes == ["w3", "w2", "w5"]
+    assert path.directions == [-1, 1, 1]
     assert path.to_dict() == {
         "dist": 15.0,
         "nodes": ["w3", "w2", "w5"],
         "directions": [-1, 1, 1],
     }
+    path.extra_key = 42
+    assert path.to_dict()["extra_key"] == 42
     path = G.shortest_zigzag_path("w3", "w5", cutoff=10)
     assert path is None
 
