@@ -2187,15 +2187,25 @@ PYBIND11_MODULE(_core, m)
                  if (!self.ready()) {
                      return {};
                  }
-                 auto paths = std::vector<ZigzagPath>{};
-                 paths.reserve(self.prevs.size());
+                 std::unordered_map<int64_t, ZigzagPath> node2path;
                  for (auto &kv : self.prevs) {
                      auto path = ZigzagPathGenerator::Path(
                          kv.first, *self.source, self.graph, self.prevs,
                          self.dists);
-                     if (path) {
-                         paths.push_back(std::move(*path));
+                     if (!path) {
+                         continue;
                      }
+                     auto dst = path->nodes.back();
+                     auto itr = node2path.find(dst);
+                     if (itr == node2path.end() ||
+                         path->dist < itr->second.dist) {
+                         node2path[dst] = std::move(*path);
+                     }
+                 }
+                 auto paths = std::vector<ZigzagPath>{};
+                 paths.reserve(node2path.size());
+                 for (auto &kv : node2path) {
+                     paths.push_back(kv.second);
                  }
                  std::sort(paths.begin(), paths.end(),
                            [](const auto &p1, const auto &p2) {

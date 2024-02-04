@@ -1132,11 +1132,24 @@ def test_shortest_zigzag_path():
         (10.0, "w2"),
         (10.0, "w1"),
     ]
-    assert generator.path("w2").to_dict() == {
-        "dist": 18.0,
-        "nodes": ["w4", "w6", "w5", "w2"],
-        "directions": [1, 1, -1, -1],
-    }
+    p2 = generator.path("w2").to_dict()
+    p1 = generator.path("w1").to_dict()
+    p7 = generator.path("w7").to_dict()
+    p5 = generator.path("w5").to_dict()
+    p3 = generator.path("w3").to_dict()
+    p6 = generator.path("w6").to_dict()
+    assert p2 == {"dist": 10.0, "nodes": ["w4", "w3", "w2"], "directions": [-1, -1, 1]}
+    assert p1 == {"dist": 10.0, "nodes": ["w4", "w3", "w1"], "directions": [-1, -1, -1]}
+    assert p7 == {"dist": 3.0, "nodes": ["w4", "w6", "w7"], "directions": [1, 1, 1]}
+    assert p5 == {"dist": 3.0, "nodes": ["w4", "w6", "w5"], "directions": [1, 1, -1]}
+    assert p3 == {"dist": 0.0, "nodes": ["w4", "w3"], "directions": [-1, -1]}
+    assert p6 == {"dist": 0.0, "nodes": ["w4", "w6"], "directions": [1, 1]}
+
+    paths = [p.to_dict() for p in generator.paths()]
+    assert len(paths) == 6
+    assert paths[:2] in ([p2, p1], [p1, p2])
+    assert paths[2:4] in ([p7, p5], [p5, p7])
+    assert paths[4:6] in ([p3, p6], [p6, p3])
 
     generator = G.shortest_zigzag_path("w4", cutoff=30, direction=1)
     assert generator.dists() == {
@@ -1176,28 +1189,18 @@ def test_shortest_zigzag_path():
         (3.0, "w7"),
         (18.0, "w2"),
     ]
-    paths = generator.paths()
+    paths = [p.to_dict() for p in generator.paths()]
     assert len(paths) == 4
-    assert paths[0].to_dict() == {
+    assert paths[0] == {
         "dist": 18.0,
         "nodes": ["w4", "w6", "w5", "w2"],
         "directions": [1, 1, -1, -1],
     }
-    assert paths[1].to_dict() == {
-        "dist": 3.0,
-        "nodes": ["w4", "w6", "w7"],
-        "directions": [1, 1, 1],
-    }
-    assert paths[2].to_dict() == {
-        "dist": 3.0,
-        "nodes": ["w4", "w6", "w5"],
-        "directions": [1, 1, -1],
-    }
-    assert paths[3].to_dict() == {
+    p7 = {"dist": 3.0, "nodes": ["w4", "w6", "w7"], "directions": [1, 1, 1]}
+    p5 = {"dist": 3.0, "nodes": ["w4", "w6", "w5"], "directions": [1, 1, -1]}
+    assert paths[1:3] in ([p7, p5], [p5, p7])
+    assert paths[3] == {
         "dist": 0.0,
         "nodes": ["w4", "w6"],
         "directions": [1, 1],
     }
-
-
-test_shortest_zigzag_path()
