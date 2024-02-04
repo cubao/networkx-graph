@@ -2213,25 +2213,24 @@ PYBIND11_MODULE(_core, m)
                  if (!node_idx) {
                      return {};
                  }
-                 auto state = std::make_tuple(*node_idx, 1);
-                 if (self.prevs.count(state)) {
-                     auto path = ZigzagPathGenerator::Path(
-                         state, *self.source, self.graph, //
-                         self.prevs, self.dists);
-                     if (path) {
-                         return path;
-                     }
+                 std::optional<ZigzagPath> path1;
+                 auto state1 = std::make_tuple(*node_idx, 1);
+                 if (self.prevs.count(state1)) {
+                     path1 = ZigzagPathGenerator::Path(state1, *self.source,
+                                                       self.graph, //
+                                                       self.prevs, self.dists);
                  }
-                 state = std::make_tuple(*node_idx, -1);
-                 if (self.prevs.count(state)) {
-                     auto path = ZigzagPathGenerator::Path(
-                         state, *self.source, self.graph, //
-                         self.prevs, self.dists);
-                     if (path) {
-                         return path;
-                     }
+                 auto state2 = std::make_tuple(*node_idx, -1);
+                 std::optional<ZigzagPath> path2;
+                 if (self.prevs.count(state2)) {
+                     path2 = ZigzagPathGenerator::Path(state2, *self.source,
+                                                       self.graph, //
+                                                       self.prevs, self.dists);
                  }
-                 return {};
+                 if (path1 && path2) {
+                     return path1->dist < path2->dist ? path1 : path2;
+                 }
+                 return path1 ? path1 : path2;
              })
         .def("to_dict",
              [](const ZigzagPathGenerator &self) {
