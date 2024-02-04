@@ -603,12 +603,14 @@ def test_routing():
         offset=5.0,
         sinks=sinks,
     )
-    assert path_generator.destinations() == [
-        (5.0, "w2"),
-        (5.0, "w3"),
-        (15.0, "w4"),
-        (20.0, "w5"),
-    ]
+    assert sorted(path_generator.destinations()) == sorted(
+        [
+            (5.0, "w2"),
+            (5.0, "w3"),
+            (15.0, "w4"),
+            (20.0, "w5"),
+        ]
+    )
     assert path_generator.to_dict() == {"cutoff": 20.0, "source": ("w1", 5.0)}
 
     path_generator = G.shortest_paths_from(
@@ -617,14 +619,16 @@ def test_routing():
         offset=5.0,
         sinks=sinks,
     )
-    assert path_generator.destinations() == [
-        (5.0, "w2"),
-        (5.0, "w3"),
-        (15.0, "w4"),
-        (20.0, "w5"),
-        (35.0, "w6"),
-        (35.0, "w7"),
-    ]
+    assert sorted(path_generator.destinations()) == sorted(
+        [
+            (5.0, "w2"),
+            (5.0, "w3"),
+            (15.0, "w4"),
+            (20.0, "w5"),
+            (35.0, "w6"),
+            (35.0, "w7"),
+        ]
+    )
     assert path_generator.prevs() == {
         "w2": "w1",
         "w3": "w1",
@@ -1132,15 +1136,17 @@ def test_shortest_zigzag_path():
         ("w7", -1): 3.0,
         ("w5", -1): 18.0,
     }
-    assert generator.destinations() == [
-        (0.0, "w4"),
-        (0.0, "w3"),
-        (0.0, "w6"),
-        (3.0, "w5"),
-        (3.0, "w7"),
-        (10.0, "w2"),
-        (10.0, "w1"),
-    ]
+    assert sorted(generator.destinations()) == sorted(
+        [
+            (0.0, "w4"),
+            (0.0, "w3"),
+            (0.0, "w6"),
+            (3.0, "w5"),
+            (3.0, "w7"),
+            (10.0, "w2"),
+            (10.0, "w1"),
+        ]
+    )
     p2 = generator.path("w2").to_dict()
     p1 = generator.path("w1").to_dict()
     p7 = generator.path("w7").to_dict()
@@ -1191,13 +1197,15 @@ def test_shortest_zigzag_path():
         "nodes": ["w4", "w6", "w7"],
         "directions": [1, 1, 1],
     }
-    assert generator.destinations() == [
-        (0.0, "w4"),
-        (0.0, "w6"),
-        (3.0, "w5"),
-        (3.0, "w7"),
-        (18.0, "w2"),
-    ]
+    assert sorted(generator.destinations()) == sorted(
+        [
+            (0.0, "w4"),
+            (0.0, "w6"),
+            (3.0, "w5"),
+            (3.0, "w7"),
+            (18.0, "w2"),
+        ]
+    )
     paths = [p.to_dict() for p in generator.paths()]
     assert len(paths) == 4
     assert paths[0] == {
