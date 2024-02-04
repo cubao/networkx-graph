@@ -2096,6 +2096,7 @@ PYBIND11_MODULE(_core, m)
                                  std::make_tuple(*k, std::get<1>(*self.target));
                          }
                      }
+                     // TODO, prevs, dists
                  }
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
@@ -2112,12 +2113,6 @@ PYBIND11_MODULE(_core, m)
                                                         //
         .def(py::init<>())
         //
-        .def("prevs",
-             [](const ZigzagPathGenerator &self) {
-                 using State = std::tuple<std::string, int>;
-                 std::unordered_map<State, State> ret;
-                 return ret;
-             })
         .def("cutoff",
              [](const ZigzagPathGenerator &self) { return self.cutoff; })
         .def("source",
@@ -2128,6 +2123,38 @@ PYBIND11_MODULE(_core, m)
                  }
                  return source;
              })
+        .def("prevs",
+             [](const ZigzagPathGenerator &self) {
+                 using State = std::tuple<std::string, int>;
+                 std::unordered_map<State, State> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 for (auto &kv : self.prevs) {
+                     ret.emplace(std::make_tuple(self.graph->__node_id(
+                                                     std::get<0>(kv.first)),
+                                                 std::get<1>(kv.first)),
+                                 std::make_tuple(self.graph->__node_id(
+                                                     std::get<0>(kv.second)),
+                                                 std::get<1>(kv.second)));
+                 }
+                 return ret;
+             })
+        .def("dists",
+             [](const ZigzagPathGenerator &self) {
+                 using State = std::tuple<std::string, int>;
+                 std::unordered_map<State, double> ret;
+                 if (!self.ready()) {
+                     return ret;
+                 }
+                 for (auto &kv : self.dists) {
+                     ret.emplace(std::make_tuple(self.graph->__node_id(
+                                                     std::get<0>(kv.first)),
+                                                 std::get<1>(kv.first)),
+                                 kv.second);
+                 }
+                 return ret;
+             })
         .def("destinations",
              [](const ZigzagPathGenerator &self)
                  -> std::vector<std::tuple<double, std::string>> {
@@ -2135,6 +2162,12 @@ PYBIND11_MODULE(_core, m)
                      return {};
                  }
                  auto ret = std::vector<std::tuple<double, std::string>>{};
+                 ret.reserve(self.dists.size());
+                 for (auto &kv : self.dists) {
+                     ret.push_back(std::make_tuple(
+                         kv.second,
+                         self.graph->__node_id(std::get<0>(kv.first))));
+                 }
                  return ret;
              })
         .def("paths",
@@ -2142,15 +2175,50 @@ PYBIND11_MODULE(_core, m)
                  if (!self.ready()) {
                      return {};
                  }
-                 return {};
+                 auto paths = std::vector<ZigzagPath>{};
+                 paths.reserve(self.prevs.size());
+                 for (auto &kv : self.prevs) {
+                     auto path = ZigzagPathGenerator::Path(
+                         kv.first, *self.source, self.graph, self.prevs,
+                         self.dists);
+                     if (path) {
+                         paths.push_back(std::move(*path));
+                     }
+                 }
+                 std::sort(paths.begin(), paths.end(),
+                           [](const auto &p1, const auto &p2) {
+                               return p1.dist > p2.dist;
+                           });
+                 return paths;
              })
         .def("path",
              [](const ZigzagPathGenerator &self,
-                const std::string &node) -> std::optional<Path> {
+                const std::string &node) -> std::optional<ZigzagPath> {
                  if (!self.ready()) {
                      return {};
                  }
                  auto node_idx = self.graph->__node_id(node);
+                 if (!node_idx) {
+                     return {};
+                 }
+                 auto state = std::make_tuple(*node_idx, 1);
+                 if (self.prevs.count(state)) {
+                     auto path = ZigzagPathGenerator::Path(
+                         state, *self.source, self.graph, //
+                         self.prevs, self.dists);
+                     if (path) {
+                         return path;
+                     }
+                 }
+                 state = std::make_tuple(*node_idx, -1);
+                 if (self.prevs.count(state)) {
+                     auto path = ZigzagPathGenerator::Path(
+                         state, *self.source, self.graph, //
+                         self.prevs, self.dists);
+                     if (path) {
+                         return path;
+                     }
+                 }
                  return {};
              })
         .def("to_dict",
@@ -2159,6 +2227,7 @@ PYBIND11_MODULE(_core, m)
                  if (self.ready()) {
                      ret["cutoff"] = self.cutoff;
                      ret["source"] = self.graph->__node_id(*self.source);
+                     // TODO, prevs, dists
                  }
                  auto kv = py::cast(self).attr("__dict__");
                  for (const py::handle &k : kv) {
