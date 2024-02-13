@@ -263,6 +263,47 @@ struct ZigzagPathGenerator
     }
 };
 
+// https://github.com/cubao/nano-fmm/blob/master/src/nano_fmm/network/ubodt.hpp
+struct UbodtRecord
+{
+    UbodtRecord() {}
+    UbodtRecord(int64_t source_road, int64_t target_road, //
+                int64_t source_next, int64_t target_prev, //
+                double cost)
+        : source_road_(source_road), target_road_(target_road), //
+          source_next_(source_next), target_prev_(target_prev), //
+          cost_(cost)
+    {
+    }
+
+    bool operator<(const UbodtRecord &rhs) const
+    {
+        if (source_road_ != rhs.source_road_) {
+            return source_road_ < rhs.source_road_;
+        }
+        if (cost_ != rhs.cost_) {
+            return cost_ < rhs.cost_;
+        }
+        return std::make_tuple(source_next_, target_prev_, target_road_) <
+               std::make_tuple(rhs.source_next_, rhs.target_prev_,
+                               rhs.target_road_);
+    }
+    bool operator==(const UbodtRecord &rhs) const
+    {
+        return source_road_ == rhs.source_road_ &&
+               target_road_ == rhs.target_road_ &&
+               source_next_ == rhs.source_next_ &&
+               target_prev_ == rhs.target_prev_ && cost_ == rhs.cost_;
+    }
+
+  private:
+    int64_t source_road_{0};
+    int64_t target_road_{0};
+    int64_t source_next_{0};
+    int64_t target_prev_{0};
+    double cost_{0.0};
+};
+
 struct DiGraph
 {
     DiGraph(std::optional<int8_t> round_n = 3)
@@ -806,6 +847,30 @@ struct DiGraph
             }
         }
         return std::make_tuple(backwards, forwards);
+    }
+
+    std::vector<UbodtRecord> build_ubodt(const DiGraph &graph, double thresh)
+    {
+        auto records = std::vector<UbodtRecord>();
+        for (auto s : graph.nodes()) {
+            // IndexMap pmap;
+            // DistanceMap dmap;
+            // single_source_upperbound_dijkstra(s, *thresh, pmap, dmap);
+            // for (const auto &iter : pmap) {
+            //     auto curr = iter.first;
+            //     if (curr == s) {
+            //         continue;
+            //     }
+            //     const auto prev = iter.second;
+            //     auto succ = curr;
+            //     int64_t u;
+            //     while ((u = pmap[succ]) != s) {
+            //         succ = u;
+            //     }
+            //     records.push_back({s, curr, succ, prev, dmap[curr]});
+            // }
+        }
+        return records;
     }
 
     // TODO, batching
@@ -1617,6 +1682,7 @@ struct DiGraph
         return paths;
     }
 };
+
 } // namespace nano_fmm
 
 using namespace nano_fmm;
