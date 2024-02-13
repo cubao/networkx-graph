@@ -1710,6 +1710,7 @@ struct DiGraph
             }
             records.push_back({source, curr, succ, prev, dmap[curr]});
         }
+        return records;
     }
 };
 
@@ -2626,6 +2627,9 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
+        .def("build_ubodt",
+             py::overload_cast<double>(&DiGraph::build_ubodt, py::const_),
+             "thresh"_a)
         //
         ;
 

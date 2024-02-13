@@ -1268,3 +1268,10 @@ def test_ubodt():
     assert row.source_next == 2
     assert row.target_prev == 4
     assert row.cost == 3.0
+    G = graph1()
+    rows = G.build_ubodt(100.0)
+    for row in rows:
+        print(
+            f"s:{row.source_road} ---> {row.source_next}->{row.target_prev} ---> t:{row.target_road}, dist: {row.cost}"
+        )
+    assert len(rows) == 15
