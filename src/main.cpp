@@ -104,6 +104,36 @@ struct Bindings
     unordered_map<int64_t, std::vector<Binding>> node2bindings;
 };
 
+struct Sequences
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, std::vector<std::vector<int64_t>>> head2seqs;
+    std::map<int, std::vector<std::vector<int64_t>>>
+    search_in(const std::vector<int64_t> &nodes, bool quick_return = true) const
+    {
+        std::map<int, std::vector<std::vector<int64_t>>> ret;
+        for (int i = 0, N = nodes.size(); i < N; ++i) {
+            auto curr = nodes[i];
+            auto itr = head2seqs.find(curr);
+            if (itr == head2seqs.end()) {
+                continue;
+            }
+            for (auto &c : itr->second) {
+                if (c.size() > N - i) {
+                    continue;
+                }
+                if (std::equal(c.begin(), c.end(), &nodes[i])) {
+                    ret[i].push_back(c);
+                    if (quick_return) {
+                        return ret;
+                    }
+                }
+            }
+            return ret;
+        }
+    }
+};
+
 struct Path
 {
     Path() = default;
@@ -347,6 +377,10 @@ struct DiGraph
             std::sort(itr->second.begin(), itr->second.end());
         }
         return ret;
+    }
+    Sequences
+    encode_sequences(const std::vector<std::vector<std::string>> &sequences)
+    {
     }
 
     std::optional<int64_t> __node_id(const std::string &node) const
