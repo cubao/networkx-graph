@@ -1240,3 +1240,21 @@ def test_indexer():
     assert index == {"w1": 1, "w2": 2, "w3": 3, "w4": 4, "w5": 5, "w6": 6, "w7": 7}
     assert not G.indexer.index(index)
     assert not G.nodes
+
+
+def test_sequences():
+    G = graph1()
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    assert path.to_dict() == {
+        "dist": 10.0,
+        "nodes": ["w4", "w3", "w2"],
+        "directions": [-1, -1, 1],
+    }
+    seqs = G.encode_sequences([
+        ['w2', 'w7'],
+        ['w3', 'w2'],
+    ])
+    hits = path.search_for_seqs(seqs)
+    print()
+
+test_sequences()

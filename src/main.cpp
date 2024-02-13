@@ -116,17 +116,23 @@ struct Sequences
     std::map<int, std::vector<std::vector<int64_t>>>
     search_in(const std::vector<int64_t> &nodes, bool quick_return = true) const
     {
+        dbg(head2seqs.size());
+        dbg(head2seqs);
+        dbg(nodes.size());
+        dbg(nodes);
         std::map<int, std::vector<std::vector<int64_t>>> ret;
         for (int i = 0, N = nodes.size(); i < N; ++i) {
-            auto itr = head2seqs.find(nodes[i]);
+            auto itr = head2seqs.find(dbg(nodes[i]));
             if (itr == head2seqs.end()) {
+                dbg("end");
                 continue;
             }
             for (auto &c : itr->second) {
-                if (c.size() > N - i) {
+                if (dbg(c.size()) > dbg(N - i)) {
                     continue;
                 }
-                if (std::equal(c.begin(), c.end(), &nodes[i])) {
+                dbg(c);
+                if (dbg(std::equal(c.begin(), c.end(), &nodes[i]))) {
                     ret[i].push_back(c);
                     if (quick_return) {
                         return ret;
@@ -392,8 +398,10 @@ struct DiGraph
             for (auto s : seq) {
                 nodes.push_back(indexer_.id(s));
             }
+            dbg(nodes);
             ret.head2seqs[nodes[0]].push_back(nodes);
         }
+        dbg(ret.head2seqs);
         return ret;
     }
 
@@ -1857,12 +1865,14 @@ PYBIND11_MODULE(_core, m)
             [](const Path &self, const Sequences &seqs,
                bool quick_return = true) {
                 std::map<int, std::vector<Path>> idx2paths;
+                dbg(self.nodes);
                 for (auto &kv : seqs.search_in(self.nodes, quick_return)) {
                     std::vector<Path> paths;
                     paths.reserve(kv.second.size());
                     for (auto &seq : kv.second) {
                         paths.push_back(Path(self.graph, 0.0, seq));
                     }
+                    idx2paths.emplace(kv.first, std::move(paths));
                 }
                 return idx2paths;
             },
