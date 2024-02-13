@@ -270,38 +270,38 @@ struct UbodtRecord
     UbodtRecord(int64_t source_road, int64_t target_road, //
                 int64_t source_next, int64_t target_prev, //
                 double cost)
-        : source_road_(source_road), target_road_(target_road), //
-          source_next_(source_next), target_prev_(target_prev), //
-          cost_(cost)
+        : source_road(source_road), target_road(target_road), //
+          source_next(source_next), target_prev(target_prev), //
+          cost(cost)
     {
     }
 
     bool operator<(const UbodtRecord &rhs) const
     {
-        if (source_road_ != rhs.source_road_) {
-            return source_road_ < rhs.source_road_;
+        if (source_road != rhs.source_road) {
+            return source_road < rhs.source_road;
         }
-        if (cost_ != rhs.cost_) {
-            return cost_ < rhs.cost_;
+        if (cost != rhs.cost) {
+            return cost < rhs.cost;
         }
-        return std::make_tuple(source_next_, target_prev_, target_road_) <
-               std::make_tuple(rhs.source_next_, rhs.target_prev_,
-                               rhs.target_road_);
+        return std::make_tuple(source_next, target_prev, target_road) <
+               std::make_tuple(rhs.source_next, rhs.target_prev,
+                               rhs.target_road);
     }
     bool operator==(const UbodtRecord &rhs) const
     {
-        return source_road_ == rhs.source_road_ &&
-               target_road_ == rhs.target_road_ &&
-               source_next_ == rhs.source_next_ &&
-               target_prev_ == rhs.target_prev_ && cost_ == rhs.cost_;
+        return source_road == rhs.source_road &&
+               target_road == rhs.target_road &&
+               source_next == rhs.source_next &&
+               target_prev == rhs.target_prev && cost == rhs.cost;
     }
 
   private:
-    int64_t source_road_{0};
-    int64_t target_road_{0};
-    int64_t source_next_{0};
-    int64_t target_prev_{0};
-    double cost_{0.0};
+    int64_t source_road{0};
+    int64_t target_road{0};
+    int64_t source_next{0};
+    int64_t target_prev{0};
+    double cost{0.0};
 };
 
 struct DiGraph
@@ -436,6 +436,30 @@ struct DiGraph
             ret.head2seqs[nodes[0]].push_back(nodes);
         }
         return ret;
+    }
+    std::optional<UbodtRecord> encode_ubodt(const std::string &source_road,
+                                            const std::string &target_road,
+                                            const std::string &source_next,
+                                            const std::string &target_prev,
+                                            double cost) const
+    {
+        auto sroad = indexer_.get_id(source_road);
+        if (!sroad) {
+            return {};
+        }
+        auto troad = indexer_.get_id(target_road);
+        if (!troad) {
+            return {};
+        }
+        auto snext = indexer_.get_id(source_next);
+        if (!snext) {
+            return {};
+        }
+        auto tprev = indexer_.get_id(target_prev);
+        if (!tprev) {
+            return {};
+        }
+        return UbodtRecord(*sroad, *troad, *snext, *tprev, cost);
     }
 
     std::optional<int64_t> __node_id(const std::string &node) const
@@ -2016,6 +2040,29 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<UbodtRecord>(m, "UbodtRecord", py::module_local(),
+                            py::dynamic_attr()) //
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
+             "source_road"_a, "target_road"_a, //
+             "source_next"_a, "target_prev"_a, //
+             "cost"_a)
+        .def_property_readonly(
+            "source_road",
+            [](const UbodtRecord &self) { return self.source_road; })
+        .def_property_readonly(
+            "target_road",
+            [](const UbodtRecord &self) { return self.target_road; })
+        .def_property_readonly(
+            "source_next",
+            [](const UbodtRecord &self) { return self.source_next; })
+        .def_property_readonly(
+            "target_prev",
+            [](const UbodtRecord &self) { return self.target_prev; })
+        .def_property_readonly(
+            "cost", [](const UbodtRecord &self) { return self.cost; })
+        //
+        ;
+
     py::class_<ShortestPathGenerator>(m, "ShortestPathGenerator",
                                       py::module_local(),
                                       py::dynamic_attr()) //
@@ -2436,6 +2483,12 @@ PYBIND11_MODULE(_core, m)
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
         .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_ubodt", &DiGraph::encode_ubodt, //
+             "source_road"_a,                        //
+             "target_road"_a,                        //
+             "source_next"_a,                        //
+             "target_prev"_a,                        //
+             "cost"_a)
         // shortest paths
         .def(
             "shortest_path",
