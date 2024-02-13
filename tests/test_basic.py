@@ -1250,11 +1250,11 @@ def test_sequences():
         "nodes": ["w4", "w3", "w2"],
         "directions": [-1, -1, 1],
     }
-    seqs = G.encode_sequences([
-        ['w2', 'w7'],
-        ['w3', 'w2'],
-    ])
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w7"],
+            ["w3", "w2"],
+        ]
+    )
     hits = path.search_for_seqs(seqs)
-    print()
-
-test_sequences()
+    assert hits is not None  # TODO
