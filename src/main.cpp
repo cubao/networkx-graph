@@ -381,6 +381,20 @@ struct DiGraph
     Sequences
     encode_sequences(const std::vector<std::vector<std::string>> &sequences)
     {
+        Sequences ret;
+        ret.graph = this;
+        for (auto &seq : sequences) {
+            if (seq.empty()) {
+                continue;
+            }
+            std::vector<int64_t> nodes;
+            nodes.reserve(seq.size());
+            for (auto s : seq) {
+                nodes.push_back(indexer_.id(s));
+            }
+            ret.head2seqs[nodes[0]].push_back(nodes);
+        }
+        return ret;
     }
 
     std::optional<int64_t> __node_id(const std::string &node) const
@@ -1637,6 +1651,7 @@ PYBIND11_MODULE(_core, m)
 
     py::class_<Indexer>(m, "Indexer", py::module_local()) //
         .def(py::init<>())
+        .def(py::init<const std::map<std::string, int64_t>>(), "index"_a)
         .def("contains",
              py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a)
         .def("contains",
@@ -1833,6 +1848,22 @@ PYBIND11_MODULE(_core, m)
                  return ret;
              })
         //
+        .def(
+            "search_for_seqs",
+            [](const Path &self, const Sequences &seqs,
+               bool quick_return = true) {
+                std::map<int, std::vector<Path>> idx2paths;
+                for (auto &kv : seqs.search_in(self.nodes, quick_return)) {
+                    std::vector<Path> paths;
+                    paths.reserve(kv.second.size());
+                    for (auto &seq : kv.second) {
+                        paths.push_back(Path(self.graph, 0.0, seq));
+                    }
+                }
+                return idx2paths;
+            },
+            "sequences"_a, "quick_return"_a = true)
+        //
         ;
 
     // ZigzagPath
@@ -1903,6 +1934,14 @@ PYBIND11_MODULE(_core, m)
                  }
                  return ret;
              })
+        //
+        ;
+
+    py::class_<Sequences>(m, "Sequences", py::module_local(),
+                          py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Sequences &self) { return self.graph; },
+            rvp::reference_internal)
         //
         ;
 
@@ -2321,6 +2360,7 @@ PYBIND11_MODULE(_core, m)
         //
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
+        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
         // shortest paths
         .def(
             "shortest_path",
@@ -2452,6 +2492,9 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
+        //
+        .def("indexer", py::overload_cast<>(&DiGraph::indexer),
+             rvp::reference_internal)
         //
         ;
 
