@@ -10,6 +10,7 @@ from ._core import (
     Sequences,
     ShortestPathGenerator,
     Sinks,
+    UbodtRecord,
     ZigzagPath,
     ZigzagPathGenerator,
     __doc__,
@@ -55,4 +56,5 @@ __all__ = [
     "Sinks",
     "Bindings",
     "Sequences",
+    "UbodtRecord",
 ]

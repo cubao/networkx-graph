@@ -296,7 +296,6 @@ struct UbodtRecord
                target_prev == rhs.target_prev && cost == rhs.cost;
     }
 
-  private:
     int64_t source_road{0};
     int64_t target_road{0};
     int64_t source_next{0};
@@ -873,26 +872,12 @@ struct DiGraph
         return std::make_tuple(backwards, forwards);
     }
 
-    std::vector<UbodtRecord> build_ubodt(const DiGraph &graph, double thresh)
+    std::vector<UbodtRecord> build_ubodt(double thresh) const
     {
         auto records = std::vector<UbodtRecord>();
-        for (auto s : graph.nodes()) {
-            // IndexMap pmap;
-            // DistanceMap dmap;
-            // single_source_upperbound_dijkstra(s, *thresh, pmap, dmap);
-            // for (const auto &iter : pmap) {
-            //     auto curr = iter.first;
-            //     if (curr == s) {
-            //         continue;
-            //     }
-            //     const auto prev = iter.second;
-            //     auto succ = curr;
-            //     int64_t u;
-            //     while ((u = pmap[succ]) != s) {
-            //         succ = u;
-            //     }
-            //     records.push_back({s, curr, succ, prev, dmap[curr]});
-            // }
+        for (auto &kv : nodes_) {
+            auto rows = build_ubodt(kv.first, thresh);
+            records.insert(records.end(), rows.begin(), rows.end());
         }
         return records;
     }
@@ -1704,6 +1689,27 @@ struct DiGraph
             paths.begin(), paths.end(),
             [](const auto &p1, const auto &p2) { return p1.dist < p2.dist; });
         return paths;
+    }
+
+    std::vector<UbodtRecord> build_ubodt(int64_t source, double thresh) const
+    {
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        single_source_dijkstra(source, thresh, nexts_, pmap, dmap);
+        std::vector<UbodtRecord> records;
+        for (const auto &iter : pmap) {
+            auto curr = iter.first;
+            if (curr == source) {
+                continue;
+            }
+            const auto prev = iter.second;
+            auto succ = curr;
+            int64_t u;
+            while ((u = pmap[succ]) != source) {
+                succ = u;
+            }
+            records.push_back({source, curr, succ, prev, dmap[curr]});
+        }
     }
 };
 

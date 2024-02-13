@@ -8,6 +8,7 @@ from networkx_graph import (
     Node,
     Path,
     ShortestPathGenerator,
+    UbodtRecord,
     ZigzagPath,
     ZigzagPathGenerator,
 )
@@ -1258,3 +1259,12 @@ def test_sequences():
     )
     hits = path.search_for_seqs(seqs)
     assert hits is not None  # TODO
+
+
+def test_ubodt():
+    row = UbodtRecord(1, 5, 2, 4, 3.0)
+    assert row.source_road == 1
+    assert row.target_road == 5
+    assert row.source_next == 2
+    assert row.target_prev == 4
+    assert row.cost == 3.0
