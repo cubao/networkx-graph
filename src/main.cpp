@@ -83,6 +83,11 @@ inline double ROUND(double v, double s)
     return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
 }
 
+inline double ROUND(double v, std::optional<double> s)
+{
+    return s ? ROUND(v, *s) : v;
+}
+
 inline double CLIP(double low, double v, double high)
 {
     // return std::max(low, std::min(v, high));
@@ -113,8 +118,7 @@ struct Sequences
     {
         std::map<int, std::vector<std::vector<int64_t>>> ret;
         for (int i = 0, N = nodes.size(); i < N; ++i) {
-            auto curr = nodes[i];
-            auto itr = head2seqs.find(curr);
+            auto itr = head2seqs.find(nodes[i]);
             if (itr == head2seqs.end()) {
                 continue;
             }
@@ -129,8 +133,8 @@ struct Sequences
                     }
                 }
             }
-            return ret;
         }
+        return ret;
     }
 };
 
@@ -224,10 +228,6 @@ struct ZigzagPathGenerator
         int64_t target = std::get<0>(state);
         int dir = -std::get<1>(state);
         double dist = dmap.at(state);
-        auto scale = self->round_scale();
-        if (scale) {
-            dist = ROUND(dist, *scale);
-        }
         auto cursor = state;
         while (true) {
             auto prev = pmap.find(cursor);
@@ -2228,7 +2228,7 @@ PYBIND11_MODULE(_core, m)
                      ret.emplace(std::make_tuple(self.graph->__node_id(
                                                      std::get<0>(kv.first)),
                                                  std::get<1>(kv.first)),
-                                 kv.second);
+                                 ROUND(kv.second, self.graph->round_scale()));
                  }
                  return ret;
              })
