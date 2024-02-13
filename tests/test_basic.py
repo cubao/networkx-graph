@@ -1226,3 +1226,17 @@ def test_shortest_zigzag_path():
     generator = G.shortest_zigzag_path("w4", cutoff=30)
     assert isinstance(generator, ZigzagPathGenerator)
     assert set(generator.dists().values()) == {0.0, 10.0, 20.0}
+
+
+def test_indexer():
+    G = graph1()
+    index = G.indexer.index()
+    assert index == {"w1": 1, "w2": 2, "w3": 3, "w4": 4, "w5": 5, "w6": 6, "w7": 7}
+    assert set(G.nodes.keys()) == set(index.keys())
+
+    G = DiGraph()
+    assert G.indexer.index() == {}
+    assert G.indexer.index(index)
+    assert index == {"w1": 1, "w2": 2, "w3": 3, "w4": 4, "w5": 5, "w6": 6, "w7": 7}
+    assert not G.indexer.index(index)
+    assert not G.nodes

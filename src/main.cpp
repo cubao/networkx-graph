@@ -1670,6 +1670,10 @@ PYBIND11_MODULE(_core, m)
         .def("index",
              py::overload_cast<const std::string &, int64_t>(&Indexer::index),
              "str_id"_a, "int_id"_a)
+        .def("index",
+             py::overload_cast<const std::map<std::string, int64_t> &>(
+                 &Indexer::index),
+             "index"_a)
         .def("index", py::overload_cast<>(&Indexer::index, py::const_))
         //
         ;
@@ -2355,6 +2359,10 @@ PYBIND11_MODULE(_core, m)
         .def_property_readonly("edges", &DiGraph::edges,
                                rvp::reference_internal)
         //
+        .def_property_readonly("indexer",
+                               py::overload_cast<>(&DiGraph::indexer),
+                               rvp::reference_internal)
+        //
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
         //
@@ -2492,9 +2500,6 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
-        //
-        .def("indexer", py::overload_cast<>(&DiGraph::indexer),
-             rvp::reference_internal)
         //
         ;
 

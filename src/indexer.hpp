@@ -16,12 +16,7 @@ namespace nano_fmm
 struct Indexer
 {
     Indexer() = default;
-    Indexer(const std::map<std::string, int64_t> &index)
-    {
-        for (auto &kv : index) {
-            this->index(kv.first, kv.second);
-        }
-    }
+    Indexer(const std::map<std::string, int64_t> &index) { this->index(index); }
     bool contains(const std::string &id) const
     {
         return str2int_.find(id) != str2int_.end();
@@ -99,6 +94,14 @@ struct Indexer
         str2int_.emplace(str_id, int_id);
         int2str_.emplace(int_id, str_id);
         return true;
+    }
+    bool index(const std::map<std::string, int64_t> &index)
+    {
+        bool succ = true;
+        for (auto &kv : index) {
+            succ &= this->index(kv.first, kv.second);
+        }
+        return succ;
     }
     std::map<std::string, int64_t> index() const
     {
