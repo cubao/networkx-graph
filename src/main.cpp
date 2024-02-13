@@ -194,6 +194,10 @@ struct ZigzagPathGenerator
         int64_t target = std::get<0>(state);
         int dir = -std::get<1>(state);
         double dist = dmap.at(state);
+        auto scale = self->round_scale();
+        if (scale) {
+            dist = ROUND(dist, *scale);
+        }
         auto cursor = state;
         while (true) {
             auto prev = pmap.find(cursor);
@@ -1126,11 +1130,6 @@ struct DiGraph
         if (generator) {
             generator->source = source;
             generator->prevs = std::move(pmap);
-            // if (round_scale_) {
-            //     for (auto &p: dmap) {
-            //         p.second  = ROUND(p.second, *round_scale_);
-            //     }
-            // }
             generator->dists = std::move(dmap);
         }
         return {};
