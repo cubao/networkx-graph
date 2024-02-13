@@ -1126,6 +1126,11 @@ struct DiGraph
         if (generator) {
             generator->source = source;
             generator->prevs = std::move(pmap);
+            // if (round_scale_) {
+            //     for (auto &p: dmap) {
+            //         p.second  = ROUND(p.second, *round_scale_);
+            //     }
+            // }
             generator->dists = std::move(dmap);
         }
         return {};

@@ -126,7 +126,7 @@ def test_digraph():
     assert edge.__dict__ == {"key": "value"}
 
 
-def graph1(G=None):
+def graph1(G=None, **args):
     """
                              --------w3:10m---------o------------------w4:20m-------------o
                             /                                                             | w6:3m
@@ -134,7 +134,7 @@ def graph1(G=None):
 
     """
     if G is None:
-        G = DiGraph()
+        G = DiGraph(**args)
     G.add_node("w1", length=10.0)
     G.add_node("w2", length=15.0)
     G.add_node("w5", length=15.0)
@@ -1221,3 +1221,8 @@ def test_shortest_zigzag_path():
         "nodes": ["w4", "w6"],
         "directions": [1, 1],
     }
+
+    G = graph1(round_n=-1)
+    generator = G.shortest_zigzag_path("w4", cutoff=30)
+    assert isinstance(generator, ZigzagPathGenerator)
+    assert set(generator.dists().values()) == {0.0, 10.0, 20.0}
