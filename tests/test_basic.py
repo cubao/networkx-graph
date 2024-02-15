@@ -8,6 +8,7 @@ from networkx_graph import (
     Node,
     Path,
     ShortestPathGenerator,
+    ShortestPathWithUbodt,
     UbodtRecord,
     ZigzagPath,
     ZigzagPathGenerator,
@@ -1270,8 +1271,29 @@ def test_ubodt():
     assert row.cost == 3.0
     G = graph1()
     rows = G.build_ubodt(100.0)
-    for row in rows:
-        print(
-            f"s:{row.source_road} ---> {row.source_next}->{row.target_prev} ---> t:{row.target_road}, dist: {row.cost}"
-        )
     assert len(rows) == 15
+    rows = sorted(rows)
+    assert [
+        (r.source_road, r.source_next, r.target_prev, r.target_road, r.cost)
+        for r in rows
+    ] == [
+        (6, 7, 6, 7, 0.0),
+        (4, 6, 4, 6, 0.0),
+        (4, 6, 6, 7, 3.0),
+        (1, 2, 1, 2, 0.0),
+        (1, 3, 1, 3, 0.0),
+        (1, 2, 2, 5, 15.0),
+        (1, 3, 3, 4, 10.0),
+        (1, 3, 4, 6, 30.0),
+        (1, 2, 5, 7, 30.0),
+        (2, 5, 2, 5, 0.0),
+        (2, 5, 5, 7, 15.0),
+        (5, 7, 5, 7, 0.0),
+        (3, 4, 3, 4, 0.0),
+        (3, 4, 4, 6, 20.0),
+        (3, 4, 6, 7, 23.0),
+    ]
+    spath = ShortestPathWithUbodt(G, rows)
+    assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
+    assert spath.path("w1", "w7").nodes == ["w1", "w2", "w5", "w7"]
+    assert spath.path("w3", "w2") is None

@@ -2132,6 +2132,8 @@ PYBIND11_MODULE(_core, m)
              "source_road"_a, "target_road"_a, //
              "source_next"_a, "target_prev"_a, //
              "cost"_a)
+        .def(py::self < py::self)
+        .def(py::self == py::self)
         .def_property_readonly(
             "source_road",
             [](const UbodtRecord &self) { return self.source_road; })
