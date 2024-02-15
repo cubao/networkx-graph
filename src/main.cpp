@@ -1738,6 +1738,61 @@ struct DiGraph
     }
 };
 
+struct ShortestPathWithUbodt
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<std::pair<int64_t, int64_t>, UbodtRecord> ubodt;
+    ShortestPathWithUbodt(const DiGraph *graph,
+                          const std::vector<UbodtRecord> &ubodt)
+        : graph(graph)
+    {
+        for (auto &r : ubodt) {
+            this->ubodt.emplace(std::make_pair(r.source_road, r.target_road),
+                                r);
+        }
+    }
+    ShortestPathWithUbodt(const DiGraph *graph, double thresh)
+        : ShortestPathWithUbodt(graph, graph->build_ubodt(thresh))
+    {
+    }
+    std::optional<Path> path(const std::string &source,
+                             const std::string &target) const
+    {
+        auto src_idx = graph->indexer().get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto dst_idx = graph->indexer().get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        return path(*src_idx, *dst_idx);
+    }
+
+  private:
+    std::optional<Path> path(int64_t source, int64_t target) const
+    {
+        auto itr = ubodt.find({source, target});
+        if (itr == ubodt.end()) {
+            return {};
+        }
+        double dist = itr->second.cost;
+        std::vector<int64_t> nodes;
+        nodes.push_back(source);
+        source = itr->second.source_next;
+        while (source != target) {
+            auto itr = ubodt.find({source, target});
+            if (itr == ubodt.end()) {
+                return {};
+            }
+            nodes.push_back(source);
+            source = itr->second.source_next;
+        }
+        nodes.push_back(target);
+        return Path(graph, dist, nodes);
+    }
+};
+
 } // namespace nano_fmm
 
 using namespace nano_fmm;
@@ -2660,6 +2715,20 @@ PYBIND11_MODULE(_core, m)
              py::overload_cast<int64_t, double>(&DiGraph::build_ubodt,
                                                 py::const_),
              "source"_a, "thresh"_a)
+        //
+        ;
+
+    py::class_<ShortestPathWithUbodt>(m, "ShortestPathWithUbodt",
+                                      py::module_local(),
+                                      py::dynamic_attr()) //
+        .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
+             "graph"_a, "ubodt"_a)
+        .def(py::init<const DiGraph *, double>(), "graph"_a, "thresh"_a)
+        //
+        .def("path",
+             py::overload_cast<const std::string &, const std::string &>(
+                 &ShortestPathWithUbodt::path, py::const_),
+             "source"_a, "target"_a)
         //
         ;
 
