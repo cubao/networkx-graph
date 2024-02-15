@@ -16,7 +16,7 @@ from networkx_graph import (
 
 
 def test_version():
-    assert m.__version__ == "0.1.3"
+    assert m.__version__ == "0.1.4"
 
 
 def test_add():
@@ -1277,21 +1277,21 @@ def test_ubodt():
         (r.source_road, r.source_next, r.target_prev, r.target_road, r.cost)
         for r in rows
     ] == [
-        (6, 7, 6, 7, 0.0),
-        (4, 6, 4, 6, 0.0),
-        (4, 6, 6, 7, 3.0),
         (1, 2, 1, 2, 0.0),
         (1, 3, 1, 3, 0.0),
-        (1, 2, 2, 5, 15.0),
         (1, 3, 3, 4, 10.0),
-        (1, 3, 4, 6, 30.0),
+        (1, 2, 2, 5, 15.0),
         (1, 2, 5, 7, 30.0),
+        (1, 3, 4, 6, 30.0),
         (2, 5, 2, 5, 0.0),
         (2, 5, 5, 7, 15.0),
-        (5, 7, 5, 7, 0.0),
         (3, 4, 3, 4, 0.0),
         (3, 4, 4, 6, 20.0),
         (3, 4, 6, 7, 23.0),
+        (4, 6, 4, 6, 0.0),
+        (4, 6, 6, 7, 3.0),
+        (5, 7, 5, 7, 0.0),
+        (6, 7, 6, 7, 0.0),
     ]
     spath = ShortestPathWithUbodt(G, rows)
     assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
