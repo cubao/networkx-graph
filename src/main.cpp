@@ -877,26 +877,33 @@ struct DiGraph
     std::vector<UbodtRecord> build_ubodt(double thresh, int pool_size = 1,
                                          int nodes_thresh = 100) const
     {
-        pool_size = std::max(1, pool_size);
-        spdlog::info("pool size: {}", pool_size);
-        task_thread_pool::task_thread_pool pool{pool_size};
-        bool enable_parallel = pool_size > 1 && nodes_.size() > nodes_thresh;
-        spdlog::info("enable parallel: {}", enable_parallel);
-        std::vector<std::vector<UbodtRecord>> records(nodes_.size());
-        std::transform(poolstl::par_if(enable_parallel, pool), nodes_.begin(),
-                       nodes_.end(), records.begin(), [](const auto &kv) {
-                           return build_ubodt(kv.first, thresh);
-                       });
-        std::vector<UbodtRecord> ret;
-        int N = std::reduce(
-            records.begin(), records.end(), 0,
-            [](int N, const auto &rows) { return N + rows.size(); });
-        ret.reserve(N);
-        for (auto &rows : records) {
-            ret.insert(ret.end(), rows.begin(), rows.end());
+        auto records = std::vector<UbodtRecord>();
+        for (auto &kv : nodes_) {
+            auto rows = build_ubodt(kv.first, thresh);
+            records.insert(records.end(), rows.begin(), rows.end());
         }
-        spdlog::info("#records: {}, {}", ret.size(), N);
-        return ret;
+        return records;
+        // pool_size = std::max(1, pool_size);
+        // spdlog::info("pool size: {}", pool_size);
+        // task_thread_pool::task_thread_pool pool{(unsigned int)pool_size};
+        // bool enable_parallel = pool_size > 1 && nodes_.size() > nodes_thresh;
+        // spdlog::info("enable parallel: {}", enable_parallel);
+        // std::vector<std::vector<UbodtRecord>> records(nodes_.size());
+        // std::transform(poolstl::par_if(enable_parallel, pool),
+        // nodes_.begin(),
+        //                nodes_.end(), records.begin(), [](const auto &kv) {
+        //                    return build_ubodt(kv.first, thresh);
+        //                });
+        // std::vector<UbodtRecord> ret;
+        // int N = std::accumulate(
+        //     records.begin(), records.end(), 0,
+        //     [](int N, const auto &rows) { return N + rows.size(); });
+        // ret.reserve(N);
+        // for (auto &rows : records) {
+        //     ret.insert(ret.end(), rows.begin(), rows.end());
+        // }
+        // spdlog::info("#records: {}, {}", ret.size(), N);
+        // return ret;
     }
 
     std::vector<UbodtRecord> build_ubodt(int64_t source, double thresh) const
