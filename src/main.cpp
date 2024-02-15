@@ -14,8 +14,6 @@
 #include "indexer.hpp"
 #include "types.hpp"
 
-#include "poolstl.hpp"
-
 #include "spdlog/spdlog.h"
 // fix exposed macro 'GetObject' from wingdi.h (included by spdlog.h) under
 // windows, see https://github.com/Tencent/rapidjson/issues/1448
@@ -883,27 +881,6 @@ struct DiGraph
             records.insert(records.end(), rows.begin(), rows.end());
         }
         return records;
-        // pool_size = std::max(1, pool_size);
-        // spdlog::info("pool size: {}", pool_size);
-        // task_thread_pool::task_thread_pool pool{(unsigned int)pool_size};
-        // bool enable_parallel = pool_size > 1 && nodes_.size() > nodes_thresh;
-        // spdlog::info("enable parallel: {}", enable_parallel);
-        // std::vector<std::vector<UbodtRecord>> records(nodes_.size());
-        // std::transform(poolstl::par_if(enable_parallel, pool),
-        // nodes_.begin(),
-        //                nodes_.end(), records.begin(), [](const auto &kv) {
-        //                    return build_ubodt(kv.first, thresh);
-        //                });
-        // std::vector<UbodtRecord> ret;
-        // int N = std::accumulate(
-        //     records.begin(), records.end(), 0,
-        //     [](int N, const auto &rows) { return N + rows.size(); });
-        // ret.reserve(N);
-        // for (auto &rows : records) {
-        //     ret.insert(ret.end(), rows.begin(), rows.end());
-        // }
-        // spdlog::info("#records: {}, {}", ret.size(), N);
-        // return ret;
     }
 
     std::vector<UbodtRecord> build_ubodt(int64_t source, double thresh) const
