@@ -1723,11 +1723,33 @@ struct ShortestPathWithUbodt
         for (auto &r : ubodt) {
             this->ubodt.emplace(std::make_pair(r.source_road, r.target_road),
                                 r);
+            by_source_[r.source_road].push_back(
+                std::make_tuple(r.cost, r.target_road));
+            by_target_[r.target_road].push_back(
+                std::make_tuple(r.cost, r.source_road));
+        }
+        for (auto &pair : by_source_) {
+            auto &items = pair.second;
+            std::sort(items.begin(), items.end());
+        }
+        for (auto &pair : by_target_) {
+            auto &items = pair.second;
+            std::sort(items.begin(), items.end());
         }
     }
     ShortestPathWithUbodt(const DiGraph *graph, double thresh)
         : ShortestPathWithUbodt(graph, graph->build_ubodt(thresh))
     {
+    }
+    std::vector<std::tuple<double, std::string>>
+    by_source(const std::string &source, std::optional<double> cutoff) const
+    {
+        return __by(source, cutoff, true);
+    }
+    std::vector<std::tuple<double, std::string>>
+    by_target(const std::string &target, std::optional<double> cutoff) const
+    {
+        return __by(target, cutoff, false);
     }
     std::optional<Path> path(const std::string &source,
                              const std::string &target) const
@@ -1764,6 +1786,37 @@ struct ShortestPathWithUbodt
         }
         nodes.push_back(target);
         return Path(graph, dist, nodes);
+    }
+
+    // by source (origin), by target (destination)
+    unordered_map<int64_t, std::vector<std::tuple<double, int64_t>>> by_source_,
+        by_target_;
+    std::vector<std::tuple<double, std::string>>
+    __by(const std::string &source, std::optional<double> cutoff,
+         bool by_from) const
+    {
+        auto &indexer = graph->indexer();
+        auto idx = indexer.get_id(source);
+        if (!idx) {
+            return {};
+        }
+        auto &kv = by_from ? by_source_ : by_target_;
+        auto itr = kv.find(*idx);
+        if (itr == kv.end()) {
+            return {};
+        }
+        auto ret = std::vector<std::tuple<double, std::string>>{};
+        if (!cutoff) {
+            ret.reserve(itr->second.size());
+        }
+        for (auto &p : itr->second) {
+            if (cutoff && std::get<0>(p) > *cutoff) {
+                break;
+            }
+            ret.push_back(
+                std::make_tuple(std::get<0>(p), indexer.id(std::get<1>(p))));
+        }
+        return ret;
     }
 };
 
@@ -2701,6 +2754,10 @@ PYBIND11_MODULE(_core, m)
              "graph"_a, "ubodt"_a)
         .def(py::init<const DiGraph *, double>(), "graph"_a, "thresh"_a)
         //
+        .def("by_source", &ShortestPathWithUbodt::by_source, "source"_a,
+             "cutoff"_a = std::nullopt)
+        .def("by_target", &ShortestPathWithUbodt::by_target, "target"_a,
+             "cutoff"_a = std::nullopt)
         .def("path",
              py::overload_cast<const std::string &, const std::string &>(
                  &ShortestPathWithUbodt::path, py::const_),

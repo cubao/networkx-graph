@@ -1333,6 +1333,20 @@ def test_ubodt():
     assert spath.path("w1", "w7").nodes == ["w1", "w2", "w5", "w7"]
     assert spath.path("w3", "w2") is None
 
+    sources = spath.by_target("w7")
+    assert sources == [
+        (0.0, "w5"),
+        (0.0, "w6"),
+        (3.0, "w4"),
+        (15.0, "w2"),
+        (23.0, "w3"),
+        (30.0, "w1"),
+    ]
+    assert sources[:4] == spath.by_target("w7", 15.0)
+    targets = spath.by_source("w2")
+    assert targets == [(0.0, "w5"), (15.0, "w7")]
+    assert targets[:1] == spath.by_source("w2", 10.0)
+
     G2 = DiGraph()
     G2.indexer.index(G.indexer.index())
     assert len(G2.nodes) == 0
