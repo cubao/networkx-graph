@@ -175,12 +175,9 @@ struct ZigzagPath : Path
     ZigzagPath(const DiGraph *graph, double dist,
                const std::vector<int64_t> &nodes,
                const std::vector<int> &directions)
-        : graph(graph), dist(dist), nodes(nodes), directions(directions)
+        : Path(graph, dist, nodes), directions(directions)
     {
     }
-    const DiGraph *graph{nullptr};
-    double dist{0.0};
-    std::vector<int64_t> nodes;
     std::vector<int> directions;
     void round(double scale) { dist = ROUND(dist, scale); }
 };

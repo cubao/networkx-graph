@@ -1279,6 +1279,23 @@ def test_sequences():
     hits = {i: [p.nodes for p in s] for i, s in hits.items()}
     assert {1: [["w2", "w5", "w7"], ["w2", "w5"]]}
 
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    assert path.to_dict() == {
+        "dist": 10.0,
+        "nodes": ["w4", "w3", "w2"],
+        "directions": [-1, -1, 1],
+    }
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w7"],
+            ["w3", "w2"],
+            ["w3", "w2", "w7"],
+        ]
+    )
+    hits = path.search_for_seqs(seqs)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w3", "w2"]]}
+
 
 def test_ubodt():
     row = UbodtRecord(1, 5, 2, 4, 3.0)
