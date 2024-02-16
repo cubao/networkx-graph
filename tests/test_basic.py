@@ -1332,3 +1332,9 @@ def test_ubodt():
     assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
     assert spath.path("w1", "w7").nodes == ["w1", "w2", "w5", "w7"]
     assert spath.path("w3", "w2") is None
+
+    G2 = DiGraph()
+    G2.indexer.index(G.indexer.index())
+    assert len(G2.nodes) == 0
+    spath = ShortestPathWithUbodt(G2, rows)
+    assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
