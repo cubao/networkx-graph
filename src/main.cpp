@@ -83,6 +83,11 @@ inline double ROUND(double v, double s)
     return std::floor(v * s + 0.5) / s; // not same std::round(v * s) / s;
 }
 
+inline double ROUND(double v, std::optional<double> s)
+{
+    return s ? ROUND(v, *s) : v;
+}
+
 inline double CLIP(double low, double v, double high)
 {
     // return std::max(low, std::min(v, high));
@@ -102,6 +107,35 @@ struct Bindings
     // you stop at first hit of bindings
     const DiGraph *graph{nullptr};
     unordered_map<int64_t, std::vector<Binding>> node2bindings;
+};
+
+struct Sequences
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<int64_t, std::vector<std::vector<int64_t>>> head2seqs;
+    std::map<int, std::vector<std::vector<int64_t>>>
+    search_in(const std::vector<int64_t> &nodes, bool quick_return = true) const
+    {
+        std::map<int, std::vector<std::vector<int64_t>>> ret;
+        for (int i = 0, N = nodes.size(); i < N; ++i) {
+            auto itr = head2seqs.find(nodes[i]);
+            if (itr == head2seqs.end()) {
+                continue;
+            }
+            for (auto &c : itr->second) {
+                if (c.size() > N - i) {
+                    continue;
+                }
+                if (std::equal(c.begin(), c.end(), &nodes[i])) {
+                    ret[i].push_back(c);
+                    if (quick_return) {
+                        return ret;
+                    }
+                }
+            }
+        }
+        return ret;
+    }
 };
 
 struct Path
@@ -229,6 +263,46 @@ struct ZigzagPathGenerator
     }
 };
 
+// https://github.com/cubao/nano-fmm/blob/master/src/nano_fmm/network/ubodt.hpp
+struct UbodtRecord
+{
+    UbodtRecord() {}
+    UbodtRecord(int64_t source_road, int64_t target_road, //
+                int64_t source_next, int64_t target_prev, //
+                double cost)
+        : source_road(source_road), target_road(target_road), //
+          source_next(source_next), target_prev(target_prev), //
+          cost(cost)
+    {
+    }
+
+    bool operator<(const UbodtRecord &rhs) const
+    {
+        if (source_road != rhs.source_road) {
+            return source_road < rhs.source_road;
+        }
+        if (cost != rhs.cost) {
+            return cost < rhs.cost;
+        }
+        return std::make_tuple(source_next, target_prev, target_road) <
+               std::make_tuple(rhs.source_next, rhs.target_prev,
+                               rhs.target_road);
+    }
+    bool operator==(const UbodtRecord &rhs) const
+    {
+        return source_road == rhs.source_road &&
+               target_road == rhs.target_road &&
+               source_next == rhs.source_next &&
+               target_prev == rhs.target_prev && cost == rhs.cost;
+    }
+
+    int64_t source_road{0};
+    int64_t target_road{0};
+    int64_t source_next{0};
+    int64_t target_prev{0};
+    double cost{0.0};
+};
+
 struct DiGraph
 {
     DiGraph(std::optional<int8_t> round_n = 3)
@@ -343,6 +417,48 @@ struct DiGraph
             std::sort(itr->second.begin(), itr->second.end());
         }
         return ret;
+    }
+    Sequences
+    encode_sequences(const std::vector<std::vector<std::string>> &sequences)
+    {
+        Sequences ret;
+        ret.graph = this;
+        for (auto &seq : sequences) {
+            if (seq.empty()) {
+                continue;
+            }
+            std::vector<int64_t> nodes;
+            nodes.reserve(seq.size());
+            for (auto s : seq) {
+                nodes.push_back(indexer_.id(s));
+            }
+            ret.head2seqs[nodes[0]].push_back(nodes);
+        }
+        return ret;
+    }
+    std::optional<UbodtRecord> encode_ubodt(const std::string &source_road,
+                                            const std::string &target_road,
+                                            const std::string &source_next,
+                                            const std::string &target_prev,
+                                            double cost) const
+    {
+        auto sroad = indexer_.get_id(source_road);
+        if (!sroad) {
+            return {};
+        }
+        auto troad = indexer_.get_id(target_road);
+        if (!troad) {
+            return {};
+        }
+        auto snext = indexer_.get_id(source_next);
+        if (!snext) {
+            return {};
+        }
+        auto tprev = indexer_.get_id(target_prev);
+        if (!tprev) {
+            return {};
+        }
+        return UbodtRecord(*sroad, *troad, *snext, *tprev, cost);
     }
 
     std::optional<int64_t> __node_id(const std::string &node) const
@@ -754,6 +870,39 @@ struct DiGraph
             }
         }
         return std::make_tuple(backwards, forwards);
+    }
+
+    std::vector<UbodtRecord> build_ubodt(double thresh, int pool_size = 1,
+                                         int nodes_thresh = 100) const
+    {
+        auto records = std::vector<UbodtRecord>();
+        for (auto &kv : nodes_) {
+            auto rows = build_ubodt(kv.first, thresh);
+            records.insert(records.end(), rows.begin(), rows.end());
+        }
+        return records;
+    }
+
+    std::vector<UbodtRecord> build_ubodt(int64_t source, double thresh) const
+    {
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        single_source_dijkstra(source, thresh, nexts_, pmap, dmap);
+        std::vector<UbodtRecord> records;
+        for (const auto &iter : pmap) {
+            auto curr = iter.first;
+            if (curr == source) {
+                continue;
+            }
+            const auto prev = iter.second;
+            auto succ = curr;
+            int64_t u;
+            while ((u = pmap[succ]) != source) {
+                succ = u;
+            }
+            records.push_back({source, curr, succ, prev, dmap[curr]});
+        }
+        return records;
     }
 
     // TODO, batching
@@ -1565,6 +1714,62 @@ struct DiGraph
         return paths;
     }
 };
+
+struct ShortestPathWithUbodt
+{
+    const DiGraph *graph{nullptr};
+    unordered_map<std::pair<int64_t, int64_t>, UbodtRecord> ubodt;
+    ShortestPathWithUbodt(const DiGraph *graph,
+                          const std::vector<UbodtRecord> &ubodt)
+        : graph(graph)
+    {
+        for (auto &r : ubodt) {
+            this->ubodt.emplace(std::make_pair(r.source_road, r.target_road),
+                                r);
+        }
+    }
+    ShortestPathWithUbodt(const DiGraph *graph, double thresh)
+        : ShortestPathWithUbodt(graph, graph->build_ubodt(thresh))
+    {
+    }
+    std::optional<Path> path(const std::string &source,
+                             const std::string &target) const
+    {
+        auto src_idx = graph->indexer().get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto dst_idx = graph->indexer().get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        return path(*src_idx, *dst_idx);
+    }
+
+  private:
+    std::optional<Path> path(int64_t source, int64_t target) const
+    {
+        auto itr = ubodt.find({source, target});
+        if (itr == ubodt.end()) {
+            return {};
+        }
+        double dist = itr->second.cost;
+        std::vector<int64_t> nodes;
+        nodes.push_back(source);
+        source = itr->second.source_next;
+        while (source != target) {
+            auto itr = ubodt.find({source, target});
+            if (itr == ubodt.end()) {
+                return {};
+            }
+            nodes.push_back(source);
+            source = itr->second.source_next;
+        }
+        nodes.push_back(target);
+        return Path(graph, dist, nodes);
+    }
+};
+
 } // namespace nano_fmm
 
 using namespace nano_fmm;
@@ -1599,6 +1804,7 @@ PYBIND11_MODULE(_core, m)
 
     py::class_<Indexer>(m, "Indexer", py::module_local()) //
         .def(py::init<>())
+        .def(py::init<const std::map<std::string, int64_t>>(), "index"_a)
         .def("contains",
              py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a)
         .def("contains",
@@ -1617,6 +1823,10 @@ PYBIND11_MODULE(_core, m)
         .def("index",
              py::overload_cast<const std::string &, int64_t>(&Indexer::index),
              "str_id"_a, "int_id"_a)
+        .def("index",
+             py::overload_cast<const std::map<std::string, int64_t> &>(
+                 &Indexer::index),
+             "index"_a)
         .def("index", py::overload_cast<>(&Indexer::index, py::const_))
         //
         ;
@@ -1795,6 +2005,23 @@ PYBIND11_MODULE(_core, m)
                  return ret;
              })
         //
+        .def(
+            "search_for_seqs",
+            [](const Path &self, const Sequences &seqs,
+               bool quick_return = true) {
+                std::map<int, std::vector<Path>> idx2paths;
+                for (auto &kv : seqs.search_in(self.nodes, quick_return)) {
+                    std::vector<Path> paths;
+                    paths.reserve(kv.second.size());
+                    for (auto &seq : kv.second) {
+                        paths.push_back(Path(self.graph, 0.0, seq));
+                    }
+                    idx2paths.emplace(kv.first, std::move(paths));
+                }
+                return idx2paths;
+            },
+            "sequences"_a, "quick_return"_a = true)
+        //
         ;
 
     // ZigzagPath
@@ -1865,6 +2092,39 @@ PYBIND11_MODULE(_core, m)
                  }
                  return ret;
              })
+        //
+        ;
+
+    py::class_<Sequences>(m, "Sequences", py::module_local(),
+                          py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Sequences &self) { return self.graph; },
+            rvp::reference_internal)
+        //
+        ;
+
+    py::class_<UbodtRecord>(m, "UbodtRecord", py::module_local(),
+                            py::dynamic_attr()) //
+        .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
+             "source_road"_a, "target_road"_a, //
+             "source_next"_a, "target_prev"_a, //
+             "cost"_a)
+        .def(py::self < py::self)
+        .def(py::self == py::self)
+        .def_property_readonly(
+            "source_road",
+            [](const UbodtRecord &self) { return self.source_road; })
+        .def_property_readonly(
+            "target_road",
+            [](const UbodtRecord &self) { return self.target_road; })
+        .def_property_readonly(
+            "source_next",
+            [](const UbodtRecord &self) { return self.source_next; })
+        .def_property_readonly(
+            "target_prev",
+            [](const UbodtRecord &self) { return self.target_prev; })
+        .def_property_readonly(
+            "cost", [](const UbodtRecord &self) { return self.cost; })
         //
         ;
 
@@ -2151,7 +2411,7 @@ PYBIND11_MODULE(_core, m)
                      ret.emplace(std::make_tuple(self.graph->__node_id(
                                                      std::get<0>(kv.first)),
                                                  std::get<1>(kv.first)),
-                                 kv.second);
+                                 ROUND(kv.second, self.graph->round_scale()));
                  }
                  return ret;
              })
@@ -2278,11 +2538,22 @@ PYBIND11_MODULE(_core, m)
         .def_property_readonly("edges", &DiGraph::edges,
                                rvp::reference_internal)
         //
+        .def_property_readonly("indexer",
+                               py::overload_cast<>(&DiGraph::indexer),
+                               rvp::reference_internal)
+        //
         .def("predecessors", &DiGraph::predecessors, "id"_a)
         .def("successors", &DiGraph::successors, "id"_a)
         //
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
+        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_ubodt", &DiGraph::encode_ubodt, //
+             "source_road"_a,                        //
+             "target_road"_a,                        //
+             "source_next"_a,                        //
+             "target_prev"_a,                        //
+             "cost"_a)
         // shortest paths
         .def(
             "shortest_path",
@@ -2414,6 +2685,29 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,
              "sinks"_a = nullptr, //
              py::call_guard<py::gil_scoped_release>())
+        .def("build_ubodt",
+             py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
+                                                 py::const_),
+             "thresh"_a, py::kw_only(), "pool_size"_a = 1,
+             "nodes_thresh"_a = 100)
+        .def("build_ubodt",
+             py::overload_cast<int64_t, double>(&DiGraph::build_ubodt,
+                                                py::const_),
+             "source"_a, "thresh"_a)
+        //
+        ;
+
+    py::class_<ShortestPathWithUbodt>(m, "ShortestPathWithUbodt",
+                                      py::module_local(),
+                                      py::dynamic_attr()) //
+        .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
+             "graph"_a, "ubodt"_a)
+        .def(py::init<const DiGraph *, double>(), "graph"_a, "thresh"_a)
+        //
+        .def("path",
+             py::overload_cast<const std::string &, const std::string &>(
+                 &ShortestPathWithUbodt::path, py::const_),
+             "source"_a, "target"_a)
         //
         ;
 

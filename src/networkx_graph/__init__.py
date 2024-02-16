@@ -2,12 +2,16 @@ from __future__ import annotations
 
 from typing import Optional
 
-from ._core import DiGraph as DiGraphImpl
 from ._core import (
+    Bindings,
     Edge,
     Node,
     Path,
+    Sequences,
     ShortestPathGenerator,
+    ShortestPathWithUbodt,
+    Sinks,
+    UbodtRecord,
     ZigzagPath,
     ZigzagPathGenerator,
     __doc__,
@@ -15,6 +19,7 @@ from ._core import (
     add,
     subtract,
 )
+from ._core import DiGraph as DiGraphImpl
 
 
 class DiGraph(DiGraphImpl):
@@ -48,5 +53,10 @@ __all__ = [
     "DiGraph",
     "ZigzagPath",
     "ShortestPathGenerator",
+    "ShortestPathWithUbodt",
     "ZigzagPathGenerator",
+    "Sinks",
+    "Bindings",
+    "Sequences",
+    "UbodtRecord",
 ]

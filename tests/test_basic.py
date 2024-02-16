@@ -8,13 +8,15 @@ from networkx_graph import (
     Node,
     Path,
     ShortestPathGenerator,
+    ShortestPathWithUbodt,
+    UbodtRecord,
     ZigzagPath,
     ZigzagPathGenerator,
 )
 
 
 def test_version():
-    assert m.__version__ == "0.1.3"
+    assert m.__version__ == "0.1.4"
 
 
 def test_add():
@@ -126,7 +128,7 @@ def test_digraph():
     assert edge.__dict__ == {"key": "value"}
 
 
-def graph1(G=None):
+def graph1(G=None, **args):
     """
                              --------w3:10m---------o------------------w4:20m-------------o
                             /                                                             | w6:3m
@@ -134,7 +136,7 @@ def graph1(G=None):
 
     """
     if G is None:
-        G = DiGraph()
+        G = DiGraph(**args)
     G.add_node("w1", length=10.0)
     G.add_node("w2", length=15.0)
     G.add_node("w5", length=15.0)
@@ -1221,3 +1223,77 @@ def test_shortest_zigzag_path():
         "nodes": ["w4", "w6"],
         "directions": [1, 1],
     }
+
+    G = graph1(round_n=-1)
+    generator = G.shortest_zigzag_path("w4", cutoff=30)
+    assert isinstance(generator, ZigzagPathGenerator)
+    assert set(generator.dists().values()) == {0.0, 10.0, 20.0}
+
+
+def test_indexer():
+    G = graph1()
+    index = G.indexer.index()
+    assert index == {"w1": 1, "w2": 2, "w3": 3, "w4": 4, "w5": 5, "w6": 6, "w7": 7}
+    assert set(G.nodes.keys()) == set(index.keys())
+
+    G = DiGraph()
+    assert G.indexer.index() == {}
+    assert G.indexer.index(index)
+    assert index == {"w1": 1, "w2": 2, "w3": 3, "w4": 4, "w5": 5, "w6": 6, "w7": 7}
+    assert not G.indexer.index(index)
+    assert not G.nodes
+
+
+def test_sequences():
+    G = graph1()
+    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    assert path.to_dict() == {
+        "dist": 10.0,
+        "nodes": ["w4", "w3", "w2"],
+        "directions": [-1, -1, 1],
+    }
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w7"],
+            ["w3", "w2"],
+        ]
+    )
+    hits = path.search_for_seqs(seqs)
+    assert hits is not None  # TODO
+
+
+def test_ubodt():
+    row = UbodtRecord(1, 5, 2, 4, 3.0)
+    assert row.source_road == 1
+    assert row.target_road == 5
+    assert row.source_next == 2
+    assert row.target_prev == 4
+    assert row.cost == 3.0
+    G = graph1()
+    rows = G.build_ubodt(100.0)
+    assert len(rows) == 15
+    rows = sorted(rows)
+    assert [
+        (r.source_road, r.source_next, r.target_prev, r.target_road, r.cost)
+        for r in rows
+    ] == [
+        (1, 2, 1, 2, 0.0),
+        (1, 3, 1, 3, 0.0),
+        (1, 3, 3, 4, 10.0),
+        (1, 2, 2, 5, 15.0),
+        (1, 2, 5, 7, 30.0),
+        (1, 3, 4, 6, 30.0),
+        (2, 5, 2, 5, 0.0),
+        (2, 5, 5, 7, 15.0),
+        (3, 4, 3, 4, 0.0),
+        (3, 4, 4, 6, 20.0),
+        (3, 4, 6, 7, 23.0),
+        (4, 6, 4, 6, 0.0),
+        (4, 6, 6, 7, 3.0),
+        (5, 7, 5, 7, 0.0),
+        (6, 7, 6, 7, 0.0),
+    ]
+    spath = ShortestPathWithUbodt(G, rows)
+    assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
+    assert spath.path("w1", "w7").nodes == ["w1", "w2", "w5", "w7"]
+    assert spath.path("w3", "w2") is None
