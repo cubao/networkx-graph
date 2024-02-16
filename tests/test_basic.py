@@ -1246,20 +1246,38 @@ def test_indexer():
 
 def test_sequences():
     G = graph1()
-    path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
+    path = G.shortest_path("w1", "w7", cutoff=37.0, source_offset=3.0)
     assert path.to_dict() == {
-        "dist": 10.0,
-        "nodes": ["w4", "w3", "w2"],
-        "directions": [-1, -1, 1],
+        "dist": 37.0,
+        "nodes": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", None),
     }
     seqs = G.encode_sequences(
         [
-            ["w2", "w7"],
-            ["w3", "w2"],
+            ["w2", "w5"],
+            ["w2", "w5", "w7"],
         ]
     )
     hits = path.search_for_seqs(seqs)
-    assert hits is not None  # TODO
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w2", "w5"]]}
+    hits = path.search_for_seqs(seqs, quick_return=False)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert {1: [["w2", "w5"], ["w2", "w5", "w7"]]}
+
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w5", "w7"],
+            ["w2", "w5"],
+        ]
+    )
+    hits = path.search_for_seqs(seqs)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w2", "w5", "w7"]]}
+    hits = path.search_for_seqs(seqs, quick_return=False)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert {1: [["w2", "w5", "w7"], ["w2", "w5"]]}
 
 
 def test_ubodt():
