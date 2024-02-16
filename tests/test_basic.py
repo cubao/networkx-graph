@@ -16,7 +16,7 @@ from networkx_graph import (
 
 
 def test_version():
-    assert m.__version__ == "0.1.4"
+    assert m.__version__ == "0.1.5"
 
 
 def test_add():
@@ -1246,6 +1246,39 @@ def test_indexer():
 
 def test_sequences():
     G = graph1()
+    path = G.shortest_path("w1", "w7", cutoff=37.0, source_offset=3.0)
+    assert path.to_dict() == {
+        "dist": 37.0,
+        "nodes": ["w1", "w2", "w5", "w7"],
+        "start": ("w1", 3.0),
+        "end": ("w7", None),
+    }
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w5"],
+            ["w2", "w5", "w7"],
+        ]
+    )
+    hits = path.search_for_seqs(seqs)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w2", "w5"]]}
+    hits = path.search_for_seqs(seqs, quick_return=False)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert {1: [["w2", "w5"], ["w2", "w5", "w7"]]}
+
+    seqs = G.encode_sequences(
+        [
+            ["w2", "w5", "w7"],
+            ["w2", "w5"],
+        ]
+    )
+    hits = path.search_for_seqs(seqs)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w2", "w5", "w7"]]}
+    hits = path.search_for_seqs(seqs, quick_return=False)
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert {1: [["w2", "w5", "w7"], ["w2", "w5"]]}
+
     path = G.shortest_zigzag_path("w4", "w2", cutoff=30)
     assert path.to_dict() == {
         "dist": 10.0,
@@ -1256,10 +1289,12 @@ def test_sequences():
         [
             ["w2", "w7"],
             ["w3", "w2"],
+            ["w3", "w2", "w7"],
         ]
     )
     hits = path.search_for_seqs(seqs)
-    assert hits is not None  # TODO
+    hits = {i: [p.nodes for p in s] for i, s in hits.items()}
+    assert hits == {1: [["w3", "w2"]]}
 
 
 def test_ubodt():
@@ -1297,3 +1332,23 @@ def test_ubodt():
     assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
     assert spath.path("w1", "w7").nodes == ["w1", "w2", "w5", "w7"]
     assert spath.path("w3", "w2") is None
+
+    sources = spath.by_target("w7")
+    assert sources == [
+        (0.0, "w5"),
+        (0.0, "w6"),
+        (3.0, "w4"),
+        (15.0, "w2"),
+        (23.0, "w3"),
+        (30.0, "w1"),
+    ]
+    assert sources[:4] == spath.by_target("w7", 15.0)
+    targets = spath.by_source("w2")
+    assert targets == [(0.0, "w5"), (15.0, "w7")]
+    assert targets[:1] == spath.by_source("w2", 10.0)
+
+    G2 = DiGraph()
+    G2.indexer.index(G.indexer.index())
+    assert len(G2.nodes) == 0
+    spath = ShortestPathWithUbodt(G2, rows)
+    assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
