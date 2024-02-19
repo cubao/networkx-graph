@@ -897,7 +897,11 @@ struct DiGraph
             while ((u = pmap[succ]) != source) {
                 succ = u;
             }
-            records.push_back({source, curr, succ, prev, dmap[curr]});
+            double dist = dmap[curr];
+            if (round_scale_) {
+                dist = ROUND(dist, *round_scale_);
+            }
+            records.push_back({source, curr, succ, prev, dist});
         }
         return records;
     }
