@@ -462,6 +462,19 @@ struct DiGraph
     {
         return indexer_.get_id(node);
     }
+    std::optional<std::tuple<int64_t, double>>
+    __node_length(const std::string &node) const
+    {
+        auto nid = __node_id(node);
+        if (!nid) {
+            return {};
+        }
+        auto len = lengths_.find(*nid);
+        if (len == lengths_.end()) {
+            return {};
+        }
+        return std::make_tuple(*nid, len->second);
+    }
     std::string __node_id(int64_t node) const { return indexer_.id(node); }
     std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
     {
@@ -1957,6 +1970,64 @@ PYBIND11_MODULE(_core, m)
         ;
 
     py::class_<Path>(m, "Path", py::module_local(), py::dynamic_attr()) //
+        .def_static(
+            "Build",
+            [](const DiGraph &graph, const std::vector<std::string> &nodes,
+               std::optional<double> start_offset = {},
+               std::optional<double> end_offset = {},
+               std::optional<std::tuple<std::string, Binding>> binding = {})
+                -> Path {
+                if (nodes.empty()) {
+                    throw std::invalid_argument("not any nodes");
+                }
+                std::vector<int64_t> nids;
+                std::vector<double> lengths;
+                const auto N = nodes.size();
+                nids.reserve(N);
+                lengths.reserve(N);
+                for (auto &node : nodes) {
+                    auto nid_len = graph.__node_length(node);
+                    if (!nid_len) {
+                        throw std::invalid_argument(
+                            fmt::format("missing node {}", node));
+                    }
+                    nids.push_back(std::get<0>(*nid_len));
+                    lengths.push_back(std::get<1>(*nid_len));
+                }
+                double dist = 0.0;
+                for (size_t i = 1; i < N - 1; ++i) {
+                    dist += lengths[i];
+                }
+                if (start_offset) {
+                    start_offset = CLIP(0.0, *start_offset, lengths.front());
+                    dist += lengths.front() - *start_offset;
+                }
+                if (end_offset) {
+                    end_offset = CLIP(0.0, *end_offset, lengths.back());
+                    dist += *end_offset;
+                }
+                auto p = Path(&graph, dist, nids, start_offset, end_offset);
+                auto round_scale = graph.round_scale();
+                if (round_scale) {
+                    p.round(*round_scale);
+                }
+                if (binding) {
+                    auto node = std::get<0>(*binding);
+                    auto nid = graph.__node_id(node);
+                    if (!nid) {
+                        throw std::invalid_argument(
+                            fmt::format("invalid binding node {}", node));
+                    }
+                    p.binding = std::make_tuple(*nid, std::get<1>(*binding));
+                }
+                return p;
+            },
+            "graph"_a, "nodes"_a,            //
+            py::kw_only(),                   //
+            "start_offset"_a = std::nullopt, //
+            "end_offset"_a = std::nullopt,   //
+            "binding"_a = std::nullopt)
+
         .def_property_readonly(
             "graph", [](const Path &self) { return self.graph; },
             rvp::reference_internal)
@@ -1982,7 +2053,11 @@ PYBIND11_MODULE(_core, m)
             })
         .def_property_readonly(
             "binding",
-            [](const Path &self) {
+            [](const Path &self)
+                -> std::optional<std::tuple<std::string, Binding>> {
+                if (!self.binding) {
+                    return {};
+                }
                 return std::make_tuple( //
                     self.graph->__node_id(std::get<0>(*self.binding)),
                     std::get<1>(*self.binding));
