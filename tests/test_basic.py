@@ -16,7 +16,7 @@ from networkx_graph import (
 
 
 def test_version():
-    assert m.__version__ == "0.1.6"
+    assert m.__version__ == "0.1.7"
 
 
 def test_add():
