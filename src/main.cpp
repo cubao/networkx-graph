@@ -2053,7 +2053,8 @@ PYBIND11_MODULE(_core, m)
             })
         .def_property_readonly(
             "binding",
-            [](const Path &self) -> std::optional<std::tuple<std::string, Binding>> {
+            [](const Path &self)
+                -> std::optional<std::tuple<std::string, Binding>> {
                 if (!self.binding) {
                     return {};
                 }
