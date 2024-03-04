@@ -462,6 +462,19 @@ struct DiGraph
     {
         return indexer_.get_id(node);
     }
+    std::optional<std::tuple<int64_t, double>>
+    __node_length(const std::string &node) const
+    {
+        auto nid = __node_id(node);
+        if (!nid) {
+            return {};
+        }
+        auto len = lengths_.find(*nid);
+        if (len == lengths_.end()) {
+            return {};
+        }
+        return std::make_tuple(*nid, len->second);
+    }
     std::string __node_id(int64_t node) const { return indexer_.id(node); }
     std::vector<std::string> __node_ids(const std::vector<int64_t> &nodes) const
     {
@@ -1957,6 +1970,40 @@ PYBIND11_MODULE(_core, m)
         ;
 
     py::class_<Path>(m, "Path", py::module_local(), py::dynamic_attr()) //
+        .def_static(
+            "Build",
+            [](const DiGraph &graph, const std::vector<std::string> &nodes,
+               std::optional<double> start_offset = {},
+               std::optional<double> end_offset = {},
+               std::optional<std::tuple<std::string, Binding>> binding = {})
+                -> Path {
+                if (nodes.empty()) {
+                    throw std::invalid_argument("not any nodes");
+                }
+
+                std::vector<int64_t> nids;
+                std::vector<double> lengths;
+                for (auto &node : nodes) {
+                    auto nid_len = graph.__node_length(node);
+                    if (!nid_len) {
+                        throw std::invalid_argument(
+                            fmt::format("missing node {}", node));
+                    }
+                }
+                double dist = 0.0;
+                auto p = Path(&graph, dist, nids, start_offset, end_offset);
+                if (binding) {
+                    auto node = std::get<0>(*binding);
+                    auto nid = graph.__node_id(node);
+                    if (!nid) {
+                        throw std::invalid_argument(
+                            fmt::format("invalid binding node {}", node));
+                    }
+                    p.binding = std::make_tuple(*nid, std::get<1>(*binding));
+                }
+                return p;
+            })
+
         .def_property_readonly(
             "graph", [](const Path &self) { return self.graph; },
             rvp::reference_internal)

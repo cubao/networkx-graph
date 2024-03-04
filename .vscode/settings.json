@@ -1,5 +1,6 @@
 {
     "files.associations": {
+        "*.py": "python",
         "variant": "cpp",
         "bitset": "cpp",
         "chrono": "cpp",
@@ -9,6 +10,7 @@
         "set": "cpp",
         "unordered_map": "cpp",
         "thread": "cpp",
-        "__locale": "cpp"
+        "__locale": "cpp",
+        "stdexcept": "cpp"
     }
 }
