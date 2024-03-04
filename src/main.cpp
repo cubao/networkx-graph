@@ -2006,11 +2006,11 @@ PYBIND11_MODULE(_core, m)
                     end_offset = CLIP(0.0, *end_offset, lengths.back());
                     dist += *end_offset;
                 }
+                auto p = Path(&graph, dist, nids, start_offset, end_offset);
                 auto round_scale = graph.round_scale();
                 if (round_scale) {
                     p.round(*round_scale);
                 }
-                auto p = Path(&graph, dist, nids, start_offset, end_offset);
                 if (binding) {
                     auto node = std::get<0>(*binding);
                     auto nid = graph.__node_id(node);
