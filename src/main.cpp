@@ -2053,7 +2053,10 @@ PYBIND11_MODULE(_core, m)
             })
         .def_property_readonly(
             "binding",
-            [](const Path &self) {
+            [](const Path &self) -> std::optional<std::tuple<std::string, Binding>> {
+                if (!self.binding) {
+                    return {};
+                }
                 return std::make_tuple( //
                     self.graph->__node_id(std::get<0>(*self.binding)),
                     std::get<1>(*self.binding));
