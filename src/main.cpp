@@ -1980,17 +1980,42 @@ PYBIND11_MODULE(_core, m)
                 if (nodes.empty()) {
                     throw std::invalid_argument("not any nodes");
                 }
-
                 std::vector<int64_t> nids;
                 std::vector<double> lengths;
+                const auto N = nodes.size();
+                nids.reserve(N);
+                lengths.reserve(N);
                 for (auto &node : nodes) {
                     auto nid_len = graph.__node_length(node);
                     if (!nid_len) {
                         throw std::invalid_argument(
                             fmt::format("missing node {}", node));
                     }
+                    nids.push_back(std::get<0>(*nid_len));
+                    lengths.push_back(std::get<1>(*nid_len));
                 }
                 double dist = 0.0;
+                for (size_t i = 1; i < N - 1; ++i) {
+                    dist += lengths[i];
+                }
+                if (start_offset) {
+                    start_offset = CLIP(0.0, *start_offset, lengths.front());
+                    dist += lengths.front() - *start_offset;
+                }
+                if (end_offset) {
+                    end_offset = CLIP(0.0, *end_offset, lengths.back());
+                    dist += *end_offset;
+                }
+                auto round_scale = graph.round_scale();
+                if (round_scale) {
+                    dist = ROUND(dist, *round_scale);
+                    if (start_offset) {
+                        start_offset = ROUND(*start_offset, *round_scale);
+                    }
+                    if (end_offset) {
+                        end_offset = ROUND(*end_offset, *round_scale);
+                    }
+                }
                 auto p = Path(&graph, dist, nids, start_offset, end_offset);
                 if (binding) {
                     auto node = std::get<0>(*binding);
@@ -2002,7 +2027,12 @@ PYBIND11_MODULE(_core, m)
                     p.binding = std::make_tuple(*nid, std::get<1>(*binding));
                 }
                 return p;
-            })
+            },
+            "graph"_a, "nodes"_a,            //
+            py::kw_only(),                   //
+            "start_offset"_a = std::nullopt, //
+            "end_offset"_a = std::nullopt,   //
+            "binding"_a = std::nullopt)
 
         .def_property_readonly(
             "graph", [](const Path &self) { return self.graph; },
