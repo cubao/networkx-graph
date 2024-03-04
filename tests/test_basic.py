@@ -1352,3 +1352,39 @@ def test_ubodt():
     assert len(G2.nodes) == 0
     spath = ShortestPathWithUbodt(G2, rows)
     assert spath.path("w1", "w4").nodes == ["w1", "w3", "w4"]
+
+    path = spath.path("w1", "w4")
+    path2 = Path.Build(G, path.nodes)
+    assert path.to_dict() == path2.to_dict()
+
+    path2 = Path.Build(G, path.nodes, start_offset=5.0, end_offset=17.0)
+    assert path2.dist == 32.0
+    assert path2.nodes == path.nodes
+    assert path2.start == ("w1", 5.0)
+    assert path2.end == ("w4", 17.0)
+    path2 = Path.Build(G, path.nodes, start_offset=5.12345, end_offset=27.0)
+    assert path2.dist == 34.877
+    assert path2.start[1] == 5.123
+    assert path2.end[1] == 20.0
+
+    path2 = Path.Build(
+        G,
+        path.nodes,
+        start_offset=5.12345,
+        end_offset=27.0,
+        binding=("w3", (5.0, 5.0, "something")),
+    )
+    assert path2.binding == ("w3", (5.0, 5.0, "something"))
+
+    with pytest.raises(ValueError) as e: # noqa: PT011
+        path2 = Path.Build(G, ["w1", "w3", "no_such_road"])
+    assert "missing node no_such_road" in repr(e)
+    with pytest.raises(ValueError) as e: # noqa: PT011
+        path2 = Path.Build(
+            G,
+            path.nodes,
+            start_offset=5.12345,
+            end_offset=27.0,
+            binding=("no_such_road", (5.0, 5.0, "something")),
+        )
+    assert "invalid binding node no_such_road" in repr(e)

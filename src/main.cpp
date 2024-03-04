@@ -2008,13 +2008,7 @@ PYBIND11_MODULE(_core, m)
                 }
                 auto round_scale = graph.round_scale();
                 if (round_scale) {
-                    dist = ROUND(dist, *round_scale);
-                    if (start_offset) {
-                        start_offset = ROUND(*start_offset, *round_scale);
-                    }
-                    if (end_offset) {
-                        end_offset = ROUND(*end_offset, *round_scale);
-                    }
+                    p.round(*round_scale);
                 }
                 auto p = Path(&graph, dist, nids, start_offset, end_offset);
                 if (binding) {
