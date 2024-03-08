@@ -1817,12 +1817,42 @@ struct ShortestPathWithUbodt
 
     static std::vector<UbodtRecord> Load_Ubodt(const std::string &path)
     {
-        return {};
+        auto f = std::ifstream(path.c_str(), std::ios::binary | std::ios::ate);
+        if (!f.is_open()) {
+            return {};
+        }
+        const size_t N = static_cast<size_t>(f.tellg()) / sizeof(UbodtRecord);
+        dbg(N);
+        std::vector<UbodtRecord> rows;
+        rows.reserve(N);
+        f.seekg(0);
+        UbodtRecord row;
+        while (f.read(reinterpret_cast<char *>(&row.source_road),
+                      sizeof(UbodtRecord))) {
+            rows.push_back(row);
+        }
+        return rows;
     }
     static bool Dump_Ubodt(const std::vector<UbodtRecord> &ubodt,
                            const std::string &path)
     {
-        return false;
+        auto f = std::ofstream(path.c_str(), std::ios::binary);
+        if (!f.is_open()) {
+            return false;
+        }
+        for (auto &row : ubodt) {
+            f.write(reinterpret_cast<const char *>(&row.source_road),
+                    sizeof(row.source_road));
+            f.write(reinterpret_cast<const char *>(&row.target_road),
+                    sizeof(row.target_road));
+            f.write(reinterpret_cast<const char *>(&row.source_next),
+                    sizeof(row.source_next));
+            f.write(reinterpret_cast<const char *>(&row.target_prev),
+                    sizeof(row.target_prev));
+            f.write(reinterpret_cast<const char *>(&row.cost),
+                    sizeof(row.cost));
+        }
+        return true;
     }
 
   private:
