@@ -1779,7 +1779,7 @@ struct ShortestPathWithUbodt
     {
         return load_ubodt(Load_Ubodt(path));
     }
-    bool dump_ubodt(const std::string &path) const
+    std::vector<UbodtRecord> dump_ubodt() const
     {
         std::vector<UbodtRecord> rows;
         rows.reserve(ubodt.size());
@@ -1787,7 +1787,11 @@ struct ShortestPathWithUbodt
             rows.push_back(pair.second);
         }
         std::sort(rows.begin(), rows.end());
-        return Dump_Ubodt(rows, path);
+        return rows;
+    }
+    bool dump_ubodt(const std::string &path) const
+    {
+        return Dump_Ubodt(dump_ubodt(), path);
     }
     size_t size() const { return ubodt.size(); }
 
@@ -2925,7 +2929,13 @@ PYBIND11_MODULE(_core, m)
                 return self.load_ubodt(rows);
             },
             "rows"_a)
-        .def("dump_ubodt", &ShortestPathWithUbodt::dump_ubodt, "path"_a)
+        .def(
+            "dump_ubodt",
+            [](const ShortestPathWithUbodt &self) { return self.dump_ubodt(); })
+        .def("dump_ubodt",
+             [](const ShortestPathWithUbodt &self, const std::string &path) {
+                 return self.dump_ubodt(path);
+             })
         .def("size", &ShortestPathWithUbodt::size)
         //
         .def_static("Load_Ubodt", &ShortestPathWithUbodt::Load_Ubodt, //

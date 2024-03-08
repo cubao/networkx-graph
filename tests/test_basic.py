@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import tempfile
+
 import pytest
 
 import networkx_graph as m
@@ -1357,6 +1359,16 @@ def test_ubodt():
     path2 = Path.Build(G, path.nodes)
     assert path.to_dict() == path2.to_dict()
 
+    rows2 = rows[5:] + rows[:5]
+    assert rows2 != rows
+    assert sorted(rows2) == rows
+
+    with tempfile.TemporaryDirectory() as dir:
+        ubodt_path = f"{dir}/ubodt.bin"
+        assert spath.dump_ubodt(ubodt_path)
+        print()
+        print()
+
     path2 = Path.Build(G, path.nodes, start_offset=5.0, end_offset=17.0)
     assert path2.dist == 32.0
     assert path2.nodes == path.nodes
@@ -1388,3 +1400,6 @@ def test_ubodt():
             binding=("no_such_road", (5.0, 5.0, "something")),
         )
     assert "invalid binding node no_such_road" in repr(e)
+
+
+test_ubodt()
