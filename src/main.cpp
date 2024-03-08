@@ -1744,6 +1744,10 @@ struct ShortestPathWithUbodt
                           const std::vector<UbodtRecord> &ubodt)
         : graph(graph)
     {
+        load_ubodt(ubodt);
+    }
+    void load_ubodt(const std::vector<UbodtRecord> &ubodt)
+    {
         for (auto &r : ubodt) {
             this->ubodt.emplace(std::make_pair(r.source_road, r.target_road),
                                 r);
@@ -1767,6 +1771,26 @@ struct ShortestPathWithUbodt
               graph, graph->build_ubodt(thresh, pool_size, nodes_thresh))
     {
     }
+    ShortestPathWithUbodt(const DiGraph *graph, const std::string &path)
+    {
+        load_ubodt(path);
+    }
+    void load_ubodt(const std::string &path)
+    {
+        return load_ubodt(Load_Ubodt(path));
+    }
+    bool dump_ubodt(const std::string &path) const
+    {
+        std::vector<UbodtRecord> rows;
+        rows.reserve(ubodt.size());
+        for (auto &pair : ubodt) {
+            rows.push_back(pair.second);
+        }
+        std::sort(rows.begin(), rows.end());
+        return Dump_Ubodt(rows, path);
+    }
+    size_t size() const { return ubodt.size(); }
+
     std::vector<std::tuple<double, std::string>>
     by_source(const std::string &source, std::optional<double> cutoff) const
     {
@@ -1789,6 +1813,16 @@ struct ShortestPathWithUbodt
             return {};
         }
         return path(*src_idx, *dst_idx);
+    }
+
+    static std::vector<UbodtRecord> Load_Ubodt(const std::string &path)
+    {
+        return {};
+    }
+    static bool Dump_Ubodt(const std::vector<UbodtRecord> &ubodt,
+                           const std::string &path)
+    {
+        return false;
     }
 
   private:
@@ -2841,10 +2875,33 @@ PYBIND11_MODULE(_core, m)
                                       py::dynamic_attr()) //
         .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
              "graph"_a, "ubodt"_a)
-        .def(py::init<const DiGraph *, double, int, int>(), "graph"_a,
-             "thresh"_a, py::kw_only(), //
-             "pool_size"_a = 1,         //
+        .def(py::init<const DiGraph *, double, int, int>(), //
+             "graph"_a, "thresh"_a, py::kw_only(),          //
+             "pool_size"_a = 1,                             //
              "nodes_thresh"_a = 100)
+        .def(py::init<const DiGraph *, const std::string &>(), //
+             "graph"_a, "path"_a)
+        //
+        .def(
+            "load_ubodt",
+            [](ShortestPathWithUbodt &self, const std::string &path) {
+                return self.load_ubodt(path);
+            },
+            "path"_a)
+        .def(
+            "load_ubodt",
+            [](ShortestPathWithUbodt &self,
+               const std::vector<UbodtRecord> &rows) {
+                return self.load_ubodt(rows);
+            },
+            "rows"_a)
+        .def("dump_ubodt", &ShortestPathWithUbodt::dump_ubodt, "path"_a)
+        .def("size", &ShortestPathWithUbodt::size)
+        //
+        .def_static("Load_Ubodt", &ShortestPathWithUbodt::Load_Ubodt, //
+                    "path"_a)
+        .def_static("Dump_Ubodt", &ShortestPathWithUbodt::Dump_Ubodt, //
+                    "ubodt"_a, "path"_a)
         //
         .def("by_source", &ShortestPathWithUbodt::by_source, //
              "source"_a, "cutoff"_a = std::nullopt)
