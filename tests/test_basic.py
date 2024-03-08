@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import hashlib
+import tempfile
+
 import pytest
 
 import networkx_graph as m
@@ -15,8 +18,19 @@ from networkx_graph import (
 )
 
 
+def calculate_md5(filename, block_size=4096):
+    hash_md5 = hashlib.md5()
+    try:
+        with open(filename, "rb") as f:  # noqa: PTH123
+            for block in iter(lambda: f.read(block_size), b""):
+                hash_md5.update(block)
+    except OSError:
+        return None
+    return hash_md5.hexdigest()
+
+
 def test_version():
-    assert m.__version__ == "0.1.7"
+    assert m.__version__ == "0.1.8"
 
 
 def test_add():
@@ -1356,6 +1370,26 @@ def test_ubodt():
     path = spath.path("w1", "w4")
     path2 = Path.Build(G, path.nodes)
     assert path.to_dict() == path2.to_dict()
+    assert path.dist == spath.dist("w1", "w4") == 10.0
+
+    rows2 = rows[5:] + rows[:5]
+    assert rows2 != rows
+    assert sorted(rows2) == rows
+    assert spath.dump_ubodt() == rows
+    assert spath.size() == len(rows) == 15
+
+    with tempfile.TemporaryDirectory() as dir:
+        ubodt_path = f"{dir}/ubodt.bin"
+        assert spath.dump_ubodt(ubodt_path)
+        md5 = calculate_md5(ubodt_path)
+        assert md5 == "f2c5dced545563b8f5fff3a6a52985f7"
+        spath2 = ShortestPathWithUbodt(G2, ubodt_path)
+        assert spath2.dump_ubodt() == rows
+        assert spath2.size() == 15
+        assert ShortestPathWithUbodt.Load_Ubodt(ubodt_path) == rows
+        ubodt_path2 = f"{dir}/ubodt2.bin"
+        assert ShortestPathWithUbodt.Dump_Ubodt(rows, ubodt_path2)
+        assert calculate_md5(ubodt_path2) == md5
 
     path2 = Path.Build(G, path.nodes, start_offset=5.0, end_offset=17.0)
     assert path2.dist == 32.0
