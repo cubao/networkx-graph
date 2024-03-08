@@ -1818,6 +1818,23 @@ struct ShortestPathWithUbodt
         }
         return path(*src_idx, *dst_idx);
     }
+    std::optional<double> dist(const std::string &source,
+                               const std::string &target) const
+    {
+        auto src_idx = graph->indexer().get_id(source);
+        if (!src_idx) {
+            return {};
+        }
+        auto dst_idx = graph->indexer().get_id(target);
+        if (!dst_idx) {
+            return {};
+        }
+        auto itr = ubodt.find({*src_idx, *dst_idx});
+        if (itr == ubodt.end()) {
+            return {};
+        }
+        return itr->second.cost;
+    }
 
     static std::vector<UbodtRecord> Load_Ubodt(const std::string &path)
     {
@@ -1826,7 +1843,6 @@ struct ShortestPathWithUbodt
             return {};
         }
         const size_t N = static_cast<size_t>(f.tellg()) / sizeof(UbodtRecord);
-        dbg(N);
         std::vector<UbodtRecord> rows;
         rows.reserve(N);
         f.seekg(0);
@@ -1846,15 +1862,7 @@ struct ShortestPathWithUbodt
         }
         for (auto &row : ubodt) {
             f.write(reinterpret_cast<const char *>(&row.source_road),
-                    sizeof(row.source_road));
-            f.write(reinterpret_cast<const char *>(&row.target_road),
-                    sizeof(row.target_road));
-            f.write(reinterpret_cast<const char *>(&row.source_next),
-                    sizeof(row.source_next));
-            f.write(reinterpret_cast<const char *>(&row.target_prev),
-                    sizeof(row.target_prev));
-            f.write(reinterpret_cast<const char *>(&row.cost),
-                    sizeof(row.cost));
+                    sizeof(row));
         }
         return true;
     }
@@ -2950,6 +2958,10 @@ PYBIND11_MODULE(_core, m)
         .def("path",
              py::overload_cast<const std::string &, const std::string &>(
                  &ShortestPathWithUbodt::path, py::const_),
+             "source"_a, "target"_a)
+        .def("dist",
+             py::overload_cast<const std::string &, const std::string &>(
+                 &ShortestPathWithUbodt::dist, py::const_),
              "source"_a, "target"_a)
         //
         ;

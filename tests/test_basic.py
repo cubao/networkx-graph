@@ -21,7 +21,7 @@ from networkx_graph import (
 def calculate_md5(filename, block_size=4096):
     hash_md5 = hashlib.md5()
     try:
-        with open(filename, "rb") as f:
+        with open(filename, "rb") as f:  # noqa: PTH123
             for block in iter(lambda: f.read(block_size), b""):
                 hash_md5.update(block)
     except OSError:
@@ -1370,6 +1370,7 @@ def test_ubodt():
     path = spath.path("w1", "w4")
     path2 = Path.Build(G, path.nodes)
     assert path.to_dict() == path2.to_dict()
+    assert path.dist == spath.dist("w1", "w4") == 10.0
 
     rows2 = rows[5:] + rows[:5]
     assert rows2 != rows
