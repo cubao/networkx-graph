@@ -30,7 +30,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.1.7"
+    assert m.__version__ == "0.1.8"
 
 
 def test_add():
