@@ -885,6 +885,9 @@ struct DiGraph
     std::vector<UbodtRecord> build_ubodt(double thresh, int pool_size = 1,
                                          int nodes_thresh = 100) const
     {
+        if (pool_size > 1 && nodes_.size() > nodes_thresh) {
+            return build_ubodt_parallel(thresh, pool_size);
+        }
         auto records = std::vector<UbodtRecord>();
         for (auto &kv : nodes_) {
             auto rows = build_ubodt(kv.first, thresh);
@@ -919,7 +922,11 @@ struct DiGraph
         return records;
     }
 
-    // TODO, batching
+    std::vector<UbodtRecord> build_ubodt_parallel(double thresh,
+                                                  int poolsize) const
+    {
+        return {};
+    }
 
     void freeze() { freezed_ = true; }
     void build() const {}
@@ -1754,8 +1761,10 @@ struct ShortestPathWithUbodt
             std::sort(items.begin(), items.end());
         }
     }
-    ShortestPathWithUbodt(const DiGraph *graph, double thresh)
-        : ShortestPathWithUbodt(graph, graph->build_ubodt(thresh))
+    ShortestPathWithUbodt(const DiGraph *graph, double thresh,
+                          int pool_size = 1, int nodes_thresh = 100)
+        : ShortestPathWithUbodt(
+              graph, graph->build_ubodt(thresh, pool_size, nodes_thresh))
     {
     }
     std::vector<std::tuple<double, std::string>>
@@ -2817,7 +2826,8 @@ PYBIND11_MODULE(_core, m)
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
                                                  py::const_),
-             "thresh"_a, py::kw_only(), "pool_size"_a = 1,
+             "thresh"_a, py::kw_only(), //
+             "pool_size"_a = 1,         //
              "nodes_thresh"_a = 100)
         .def("build_ubodt",
              py::overload_cast<int64_t, double>(&DiGraph::build_ubodt,
@@ -2831,12 +2841,15 @@ PYBIND11_MODULE(_core, m)
                                       py::dynamic_attr()) //
         .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
              "graph"_a, "ubodt"_a)
-        .def(py::init<const DiGraph *, double>(), "graph"_a, "thresh"_a)
+        .def(py::init<const DiGraph *, double, int, int>(), "graph"_a,
+             "thresh"_a, py::kw_only(), //
+             "pool_size"_a = 1,         //
+             "nodes_thresh"_a = 100)
         //
-        .def("by_source", &ShortestPathWithUbodt::by_source, "source"_a,
-             "cutoff"_a = std::nullopt)
-        .def("by_target", &ShortestPathWithUbodt::by_target, "target"_a,
-             "cutoff"_a = std::nullopt)
+        .def("by_source", &ShortestPathWithUbodt::by_source, //
+             "source"_a, "cutoff"_a = std::nullopt)
+        .def("by_target", &ShortestPathWithUbodt::by_target, //
+             "target"_a, "cutoff"_a = std::nullopt)
         .def("path",
              py::overload_cast<const std::string &, const std::string &>(
                  &ShortestPathWithUbodt::path, py::const_),
