@@ -141,15 +141,16 @@ struct Sequences
 inline std::array<double, 2> cheap_ruler_k(double latitude)
 {
     // https://github.com/cubao/headers/blob/8ed287a7a1e2a5cd221271b19611ba4a3f33d15c/include/cubao/crs_transform.hpp#L212
+    static constexpr double M_PI = 3.14159265358979323846;
     static constexpr double RE = 6378.137;
     static constexpr double FE = 1.0 / 298.257223563;
     static constexpr double E2 = FE * (2 - FE);
     static constexpr double RAD = M_PI / 180.0;
     static constexpr double MUL = RAD * RE * 1000.;
     double coslat = std::cos(latitude * RAD);
-    double w2 = 1 / (1 - E2 * (1 - coslat * coslat));
+    double w2 = 1.0 / (1.0 - E2 * (1.0 - coslat * coslat));
     double w = std::sqrt(w2);
-    return {MUL * w * coslat, MUL * w * w2 * (1 - E2)};
+    return {MUL * w * coslat, MUL * w * w2 * (1.0 - E2)};
 }
 
 using Point = std::array<double, 3>;
