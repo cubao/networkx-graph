@@ -1230,13 +1230,51 @@ struct DiGraph
             return {};
         }
         auto itr = nexts_.find(source);
-        if (itr == nexts_.end()) {
+        if (itr == nexts_.end() || nexts_.find(target) == nexts_.end()) {
+            return {};
+        }
+        auto &KV = endpoints.endpoints;
+        auto src_itr = KV.find(source);
+        auto dst_itr = KV.find(target);
+        if (src_itr == KV.end() || dst_itr == KV.end()) {
+            return {};
+        }
+        auto END = std::get<0>(dst_itr->second);
+        dbg(END);
+
+        std::optional<std::array<double, 2>> k;
+        if (endpoints.is_wgs84) {
+            k = cheap_ruler_k(END[1]);
+            dbg(k);
+        }
+
+        auto calc_heuristic_dist = [&KV, k,
+                                    END](int64_t src) -> std::optional<double> {
+            auto src_itr = KV.find(src);
+            if (src_itr == KV.end()) {
+                return {};
+            }
+            auto &CUR = std::get<1>(src_itr->second);
+            double dx = END[0] - CUR[0];
+            double dy = END[1] - CUR[1];
+            double dz = END[2] - CUR[2];
+            if (k) {
+                dx *= (*k)[0];
+                dy *= (*k)[1];
+            }
+            return std::sqrt(dx * dy + dy * dy + dz * dz);
+        };
+
+        auto h = calc_heuristic_dist(source);
+        if (!h) { // not possible
             return {};
         }
         unordered_map<int64_t, int64_t> pmap;
         unordered_map<int64_t, double> dmap;
         Heap Q;
-        Q.push(source, 0.0);
+        Q.push(source, *h);
+        pmap.insert({source, source});
+        dmap.insert({source, 0.0});
         for (auto next : itr->second) {
             Q.push(next, 0.0);
             pmap.insert({next, source});
@@ -1265,21 +1303,26 @@ struct DiGraph
                 if (c > cutoff) {
                     continue;
                 }
+                auto h = calc_heuristic_dist(v);
+                if (!h) {
+                    return {};
+                }
+                *h += lengths_.at(v);
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
                         if (Q.contain_node(v)) {
-                            Q.decrease_key(v, c);
+                            Q.decrease_key(v, c + *h);
                         } else {
-                            Q.push(v, c);
+                            Q.push(v, c + *h);
                         }
                     }
                 } else {
                     pmap.insert({v, u});
                     dmap.insert({v, c});
-                    Q.push(v, c);
+                    Q.push(v, c + *h);
                 }
             }
         }
