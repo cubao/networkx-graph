@@ -5,7 +5,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "networkx_graph"
-version = "0.1.8"
+version = "0.1.9"
 url = "https://github.com/cubao/networkx-graph"
 description = "Some customized graph algorithms"
 readme = "README.md"

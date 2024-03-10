@@ -8,8 +8,10 @@ import pytest
 import networkx_graph as m
 from networkx_graph import (
     DiGraph,
+    Endpoints,
     Node,
     Path,
+    Sequences,
     ShortestPathGenerator,
     ShortestPathWithUbodt,
     UbodtRecord,
@@ -30,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.1.8"
+    assert m.__version__ == "0.1.9"
 
 
 def test_add():
@@ -1273,6 +1275,7 @@ def test_sequences():
             ["w2", "w5", "w7"],
         ]
     )
+    assert isinstance(seqs, Sequences)
     hits = path.search_for_seqs(seqs)
     hits = {i: [p.nodes for p in s] for i, s in hits.items()}
     assert hits == {1: [["w2", "w5"]]}
@@ -1422,3 +1425,13 @@ def test_ubodt():
             binding=("no_such_road", (5.0, 5.0, "something")),
         )
     assert "invalid binding node no_such_road" in repr(e)
+
+
+def test_endpoints():
+    G = graph1()
+    endpoints = {
+        "w1": ([1, 3, 3], [5, 3, 3]),
+    }
+    endpoints = G.encode_endpoints(endpoints)
+    assert isinstance(endpoints, Endpoints)
+    assert endpoints.is_wgs84

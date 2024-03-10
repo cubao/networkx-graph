@@ -138,6 +138,29 @@ struct Sequences
     }
 };
 
+inline std::array<double, 2> cheap_ruler_k(double latitude)
+{
+    // https://github.com/cubao/headers/blob/8ed287a7a1e2a5cd221271b19611ba4a3f33d15c/include/cubao/crs_transform.hpp#L212
+    static constexpr double PI = 3.14159265358979323846;
+    static constexpr double RE = 6378.137;
+    static constexpr double FE = 1.0 / 298.257223563;
+    static constexpr double E2 = FE * (2 - FE);
+    static constexpr double RAD = PI / 180.0;
+    static constexpr double MUL = RAD * RE * 1000.;
+    double coslat = std::cos(latitude * RAD);
+    double w2 = 1.0 / (1.0 - E2 * (1.0 - coslat * coslat));
+    double w = std::sqrt(w2);
+    return {MUL * w * coslat, MUL * w * w2 * (1.0 - E2)};
+}
+
+using Point = std::array<double, 3>;
+struct Endpoints
+{
+    const DiGraph *graph{nullptr};
+    bool is_wgs84 = true;
+    unordered_map<int64_t, std::tuple<Point, Point>> endpoints; // (head, tail)
+};
+
 struct Path
 {
     Path() = default;
@@ -433,6 +456,19 @@ struct DiGraph
         }
         return ret;
     }
+    Endpoints encode_endpoints(
+        const std::unordered_map<std::string, std::tuple<Point, Point>>
+            &endpoints,
+        bool is_wgs84 = true)
+    {
+        Endpoints ret;
+        ret.graph = this;
+        ret.is_wgs84 = is_wgs84;
+        for (auto &pair : endpoints) {
+            ret.endpoints.emplace(indexer_.id(pair.first), pair.second);
+        }
+        return ret;
+    }
     std::optional<UbodtRecord> encode_ubodt(const std::string &source_road,
                                             const std::string &target_road,
                                             const std::string &source_next,
@@ -487,12 +523,14 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    std::optional<Path> shortest_path(const std::string &source,           //
-                                      const std::string &target,           //
-                                      double cutoff,                       //
-                                      std::optional<double> source_offset, //
-                                      std::optional<double> target_offset,
-                                      const Sinks *sinks = nullptr) const
+    std::optional<Path>
+    shortest_path(const std::string &source,           //
+                  const std::string &target,           //
+                  double cutoff,                       //
+                  std::optional<double> source_offset, //
+                  std::optional<double> target_offset,
+                  const Sinks *sinks = nullptr,
+                  const Endpoints *endpoints = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -544,7 +582,10 @@ struct DiGraph
             if (target_offset) {
                 delta += *target_offset;
             }
-            path = __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
+            path = endpoints
+                       ? __astar(*src_idx, *dst_idx, cutoff - delta, *endpoints,
+                                 sinks)
+                       : __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
             if (path) {
                 path->dist += delta;
                 path->start_offset = source_offset;
@@ -1141,11 +1182,11 @@ struct DiGraph
                 continue;
             }
             double u_cost = lengths_.at(u);
+            auto c = node.value + u_cost;
+            if (c > cutoff) {
+                continue;
+            }
             for (auto v : itr->second) {
-                auto c = node.value + u_cost;
-                if (c > cutoff) {
-                    continue;
-                }
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
@@ -1169,6 +1210,113 @@ struct DiGraph
         }
         auto path = Path(this);
         path.dist = dmap.at(target);
+        while (target != source) {
+            path.nodes.push_back(target);
+            target = pmap.at(target);
+        }
+        path.nodes.push_back(target);
+        std::reverse(path.nodes.begin(), path.nodes.end());
+        return path;
+    }
+
+    std::optional<Path> __astar(int64_t source, int64_t target, double cutoff,
+                                const Endpoints &endpoints,
+                                const Sinks *sinks = nullptr) const
+    {
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L105-L158
+        if (source == target) {
+            return Path(this, 0.0, {source});
+        }
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto itr = nexts_.find(source);
+        if (itr == nexts_.end()) {
+            return {};
+        }
+        auto &KV = endpoints.endpoints;
+        auto END = std::get<0>(KV.at(target));
+
+        std::optional<std::array<double, 2>> k;
+        if (endpoints.is_wgs84) {
+            k = cheap_ruler_k(END[1]);
+        }
+
+        auto calc_heuristic_dist = [&KV, k, END](int64_t src) {
+            auto &CUR = std::get<1>(KV.at(src));
+            double dx = END[0] - CUR[0];
+            double dy = END[1] - CUR[1];
+            double dz = END[2] - CUR[2];
+            if (k) {
+                dx *= (*k)[0];
+                dy *= (*k)[1];
+            }
+            return std::sqrt(dx * dx + dy * dy + dz * dz);
+        };
+
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, calc_heuristic_dist(source));
+        pmap.insert({source, source});
+        dmap.insert({source, 0.0});
+        for (auto next : itr->second) {
+            auto h = calc_heuristic_dist(next);
+            Q.push(next, h + lengths_.at(next));
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (u == target) {
+                break;
+            }
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            auto c = dmap.at(u) + u_cost;
+            if (c > cutoff) {
+                continue;
+            }
+            for (auto v : itr->second) {
+                auto h = calc_heuristic_dist(v) + lengths_.at(v);
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c + h);
+                        } else {
+                            Q.push(v, c + h);
+                        }
+                    }
+                } else {
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c + h);
+                }
+            }
+        }
+        if (!pmap.count(target)) {
+            return {};
+        }
+        double dist = dmap.at(target);
+        if (dist > cutoff) {
+            return {};
+        }
+        auto path = Path(this);
+        path.dist = dist;
         while (target != source) {
             path.nodes.push_back(target);
             target = pmap.at(target);
@@ -2317,6 +2465,17 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<Endpoints>(m, "Endpoints", py::module_local(),
+                          py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Endpoints &self) { return self.graph; },
+            rvp::reference_internal)
+        .def_property_readonly(
+            "is_wgs84", [](const Endpoints &self) { return self.is_wgs84; },
+            rvp::reference_internal)
+        //
+        ;
+
     py::class_<UbodtRecord>(m, "UbodtRecord", py::module_local(),
                             py::dynamic_attr()) //
         .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
@@ -2762,6 +2921,8 @@ PYBIND11_MODULE(_core, m)
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
         .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_endpoints", &DiGraph::encode_endpoints, "endpoints"_a,
+             py::kw_only(), "is_wgs84"_a = true)
         .def("encode_ubodt", &DiGraph::encode_ubodt, //
              "source_road"_a,                        //
              "target_road"_a,                        //
@@ -2777,9 +2938,12 @@ PYBIND11_MODULE(_core, m)
                double cutoff,                       //
                std::optional<double> source_offset, //
                std::optional<double> target_offset, //
-               const Sinks *sinks) {
-                return self.shortest_path(source, target, cutoff, //
-                                          source_offset, target_offset, sinks);
+               const Sinks *sinks,                  //
+               const Endpoints *endpoints) {
+                return self.shortest_path(source, target, cutoff,       //
+                                          source_offset, target_offset, //
+                                          sinks,                        //
+                                          endpoints);
             },
             "source"_a,                       //
             "target"_a,                       //
@@ -2788,6 +2952,7 @@ PYBIND11_MODULE(_core, m)
             "source_offset"_a = std::nullopt, //
             "target_offset"_a = std::nullopt, //
             "sinks"_a = nullptr,              //
+            "endpoints"_a = nullptr,          //
             py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_paths_from",
