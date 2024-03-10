@@ -1240,12 +1240,10 @@ struct DiGraph
             return {};
         }
         auto END = std::get<0>(dst_itr->second);
-        dbg(END);
 
         std::optional<std::array<double, 2>> k;
         if (endpoints.is_wgs84) {
             k = cheap_ruler_k(END[1]);
-            dbg(k);
         }
 
         auto calc_heuristic_dist = [&KV, k,
@@ -1262,7 +1260,7 @@ struct DiGraph
                 dx *= (*k)[0];
                 dy *= (*k)[1];
             }
-            return std::sqrt(dx * dy + dy * dy + dz * dz);
+            return std::sqrt(dx * dx + dy * dy + dz * dz);
         };
 
         auto h = calc_heuristic_dist(source);
@@ -1276,7 +1274,11 @@ struct DiGraph
         pmap.insert({source, source});
         dmap.insert({source, 0.0});
         for (auto next : itr->second) {
-            Q.push(next, 0.0);
+            auto h = calc_heuristic_dist(next);
+            if (!h) {
+                return {};
+            }
+            Q.push(next, *h + lengths_.at(next));
             pmap.insert({next, source});
             dmap.insert({next, 0.0});
         }
