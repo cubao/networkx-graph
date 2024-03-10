@@ -522,12 +522,14 @@ struct DiGraph
     }
     double length(int64_t node) const { return lengths_.at(node); }
 
-    std::optional<Path> shortest_path(const std::string &source,           //
-                                      const std::string &target,           //
-                                      double cutoff,                       //
-                                      std::optional<double> source_offset, //
-                                      std::optional<double> target_offset,
-                                      const Sinks *sinks = nullptr) const
+    std::optional<Path>
+    shortest_path(const std::string &source,           //
+                  const std::string &target,           //
+                  double cutoff,                       //
+                  std::optional<double> source_offset, //
+                  std::optional<double> target_offset,
+                  const Sinks *sinks = nullptr,
+                  const Endpoints *endpoints = nullptr) const
     {
         if (cutoff < 0) {
             return {};
@@ -579,7 +581,10 @@ struct DiGraph
             if (target_offset) {
                 delta += *target_offset;
             }
-            path = __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
+            path = endpoints
+                       ? __astar(*src_idx, *dst_idx, cutoff - delta, *endpoints,
+                                 sinks)
+                       : __dijkstra(*src_idx, *dst_idx, cutoff - delta, sinks);
             if (path) {
                 path->dist += delta;
                 path->start_offset = source_offset;
@@ -1139,6 +1144,85 @@ struct DiGraph
                                    const Sinks *sinks = nullptr) const
     {
         // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L54-L97
+        if (source == target) {
+            return Path(this, 0.0, {source});
+        }
+        if (sinks && sinks->nodes.count(source)) {
+            return {};
+        }
+        auto itr = nexts_.find(source);
+        if (itr == nexts_.end()) {
+            return {};
+        }
+        unordered_map<int64_t, int64_t> pmap;
+        unordered_map<int64_t, double> dmap;
+        Heap Q;
+        Q.push(source, 0.0);
+        for (auto next : itr->second) {
+            Q.push(next, 0.0);
+            pmap.insert({next, source});
+            dmap.insert({next, 0.0});
+        }
+        while (!Q.empty()) {
+            HeapNode node = Q.top();
+            Q.pop();
+            if (node.value > cutoff) {
+                break;
+            }
+            auto u = node.index;
+            if (u == target) {
+                break;
+            }
+            if (sinks && sinks->nodes.count(u)) {
+                continue;
+            }
+            auto itr = nexts_.find(u);
+            if (itr == nexts_.end()) {
+                continue;
+            }
+            double u_cost = lengths_.at(u);
+            for (auto v : itr->second) {
+                auto c = node.value + u_cost;
+                if (c > cutoff) {
+                    continue;
+                }
+                auto iter = dmap.find(v);
+                if (iter != dmap.end()) {
+                    if (c < iter->second) {
+                        pmap[v] = u;
+                        dmap[v] = c;
+                        if (Q.contain_node(v)) {
+                            Q.decrease_key(v, c);
+                        } else {
+                            Q.push(v, c);
+                        }
+                    }
+                } else {
+                    pmap.insert({v, u});
+                    dmap.insert({v, c});
+                    Q.push(v, c);
+                }
+            }
+        }
+        if (!pmap.count(target)) {
+            return {};
+        }
+        auto path = Path(this);
+        path.dist = dmap.at(target);
+        while (target != source) {
+            path.nodes.push_back(target);
+            target = pmap.at(target);
+        }
+        path.nodes.push_back(target);
+        std::reverse(path.nodes.begin(), path.nodes.end());
+        return path;
+    }
+
+    std::optional<Path> __astar(int64_t source, int64_t target, double cutoff,
+                                const Endpoints &endpoints,
+                                const Sinks *sinks = nullptr) const
+    {
+        // https://github.com/cyang-kth/fmm/blob/5cccc608903877b62969e41a58b60197a37a5c01/src/network/network_graph.cpp#L105-L158
         if (source == target) {
             return Path(this, 0.0, {source});
         }
@@ -2825,9 +2909,12 @@ PYBIND11_MODULE(_core, m)
                double cutoff,                       //
                std::optional<double> source_offset, //
                std::optional<double> target_offset, //
-               const Sinks *sinks) {
-                return self.shortest_path(source, target, cutoff, //
-                                          source_offset, target_offset, sinks);
+               const Sinks *sinks,                  //
+               const Endpoints *endpoints) {
+                return self.shortest_path(source, target, cutoff,       //
+                                          source_offset, target_offset, //
+                                          sinks,                        //
+                                          endpoints);
             },
             "source"_a,                       //
             "target"_a,                       //
@@ -2836,6 +2923,7 @@ PYBIND11_MODULE(_core, m)
             "source_offset"_a = std::nullopt, //
             "target_offset"_a = std::nullopt, //
             "sinks"_a = nullptr,              //
+            "endpoints"_a = nullptr,          //
             py::call_guard<py::gil_scoped_release>())
         .def(
             "shortest_paths_from",

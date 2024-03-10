@@ -8,13 +8,13 @@ import pytest
 import networkx_graph as m
 from networkx_graph import (
     DiGraph,
+    Endpoints,
     Node,
     Path,
+    Sequences,
     ShortestPathGenerator,
     ShortestPathWithUbodt,
     UbodtRecord,
-    Sequences,
-    Endpoints,
     ZigzagPath,
     ZigzagPathGenerator,
 )
@@ -1430,7 +1430,7 @@ def test_ubodt():
 def test_endpoints():
     G = graph1()
     endpoints = {
-        'w1': ([1, 3, 3], [5, 3, 3]),
+        "w1": ([1, 3, 3], [5, 3, 3]),
     }
     endpoints = G.encode_endpoints(endpoints)
     assert isinstance(endpoints, Endpoints)
