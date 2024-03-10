@@ -138,6 +138,28 @@ struct Sequences
     }
 };
 
+inline std::array<double, 2> cheap_ruler_k(double latitude)
+{
+    // https://github.com/cubao/headers/blob/8ed287a7a1e2a5cd221271b19611ba4a3f33d15c/include/cubao/crs_transform.hpp#L212
+    static constexpr double RE = 6378.137;
+    static constexpr double FE = 1.0 / 298.257223563;
+    static constexpr double E2 = FE * (2 - FE);
+    static constexpr double RAD = M_PI / 180.0;
+    static constexpr double MUL = RAD * RE * 1000.;
+    double coslat = std::cos(latitude * RAD);
+    double w2 = 1 / (1 - E2 * (1 - coslat * coslat));
+    double w = std::sqrt(w2);
+    return {MUL * w * coslat, MUL * w * w2 * (1 - E2)};
+}
+
+using Point = std::array<double, 3>;
+struct Endpoints
+{
+    const DiGraph *graph{nullptr};
+    bool is_wgs84 = true;
+    unordered_map<int64_t, std::tuple<Point, Point>> endpoints; // (head, tail)
+};
+
 struct Path
 {
     Path() = default;
@@ -430,6 +452,19 @@ struct DiGraph
                 nodes.push_back(indexer_.id(s));
             }
             ret.head2seqs[nodes[0]].push_back(nodes);
+        }
+        return ret;
+    }
+    Endpoints encode_endpoints(
+        const std::unordered_map<std::string, std::tuple<Point, Point>>
+            &endpoints,
+        bool is_wgs84 = true)
+    {
+        Endpoints ret;
+        ret.graph = this;
+        ret.is_wgs84 = is_wgs84;
+        for (auto &pair : endpoints) {
+            ret.endpoints.emplace(indexer_.id(pair.first), pair.second);
         }
         return ret;
     }
@@ -2317,6 +2352,17 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<Endpoints>(m, "Endpoints", py::module_local(),
+                          py::dynamic_attr()) //
+        .def_property_readonly(
+            "graph", [](const Endpoints &self) { return self.graph; },
+            rvp::reference_internal)
+        .def_property_readonly(
+            "is_wgs84", [](const Endpoints &self) { return self.is_wgs84; },
+            rvp::reference_internal)
+        //
+        ;
+
     py::class_<UbodtRecord>(m, "UbodtRecord", py::module_local(),
                             py::dynamic_attr()) //
         .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
@@ -2762,6 +2808,8 @@ PYBIND11_MODULE(_core, m)
         .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
         .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
         .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_endpoints", &DiGraph::encode_endpoints, "endpoints"_a,
+             py::kw_only(), "is_wgs84"_a = true)
         .def("encode_ubodt", &DiGraph::encode_ubodt, //
              "source_road"_a,                        //
              "target_road"_a,                        //
