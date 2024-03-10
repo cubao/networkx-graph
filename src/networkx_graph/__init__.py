@@ -5,6 +5,7 @@ from typing import Optional
 from ._core import (
     Bindings,
     Edge,
+    Endpoints,
     Node,
     Path,
     Sequences,
@@ -58,5 +59,6 @@ __all__ = [
     "Sinks",
     "Bindings",
     "Sequences",
+    "Endpoints",
     "UbodtRecord",
 ]

@@ -13,6 +13,8 @@ from networkx_graph import (
     ShortestPathGenerator,
     ShortestPathWithUbodt,
     UbodtRecord,
+    Sequences,
+    Endpoints,
     ZigzagPath,
     ZigzagPathGenerator,
 )
@@ -1273,6 +1275,7 @@ def test_sequences():
             ["w2", "w5", "w7"],
         ]
     )
+    assert isinstance(seqs, Sequences)
     hits = path.search_for_seqs(seqs)
     hits = {i: [p.nodes for p in s] for i, s in hits.items()}
     assert hits == {1: [["w2", "w5"]]}
@@ -1422,3 +1425,17 @@ def test_ubodt():
             binding=("no_such_road", (5.0, 5.0, "something")),
         )
     assert "invalid binding node no_such_road" in repr(e)
+
+
+def test_endpoints():
+    G = graph1()
+    endpoints = {
+        'w1': ([1, 3, 3], [5, 3, 3]),
+    }
+    endpoints = G.encode_endpoints(endpoints)
+    assert isinstance(endpoints, Endpoints)
+    assert endpoints.is_wgs84
+    print()
+
+
+test_endpoints()
