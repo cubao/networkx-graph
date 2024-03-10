@@ -1181,11 +1181,11 @@ struct DiGraph
                 continue;
             }
             double u_cost = lengths_.at(u);
+            auto c = node.value + u_cost;
+            if (c > cutoff) {
+                continue;
+            }
             for (auto v : itr->second) {
-                auto c = node.value + u_cost;
-                if (c > cutoff) {
-                    continue;
-                }
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
@@ -1235,6 +1235,7 @@ struct DiGraph
         }
         auto &KV = endpoints.endpoints;
         auto END = std::get<0>(KV.at(target));
+        dbg(END);
 
         std::optional<std::array<double, 2>> k;
         if (endpoints.is_wgs84) {
@@ -1250,14 +1251,14 @@ struct DiGraph
                 dx *= (*k)[0];
                 dy *= (*k)[1];
             }
-            return std::sqrt(dx * dx + dy * dy + dz * dz);
+            dbg(dx, dy, dz);
+            return dbg(std::sqrt(dx * dx + dy * dy + dz * dz));
         };
 
-        auto h = calc_heuristic_dist(source);
         unordered_map<int64_t, int64_t> pmap;
         unordered_map<int64_t, double> dmap;
         Heap Q;
-        Q.push(source, h);
+        Q.push(source, calc_heuristic_dist(source));
         pmap.insert({source, source});
         dmap.insert({source, 0.0});
         for (auto next : itr->second) {
@@ -1266,13 +1267,17 @@ struct DiGraph
             pmap.insert({next, source});
             dmap.insert({next, 0.0});
         }
+        dbg(pmap);
+        dbg(dmap);
         while (!Q.empty()) {
             HeapNode node = Q.top();
             Q.pop();
+            dbg(node.value);
             if (node.value > cutoff) {
                 break;
             }
             auto u = node.index;
+            dbg(u, indexer_.get_id(u));
             if (u == target) {
                 break;
             }
@@ -1283,36 +1288,52 @@ struct DiGraph
             if (itr == nexts_.end()) {
                 continue;
             }
-            double u_cost = lengths_.at(u);
+            double u_cost = dbg(lengths_.at(u));
+            auto c = dmap.at(u) + u_cost;
+            if (c > cutoff) {
+                continue;
+            }
             for (auto v : itr->second) {
-                auto c = node.value + u_cost;
-                if (c > cutoff) {
-                    continue;
-                }
-                auto h = calc_heuristic_dist(v) + lengths_.at(v);
+                dbg(v);
+                dbg(c);
+                auto h = calc_heuristic_dist(v) + dbg(lengths_.at(v));
+                dbg(h);
                 auto iter = dmap.find(v);
                 if (iter != dmap.end()) {
                     if (c < iter->second) {
                         pmap[v] = u;
                         dmap[v] = c;
                         if (Q.contain_node(v)) {
-                            Q.decrease_key(v, c + h);
+                            Q.decrease_key(v, dbg(c + h));
                         } else {
-                            Q.push(v, c + h);
+                            Q.push(v, dbg(c + h));
                         }
+                        dbg(c);
                     }
                 } else {
                     pmap.insert({v, u});
                     dmap.insert({v, c});
-                    Q.push(v, c + h);
+                    Q.push(v, dbg(c + h));
+                    dbg(c);
                 }
             }
         }
+        for (auto pair: dmap) {
+            dbg(indexer_.get_id(pair.first));
+            dbg(pair.first, pair.second);
+        }
+        dbg(dmap.size());
         if (!pmap.count(target)) {
             return {};
         }
+        double dist = dmap.at(target);
+        dbg(dist);
+        dbg(cutoff);
+        if (dist > cutoff) {
+            return {};
+        }
         auto path = Path(this);
-        path.dist = dmap.at(target);
+        path.dist = dist;
         while (target != source) {
             path.nodes.push_back(target);
             target = pmap.at(target);
