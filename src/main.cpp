@@ -2237,7 +2237,8 @@ PYBIND11_MODULE(_core, m)
                     dist = *end_offset - *start_offset;
                 } else {
                     if (start_offset) {
-                        start_offset = CLIP(0.0, *start_offset, lengths.front());
+                        start_offset =
+                            CLIP(0.0, *start_offset, lengths.front());
                         dist += lengths.front() - *start_offset;
                     }
                     if (end_offset) {

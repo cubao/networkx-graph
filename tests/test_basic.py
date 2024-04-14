@@ -1415,7 +1415,7 @@ def test_ubodt():
 
     path2 = Path.Build(
         G,
-        ['w1'],
+        ["w1"],
         start_offset=1.8,
         end_offset=3.3,
     )
