@@ -1413,6 +1413,14 @@ def test_ubodt():
     )
     assert path2.binding == ("w3", (5.0, 5.0, "something"))
 
+    path2 = Path.Build(
+        G,
+        ['w1'],
+        start_offset=1.8,
+        end_offset=3.3,
+    )
+    assert path2.dist == 1.5
+
     with pytest.raises(ValueError) as e:  # noqa: PT011
         path2 = Path.Build(G, ["w1", "w3", "no_such_road"])
     assert "missing node no_such_road" in repr(e)

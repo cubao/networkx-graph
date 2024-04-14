@@ -2231,13 +2231,19 @@ PYBIND11_MODULE(_core, m)
                 for (size_t i = 1; i < N - 1; ++i) {
                     dist += lengths[i];
                 }
-                if (start_offset) {
+                if (N == 1 && start_offset && end_offset) {
                     start_offset = CLIP(0.0, *start_offset, lengths.front());
-                    dist += lengths.front() - *start_offset;
-                }
-                if (end_offset) {
                     end_offset = CLIP(0.0, *end_offset, lengths.back());
-                    dist += *end_offset;
+                    dist = *end_offset - *start_offset;
+                } else {
+                    if (start_offset) {
+                        start_offset = CLIP(0.0, *start_offset, lengths.front());
+                        dist += lengths.front() - *start_offset;
+                    }
+                    if (end_offset) {
+                        end_offset = CLIP(0.0, *end_offset, lengths.back());
+                        dist += *end_offset;
+                    }
                 }
                 auto p = Path(&graph, dist, nids, start_offset, end_offset);
                 auto round_scale = graph.round_scale();
