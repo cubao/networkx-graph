@@ -32,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.1.9"
+    assert m.__version__ == "0.2.0"
 
 
 def test_add():
@@ -1412,6 +1412,14 @@ def test_ubodt():
         binding=("w3", (5.0, 5.0, "something")),
     )
     assert path2.binding == ("w3", (5.0, 5.0, "something"))
+
+    path2 = Path.Build(
+        G,
+        ["w1"],
+        start_offset=1.8,
+        end_offset=3.3,
+    )
+    assert path2.dist == 1.5
 
     with pytest.raises(ValueError) as e:  # noqa: PT011
         path2 = Path.Build(G, ["w1", "w3", "no_such_road"])
