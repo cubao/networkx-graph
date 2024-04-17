@@ -2390,6 +2390,35 @@ PYBIND11_MODULE(_core, m)
                 return idx2paths;
             },
             "sequences"_a, "quick_return"_a = true)
+        .def(
+            "along",
+            [](const Path &self,
+               double offset) -> std::tuple<std::string, std::optional<double>>
+            {
+                if (offset <= 0) {
+                    auto nid = self.nodes.front();
+                    auto off = self.start_offset;
+                    if (!off) {
+                        off = self.graph->length(nid);
+                    }
+                    return std::make_tuple(self.graph->__node_id(nid), off);
+                } else if (offset >= self.dist) {
+                    auto nid = self.nodes.back();
+                    auto off = self.end_offset;
+                    if (!off) {
+                        off = 0.0;
+                    }
+                    return std::make_tuple(self.graph->__node_id(nid), off);
+                }
+                // auto nid_len = graph.__node_length(node);
+                auto nid = self.nodes.back();
+                auto off = self.end_offset;
+                if (!off) {
+                    off = 0.0;
+                }
+                return std::make_tuple(self.graph->__node_id(nid), off);
+            },
+            "offset"_a)
         //
         ;
 
