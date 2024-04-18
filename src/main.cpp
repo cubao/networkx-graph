@@ -2411,6 +2411,7 @@ PYBIND11_MODULE(_core, m)
                     return std::make_tuple(self.graph->__node_id(nid), off);
                 }
                 // auto nid_len = graph.__node_length(node);
+                int N = self.nodes.size();
                 auto nid = self.nodes.back();
                 auto off = self.end_offset;
                 if (!off) {
