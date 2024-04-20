@@ -2393,22 +2393,16 @@ PYBIND11_MODULE(_core, m)
         .def(
             "along",
             [](const Path &self,
-               double offset) -> std::tuple<std::string, std::optional<double>>
-            {
+               double offset) -> std::tuple<std::string, double> {
                 if (offset <= 0) {
                     auto nid = self.nodes.front();
-                    auto off = self.start_offset;
-                    if (!off) {
-                        off = self.graph->length(nid);
-                    }
-                    return std::make_tuple(self.graph->__node_id(nid), off);
+                    return std::make_tuple(
+                        self.graph->__node_id(nid),
+                        self.start_offset.value_or(self.graph->length(nid)));
                 } else if (offset >= self.dist) {
                     auto nid = self.nodes.back();
-                    auto off = self.end_offset;
-                    if (!off) {
-                        off = 0.0;
-                    }
-                    return std::make_tuple(self.graph->__node_id(nid), off);
+                    return std::make_tuple(self.graph->__node_id(nid),
+                                           self.end_offset.value_or(0.0));
                 }
                 // auto nid_len = graph.__node_length(node);
                 int N = self.nodes.size();
@@ -2417,7 +2411,8 @@ PYBIND11_MODULE(_core, m)
                 if (!off) {
                     off = 0.0;
                 }
-                return std::make_tuple(self.graph->__node_id(nid), off);
+                return std::make_tuple(self.graph->__node_id(nid),
+                                       off.value_or(0.0));
             },
             "offset"_a)
         //

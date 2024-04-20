@@ -910,6 +910,22 @@ def test_shortest_path_to_bindings():
     assert forwards is None
 
     backwards, forwards = G.shortest_path_to_bindings(
+        "w6",
+        cutoff=50.0,
+        bindings=bindings,
+        direction=-1,
+    )
+    assert backwards is not None
+    assert forwards is None
+    assert backwards.to_dict() == {
+        "dist": 27.0,
+        "nodes": ["w3", "w4", "w6"],
+        "start": ("w3", 3.0),
+        "end": ("w6", None),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
+
+    backwards, forwards = G.shortest_path_to_bindings(
         "w3",
         cutoff=2.0,
         bindings=bindings,
@@ -1443,3 +1459,6 @@ def test_endpoints():
     endpoints = G.encode_endpoints(endpoints)
     assert isinstance(endpoints, Endpoints)
     assert endpoints.is_wgs84
+
+
+test_shortest_path_to_bindings()
