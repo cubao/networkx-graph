@@ -32,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.2.0"
+    assert m.__version__ == "0.2.1"
 
 
 def test_add():
@@ -290,6 +290,45 @@ def test_digraph_shortest_paths():
         "nodes": ["w1", "w3", "w4", "w6", "w7"],
         "start": ("w1", None),
         "end": ("w7", None),
+    }
+
+    assert path.along(5.0) == ("w3", 5.0)
+    assert path.along(5.0123456) == ("w3", 5.012)
+    assert path.along(0) == path.along(-1) == ("w1", 10.0)
+    assert path.along(1e-3) == ("w3", 1e-3)
+    assert path.along(33.0) == path.along(34.0) == ("w7", 0.0)
+    assert path.along(33.0 - 1e-3) == ("w6", 2.999)
+
+    assert path.slice(2, 5).to_dict() == {
+        "dist": 3.0,
+        "nodes": ["w3"],
+        "start": ("w3", 2.0),
+        "end": ("w3", 5.0),
+    }
+    assert path.slice(2, 15).to_dict() == {
+        "dist": 13.0,
+        "nodes": ["w3", "w4"],
+        "start": ("w3", 2.0),
+        "end": ("w4", 5.0),
+    }
+    assert path.slice(10, 30).to_dict() == {
+        "dist": 20.0,
+        "nodes": ["w3", "w4"],
+        "start": ("w3", 10.0),
+        "end": ("w4", 20.0),
+    }
+
+    assert path.slice(-1, 0).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w1"],
+        "start": ("w1", 10.0),
+        "end": ("w1", 10.0),
+    }
+    assert path.slice(3, 2).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w3"],
+        "start": ("w3", 3.0),
+        "end": ("w3", 3.0),
     }
 
 
@@ -908,6 +947,22 @@ def test_shortest_path_to_bindings():
     )
     assert backwards is not None
     assert forwards is None
+
+    backwards, forwards = G.shortest_path_to_bindings(
+        "w6",
+        cutoff=50.0,
+        bindings=bindings,
+        direction=-1,
+    )
+    assert backwards is not None
+    assert forwards is None
+    assert backwards.to_dict() == {
+        "dist": 27.0,
+        "nodes": ["w3", "w4", "w6"],
+        "start": ("w3", 3.0),
+        "end": ("w6", None),
+        "binding": ("w3", (1.0, 3.0, {"key": "value"})),
+    }
 
     backwards, forwards = G.shortest_path_to_bindings(
         "w3",

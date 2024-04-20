@@ -2074,6 +2074,37 @@ struct ShortestPathWithUbodt
 
 using namespace nano_fmm;
 
+inline std::tuple<int, double> __path_along(const Path &self, double offset)
+{
+    if (offset <= 0) {
+        int idx = 0;
+        auto nid = self.nodes.at(idx);
+        return std::make_tuple(
+            idx, self.start_offset.value_or(self.graph->length(nid)));
+    } else if (offset >= self.dist) {
+        int idx = self.nodes.size() - 1;
+        return std::make_tuple(idx, self.end_offset.value_or(0.0));
+    }
+    if (self.start_offset) {
+        double remain = std::max(0.0, self.graph->length(self.nodes.front()) -
+                                          *self.start_offset);
+        if (offset <= remain) {
+            return std::make_tuple(0, *self.start_offset + offset);
+        }
+        offset -= remain;
+    }
+    for (int i = 1; i < self.nodes.size(); ++i) {
+        auto nid = self.nodes.at(i);
+        double length = self.graph->length(nid);
+        if (offset <= length) {
+            return std::make_tuple(i, offset);
+        }
+        offset -= length;
+    }
+    int idx = self.nodes.size() - 1;
+    return std::make_tuple(idx, self.end_offset.value_or(0.0));
+}
+
 PYBIND11_MODULE(_core, m)
 {
     m.doc() = R"pbdoc(
@@ -2390,6 +2421,63 @@ PYBIND11_MODULE(_core, m)
                 return idx2paths;
             },
             "sequences"_a, "quick_return"_a = true)
+        .def(
+            "along",
+            [](const Path &self,
+               double offset) -> std::tuple<std::string, double> {
+                auto [idx, off] = __path_along(self, offset);
+                auto nid = self.graph->__node_id(self.nodes.at(idx));
+                auto scale = self.graph->round_scale();
+                if (scale) {
+                    off = ROUND(off, *scale);
+                }
+                return std::make_tuple(nid, off);
+            },
+            "offset"_a)
+        .def(
+            "slice",
+            [](const Path &self, double start, double end) -> Path {
+                auto [idx0, off0] = __path_along(self, start);
+                std::vector<int64_t> nids;
+                double dist = 0.0;
+                double off1 = 0.0;
+                if (end <= start) {
+                    nids.push_back(self.nodes.at(idx0));
+                    dist = 0.0;
+                    off1 = off0;
+                } else {
+                    auto idx_off = __path_along(self, end);
+                    auto idx1 = std::get<0>(idx_off);
+                    off1 = std::get<1>(idx_off);
+                    if (idx0 > idx1) {
+                        nids.push_back(self.nodes.at(idx0));
+                        dist = 0.0;
+                        off1 = off0;
+                    } else if (idx0 == idx1) {
+                        nids.push_back(self.nodes.at(idx0));
+                        dist = off1 - off0;
+                    } else {
+                        int nid = self.nodes.at(idx0);
+                        nids.push_back(nid);
+                        dist += self.graph->length(nid) - off0;
+                        for (int idx = idx0 + 1; idx < idx1; ++idx) {
+                            nid = self.nodes.at(idx);
+                            nids.push_back(nid);
+                            dist += self.graph->length(nid);
+                        }
+                        nid = self.nodes.at(idx1);
+                        nids.push_back(nid);
+                        dist += off1;
+                    }
+                }
+                auto p = Path(self.graph, dist, nids, off0, off1);
+                auto round_scale = self.graph->round_scale();
+                if (round_scale) {
+                    p.round(*round_scale);
+                }
+                return p;
+            },
+            "start"_a, "end"_a)
         //
         ;
 
