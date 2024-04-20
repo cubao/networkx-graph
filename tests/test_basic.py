@@ -311,6 +311,25 @@ def test_digraph_shortest_paths():
         "start": ("w3", 2.0),
         "end": ("w4", 5.0),
     }
+    assert path.slice(10, 30).to_dict() == {
+        "dist": 20.0,
+        "nodes": ["w3", "w4"],
+        "start": ("w3", 10.0),
+        "end": ("w4", 20.0),
+    }
+
+    assert path.slice(-1, 0).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w1"],
+        "start": ("w1", 10.0),
+        "end": ("w1", 10.0),
+    }
+    assert path.slice(3, 2).to_dict() == {
+        "dist": 0.0,
+        "nodes": ["w3"],
+        "start": ("w3", 3.0),
+        "end": ("w3", 3.0),
+    }
 
 
 def all_paths_from(G, start, cutoff):
