@@ -2085,14 +2085,24 @@ inline std::tuple<int, double> __path_along(const Path &self, double offset)
         int idx = self.nodes.size() - 1;
         return std::make_tuple(idx, self.end_offset.value_or(0.0));
     }
-    // auto nid_len = graph.__node_length(node);
-    int N = self.nodes.size();
-    auto nid = self.nodes.back();
-    auto off = self.end_offset;
-    if (!off) {
-        off = 0.0;
+    if (self.start_offset) {
+        double remain = std::max(0.0, self.graph->length(self.nodes.front()) -
+                                          *self.start_offset);
+        if (offset <= remain) {
+            return std::make_tuple(0, *self.start_offset + offset);
+        }
+        offset -= remain;
     }
-    return std::make_tuple(nid, off.value_or(0.0));
+    for (int i = 1; i < self.nodes.size(); ++i) {
+        auto nid = self.nodes.at(i);
+        double length = self.graph->length(nid);
+        if (offset <= length) {
+            return std::make_tuple(i, offset);
+        }
+        offset -= length;
+    }
+    int idx = self.nodes.size() - 1;
+    return std::make_tuple(idx, self.end_offset.value_or(0.0));
 }
 
 PYBIND11_MODULE(_core, m)
@@ -2443,8 +2453,17 @@ PYBIND11_MODULE(_core, m)
                         nids.push_back(self.nodes.at(idx0));
                         dist = off1 - off0;
                     } else {
-                        // TODO
-                        self.graph->__node_length(node);
+                        int nid = self.nodes.at(idx0);
+                        nids.push_back(nid);
+                        dist += self.graph->length(nid) - off0;
+                        for (int idx = idx0 + 1; idx < idx1; ++idx) {
+                            nid = self.nodes.at(idx);
+                            nids.push_back(nid);
+                            dist += self.graph->length(nid);
+                        }
+                        nid = self.nodes.at(idx1);
+                        nids.push_back(nid);
+                        dist += off1;
                     }
                 }
                 auto p = Path(self.graph, dist, nids, off0, off1);
