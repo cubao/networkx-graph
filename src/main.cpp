@@ -2079,9 +2079,10 @@ inline std::tuple<int, double> __path_along(const Path &self, double offset)
     if (offset <= 0) {
         int idx = 0;
         auto nid = self.nodes.at(idx);
-        return std::make_tuple(idx, self.start_offset.value_or(self.graph->length(nid)));
+        return std::make_tuple(
+            idx, self.start_offset.value_or(self.graph->length(nid)));
     } else if (offset >= self.dist) {
-        int idx =self.nodes.size() - 1;
+        int idx = self.nodes.size() - 1;
         return std::make_tuple(idx, self.end_offset.value_or(0.0));
     }
     // auto nid_len = graph.__node_length(node);
@@ -2421,17 +2422,30 @@ PYBIND11_MODULE(_core, m)
             "offset"_a)
         .def(
             "slice",
-            [](const Path &self,
-               double start, double end) -> Path {
+            [](const Path &self, double start, double end) -> Path {
                 auto [idx0, off0] = __path_along(self, start);
-                auto [idx1, off1] = __path_along(self, end);
-                double dist = 0.0;
                 std::vector<int64_t> nids;
-                if (idx0 == idx1) {
+                double dist = 0.0;
+                double off1 = 0.0;
+                if (end <= start) {
                     nids.push_back(self.nodes.at(idx0));
-                    dist = off1 - off0;
+                    dist = 0.0;
+                    off1 = off0;
                 } else {
-                    // auto nid_len = graph.__node_length(node);
+                    auto idx_off = __path_along(self, end);
+                    auto idx1 = std::get<0>(idx_off);
+                    off1 = std::get<1>(idx_off);
+                    if (idx0 > idx1) {
+                        nids.push_back(self.nodes.at(idx0));
+                        dist = 0.0;
+                        off1 = off0;
+                    } else if (idx0 == idx1) {
+                        nids.push_back(self.nodes.at(idx0));
+                        dist = off1 - off0;
+                    } else {
+                        // TODO
+                        self.graph->__node_length(node);
+                    }
                 }
                 auto p = Path(self.graph, dist, nids, off0, off1);
                 auto round_scale = self.graph->round_scale();
