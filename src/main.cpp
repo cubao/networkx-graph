@@ -2426,7 +2426,11 @@ PYBIND11_MODULE(_core, m)
             [](const Path &self,
                double offset) -> std::tuple<std::string, double> {
                 auto [idx, off] = __path_along(self, offset);
-                auto nid = self.graph->__node_id(self.nodes[idx]);
+                auto nid = self.graph->__node_id(self.nodes.at(idx));
+                auto scale = self.graph->round_scale();
+                if (scale) {
+                    off = ROUND(off, *scale);
+                }
                 return std::make_tuple(nid, off);
             },
             "offset"_a)
