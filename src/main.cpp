@@ -434,7 +434,11 @@ struct DiGraph
         for (auto &pair : bindings) {
             auto [itr, _] =
                 ret.node2bindings.emplace(indexer_.id(pair.first), pair.second);
-            std::sort(itr->second.begin(), itr->second.end());
+            std::sort(itr->second.begin(), itr->second.end(),
+                      [](const auto &a, const auto &b) {
+                          return std::tie(std::get<0>(a), std::get<1>(a)) <
+                                 std::tie(std::get<0>(b), std::get<1>(b));
+                      });
         }
         return ret;
     }
