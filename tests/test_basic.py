@@ -32,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.2.1"
+    assert m.__version__ == "0.2.2"
 
 
 def test_add():
@@ -623,6 +623,8 @@ def test_routing():
     assert decoded["w2"][-1][-1] is obj
     decoded["w2"][-1][-1]["num"] = 42
     assert obj["num"] == 42
+
+    G.encode_bindings({"road": [(1, 2, 5), (1, 2, "val2")]})
 
     generator = G.shortest_paths_from("w1", cutoff=20.0)
     assert isinstance(generator, ShortestPathGenerator)
