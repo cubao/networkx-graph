@@ -2493,19 +2493,6 @@ PYBIND11_MODULE(_core, m)
             },
             "start"_a, "end"_a)
         //
-        .def_static("zipping", [](const Path &ref, const Path &cur) {
-            auto v1 = ref.nodes;
-            auto v2 = cur.nodes;
-            std::sort(v1.begin(), v1.end());
-            std::sort(v2.begin(), v2.end());
-            std::vector<int64_t> intersection;
-            std::set_intersection(
-                v1.begin(), v1.end(),
-                v2.begin(), v2.end(),
-                std::back_inserter(intersection)
-            );
-        })
-        //
         ;
 
     // ZigzagPath

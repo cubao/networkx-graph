@@ -1507,6 +1507,3 @@ def test_endpoints():
     endpoints = G.encode_endpoints(endpoints)
     assert isinstance(endpoints, Endpoints)
     assert endpoints.is_wgs84
-
-
-test_digraph_shortest_paths()
