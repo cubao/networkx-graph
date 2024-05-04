@@ -32,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.2.2"
+    assert m.__version__ == "0.2.3"
 
 
 def test_add():
@@ -254,6 +254,13 @@ def test_digraph_shortest_paths():
         "start": ("w1", 3.0),
         "end": ("w7", None),
     }
+    assert path["dist"] == 37.0
+    assert path["nodes"] == ["w1", "w2", "w5", "w7"]
+    assert path["start"] == ("w1", 3.0)
+    assert path["end"] == ("w7", None)
+    assert path._signature == ([1, 2, 5, 7], 3.0, None)
+    assert path["_signature"] == ([1, 2, 5, 7], 3.0, None)
+
     path = G.shortest_path("w1", "w7", cutoff=37.0 - 1e-3, source_offset=3.0)
     assert path is None
     path = G.shortest_path("w1", "w7", cutoff=30.0)

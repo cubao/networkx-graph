@@ -12,6 +12,7 @@
         "thread": "cpp",
         "__locale": "cpp",
         "stdexcept": "cpp",
-        "cmath": "cpp"
+        "cmath": "cpp",
+        "unordered_set": "cpp"
     }
 }

@@ -2311,6 +2311,12 @@ PYBIND11_MODULE(_core, m)
         .def_property_readonly(
             "nodes",
             [](const Path &self) { return self.graph->__node_ids(self.nodes); })
+        .def_property_readonly("_signature",
+                               [](const Path &self) {
+                                   return py::make_tuple(self.nodes,
+                                                         self.start_offset,
+                                                         self.end_offset);
+                               })
         .def_property_readonly(
             "start",
             [](const Path &self)
@@ -2349,6 +2355,9 @@ PYBIND11_MODULE(_core, m)
                         ret.append(node);
                     }
                     return ret;
+                } else if (attr_name == "_signature") {
+                    return py::make_tuple(self.nodes, self.start_offset,
+                                          self.end_offset);
                 } else if (attr_name == "start") {
                     auto start = self.graph->__node_id(self.nodes.front());
                     return py::make_tuple(start, self.start_offset);
@@ -2376,8 +2385,9 @@ PYBIND11_MODULE(_core, m)
              [](Path &self, const std::string &attr_name,
                 py::object obj) -> py::object {
                  if (attr_name == "graph" || attr_name == "dist" ||
-                     attr_name == "nodes" || attr_name == "start" ||
-                     attr_name == "end" || attr_name == "binding") {
+                     attr_name == "nodes" || attr_name == "_signature" ||
+                     attr_name == "start" || attr_name == "end" ||
+                     attr_name == "binding") {
                      throw py::key_error(
                          fmt::format("{} is readonly", attr_name));
                  }
