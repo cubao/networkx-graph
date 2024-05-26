@@ -1156,9 +1156,13 @@ def test_all_paths_to_bindings():
         "end": ("w3", 1.0),
         "binding": ("w3", (1.0, 3.0, "obj31")),
     }
-
-    # shit
-    print()
+    assert forwards[0].to_dict() == {
+        "dist": 4.0,
+        "nodes": ["w1", "w2"],
+        "start": ("w1", 9.0),
+        "end": ("w2", 3.0),
+        "binding": ("w2", (3.0, 3.0, None)),
+    }
 
 
 def test_shortest_zigzag_path():
