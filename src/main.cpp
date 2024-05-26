@@ -1743,12 +1743,11 @@ struct DiGraph
     std::vector<Path>
     __all_path_to_bindings(int64_t source,                      //
                            std::optional<double> source_offset, //
-                           double source_length,
-                           double cutoff,                //
-                           const Bindings &bindings,     //
-                           const Sinks *sinks = nullptr, //
-                           bool reverse = false,         //
-                           bool with_ending = false) const
+                           double source_length,                //
+                           double cutoff,                       //
+                           const Bindings &bindings,            //
+                           const Sinks *sinks,                  //
+                           bool reverse)
     {
         auto &node2bindings = bindings.node2bindings;
         if (source_offset) {
@@ -1889,6 +1888,25 @@ struct DiGraph
             paths.begin(), paths.end(),
             [](const auto &p1, const auto &p2) { return p1.dist < p2.dist; });
         return paths;
+    }
+
+    std::vector<Path>
+    __all_path_to_bindings(int64_t source,                      //
+                           std::optional<double> source_offset, //
+                           double source_length,                //
+                           double cutoff,                       //
+                           const Bindings &bindings,            //
+                           const Sinks *sinks,                  //
+                           bool reverse,                        //
+                           bool with_ending) const
+    {
+        auto paths =
+            __all_path_to_bindings(source, source_offset, source_length, //
+                                   cutoff, bindings, sinks, reverse);
+        if (!with_ending) {
+            return paths;
+        }
+        return {};
     }
 };
 
