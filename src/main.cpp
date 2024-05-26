@@ -1937,6 +1937,14 @@ struct DiGraph
                     }
                 }
                 if (keep) {
+                    if (round_scale_) {
+                        path.round(*round_scale_);
+                    }
+                    int64_t tail = path.nodes.back();
+                    double off = *path.end_offset;
+                    py::object obj = py::none();
+                    path.binding =
+                        std::make_tuple(tail, std::make_tuple(off, off, obj));
                     ending_paths.push_back(path);
                 }
             }
@@ -1953,6 +1961,14 @@ struct DiGraph
                     }
                 }
                 if (keep) {
+                    if (round_scale_) {
+                        path.round(*round_scale_);
+                    }
+                    int64_t head = path.nodes.front();
+                    double off = *path.start_offset;
+                    py::object obj = py::none();
+                    path.binding =
+                        std::make_tuple(head, std::make_tuple(off, off, obj));
                     ending_paths.push_back(path);
                 }
             }

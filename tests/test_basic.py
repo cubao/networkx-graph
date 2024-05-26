@@ -1146,9 +1146,17 @@ def test_all_paths_to_bindings():
         cutoff=4.0,
         offset=9.0,
         bindings=bindings,
-        with_ending=True,
+        with_endings=True,
     )
     assert len(forwards) == 2
+    assert forwards[0].to_dict() == {
+        "dist": 2.0,
+        "nodes": ["w1", "w3"],
+        "start": ("w1", 9.0),
+        "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, "obj31")),
+    }
+
     # shit
     print()
 
