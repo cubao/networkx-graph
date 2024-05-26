@@ -138,6 +138,23 @@ struct Sequences
     }
 };
 
+inline bool starts_with(const std::vector<int64_t> &nodes,
+                        const std::vector<int64_t> &prefix)
+{
+    return !prefix.empty() &&               //
+           prefix.size() <= nodes.size() && //
+           std::equal(prefix.begin(), prefix.end(), nodes.begin());
+}
+
+inline bool ends_with(const std::vector<int64_t> &nodes,
+                      const std::vector<int64_t> &suffix)
+{
+    return !suffix.empty() &&               //
+           suffix.size() <= nodes.size() && //
+           std::equal(suffix.begin(), suffix.end(),
+                      &nodes[nodes.size() - suffix.size()]);
+}
+
 inline std::array<double, 2> cheap_ruler_k(double latitude)
 {
     // https://github.com/cubao/headers/blob/8ed287a7a1e2a5cd221271b19611ba4a3f33d15c/include/cubao/crs_transform.hpp#L212
@@ -1906,7 +1923,42 @@ struct DiGraph
         if (!with_endings) {
             return paths;
         }
-        return {};
+        std::vector<Path> ending_paths;
+        if (!reverse) {
+            auto all_paths = __all_paths(source, cutoff, source_offset,
+                                         lengths_, nexts_, sinks);
+            for (auto &path : all_paths) {
+                bool keep = true;
+                for (auto &p : paths) {
+                    // keep if path not starts with any of paths
+                    if (starts_with(path.nodes, p.nodes)) {
+                        keep = false;
+                        break;
+                    }
+                }
+                if (keep) {
+                    ending_paths.push_back(path);
+                }
+            }
+        } else {
+            auto all_paths = __all_paths(source, cutoff, source_offset,
+                                         lengths_, prevs_, sinks);
+            for (auto &path : all_paths) {
+                bool keep = true;
+                for (auto &p : paths) {
+                    // keep if path not ends with any of paths
+                    if (ends_with(path.nodes, p.nodes)) {
+                        keep = false;
+                        break;
+                    }
+                }
+                if (keep) {
+                    ending_paths.push_back(path);
+                }
+            }
+        }
+        paths.insert(paths.end(), ending_paths.begin(), ending_paths.end());
+        return paths;
     }
 };
 
