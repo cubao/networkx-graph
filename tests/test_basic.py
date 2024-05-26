@@ -1156,7 +1156,7 @@ def test_all_paths_to_bindings():
         "end": ("w3", 1.0),
         "binding": ("w3", (1.0, 3.0, "obj31")),
     }
-    assert forwards[0].to_dict() == {
+    assert forwards[1].to_dict() == {
         "dist": 4.0,
         "nodes": ["w1", "w2"],
         "start": ("w1", 9.0),
@@ -1170,6 +1170,87 @@ def test_all_paths_to_bindings():
         bindings=bindings,
         with_endings=True,
     )
+    assert len(backwards) == 1
+    assert backwards[0].to_dict() == {
+        "dist": 5.0,
+        "nodes": ["w1", "w3"],
+        "start": ("w1", 5.5),
+        "end": ("w3", 0.5),
+        "binding": ("w1", (5.5, 5.5, None)),
+    }
+    assert len(forwards) == 1
+    assert forwards[0].to_dict() == {
+        "dist": 0.5,
+        "nodes": ["w3"],
+        "start": ("w3", 0.5),
+        "end": ("w3", 1.0),
+        "binding": ("w3", (1.0, 3.0, "obj31")),
+    }
+
+    backwards, forwards = G.all_paths_to_bindings(
+        "w3",
+        cutoff=5.0,
+        offset=2.5,
+        bindings=bindings,
+        with_endings=True,
+    )
+    assert len(backwards) == 1
+    assert backwards[0].to_dict() == {
+        "dist": 5.0,
+        "nodes": ["w1", "w3"],
+        "start": ("w1", 7.5),
+        "end": ("w3", 2.5),
+        "binding": ("w1", (7.5, 7.5, None)),
+    }
+    assert len(forwards) == 1
+    assert forwards[0].to_dict() == {
+        "dist": 2.5,
+        "nodes": ["w3"],
+        "start": ("w3", 2.5),
+        "end": ("w3", 5.0),
+        "binding": ("w3", (5.0, 6.0, "obj32")),
+    }
+
+    assert G.all_paths_to_bindings("w3", cutoff=5.0, offset=1, bindings=bindings)[1][
+        0
+    ].binding == ("w3", (1.0, 3.0, "obj31"))
+    assert G.all_paths_to_bindings(
+        "w3", cutoff=5.0, offset=1 + 1e-15, bindings=bindings
+    )[1][0].binding == ("w3", (5.0, 6.0, "obj32"))
+
+    expected = {
+        "dist": 24.0,
+        "nodes": ["w3", "w4", "w6", "w7"],
+        "start": ("w3", 10.0),
+        "end": ("w7", 1.0),
+        "binding": ("w3", (9.0, 10.0, "obj33")),
+    }
+    backwards, forwards = G.all_paths_to_bindings(
+        "w7",
+        cutoff=30.0,
+        offset=1.0,
+        bindings=bindings,
+    )
+    assert len(backwards) == 1
+    assert backwards[0].to_dict() == expected
+    assert len(forwards) == 1
+    backwards, forwards = G.all_paths_to_bindings(
+        "w7",
+        cutoff=30.0,
+        offset=1.0,
+        bindings=bindings,
+        with_endings=True,
+    )
+    assert len(backwards) == 2
+    assert backwards[0].to_dict() == expected
+    assert backwards[1].to_dict() == {
+        "dist": 30.0,
+        "nodes": ["w2", "w5", "w7"],
+        "start": ("w2", 1.0),
+        "end": ("w7", 1.0),
+        "binding": ("w2", (1.0, 1.0, None)),
+    }
+    assert len(forwards) == 1
 
 
 def test_shortest_zigzag_path():
