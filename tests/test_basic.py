@@ -1163,6 +1163,13 @@ def test_all_paths_to_bindings():
         "end": ("w2", 3.0),
         "binding": ("w2", (3.0, 3.0, None)),
     }
+    backwards, forwards = G.all_paths_to_bindings(
+        "w3",
+        cutoff=5.0,
+        offset=0.5,
+        bindings=bindings,
+        with_endings=True,
+    )
 
 
 def test_shortest_zigzag_path():

@@ -1949,8 +1949,23 @@ struct DiGraph
                 }
             }
         } else {
+            if (source_offset) {
+                source_offset = CLIP(0.0, *source_offset, source_length);
+                source_offset = source_length - *source_offset;
+            }
             auto all_paths = __all_paths(source, cutoff, source_offset,
                                          lengths_, prevs_, sinks);
+            for (auto &p : all_paths) {
+                if (p.start_offset) {
+                    p.start_offset =
+                        lengths_.at(p.nodes.front()) - *p.start_offset;
+                }
+                if (p.end_offset) {
+                    p.end_offset = lengths_.at(p.nodes.back()) - *p.end_offset;
+                }
+                std::reverse(p.nodes.begin(), p.nodes.end());
+                std::swap(p.start_offset, p.end_offset);
+            }
             for (auto &path : all_paths) {
                 bool keep = true;
                 for (auto &p : paths) {
