@@ -888,7 +888,7 @@ struct DiGraph
                           std::optional<double> offset = {}, //
                           int direction = 0,                 //
                           const Sinks *sinks = nullptr,      //
-                          bool with_ending = false) const
+                          bool with_endings = false) const
     {
         if (bindings.graph != this) {
             return {};
@@ -911,13 +911,13 @@ struct DiGraph
         if (direction >= 0) {
             forwards =
                 __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
-                                       bindings, sinks, false, with_ending);
+                                       bindings, sinks, false, with_endings);
         }
         std::vector<Path> backwards;
         if (direction <= 0) {
             backwards =
                 __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
-                                       bindings, sinks, true, with_ending);
+                                       bindings, sinks, true, with_endings);
         }
         if (round_scale_) {
             for (auto &r : forwards) {
@@ -1741,13 +1741,13 @@ struct DiGraph
     }
 
     std::vector<Path>
-    __all_path_to_bindings(int64_t source,                      //
-                           std::optional<double> source_offset, //
-                           double source_length,                //
-                           double cutoff,                       //
-                           const Bindings &bindings,            //
-                           const Sinks *sinks,                  //
-                           bool reverse)
+    __all_path_to_bindings__(int64_t source,                      //
+                             std::optional<double> source_offset, //
+                             double source_length,                //
+                             double cutoff,                       //
+                             const Bindings &bindings,            //
+                             const Sinks *sinks,                  //
+                             bool reverse) const
     {
         auto &node2bindings = bindings.node2bindings;
         if (source_offset) {
@@ -1898,12 +1898,12 @@ struct DiGraph
                            const Bindings &bindings,            //
                            const Sinks *sinks,                  //
                            bool reverse,                        //
-                           bool with_ending) const
+                           bool with_endings) const
     {
         auto paths =
-            __all_path_to_bindings(source, source_offset, source_length, //
-                                   cutoff, bindings, sinks, reverse);
-        if (!with_ending) {
+            __all_path_to_bindings__(source, source_offset, source_length, //
+                                     cutoff, bindings, sinks, reverse);
+        if (!with_endings) {
             return paths;
         }
         return {};
@@ -3194,7 +3194,7 @@ PYBIND11_MODULE(_core, m)
              "offset"_a = std::nullopt, //
              "direction"_a = 0,         //
              "sinks"_a = nullptr,       //
-             "with_ending"_a = false,   //
+             "with_endings"_a = false,  //
              py::call_guard<py::gil_scoped_release>())
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
