@@ -138,6 +138,23 @@ struct Sequences
     }
 };
 
+inline bool starts_with(const std::vector<int64_t> &nodes,
+                        const std::vector<int64_t> &prefix)
+{
+    return !prefix.empty() &&               //
+           prefix.size() <= nodes.size() && //
+           std::equal(prefix.begin(), prefix.end(), nodes.begin());
+}
+
+inline bool ends_with(const std::vector<int64_t> &nodes,
+                      const std::vector<int64_t> &suffix)
+{
+    return !suffix.empty() &&               //
+           suffix.size() <= nodes.size() && //
+           std::equal(suffix.begin(), suffix.end(),
+                      &nodes[nodes.size() - suffix.size()]);
+}
+
 inline std::array<double, 2> cheap_ruler_k(double latitude)
 {
     // https://github.com/cubao/headers/blob/8ed287a7a1e2a5cd221271b19611ba4a3f33d15c/include/cubao/crs_transform.hpp#L212
@@ -887,7 +904,8 @@ struct DiGraph
                           const Bindings &bindings,          //
                           std::optional<double> offset = {}, //
                           int direction = 0,                 //
-                          const Sinks *sinks = nullptr) const
+                          const Sinks *sinks = nullptr,      //
+                          bool with_endings = false) const
     {
         if (bindings.graph != this) {
             return {};
@@ -908,13 +926,15 @@ struct DiGraph
         }
         std::vector<Path> forwards;
         if (direction >= 0) {
-            forwards = __all_path_to_bindings(*src_idx, offset, length->second,
-                                              cutoff, bindings, sinks);
+            forwards =
+                __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
+                                       bindings, sinks, false, with_endings);
         }
         std::vector<Path> backwards;
         if (direction <= 0) {
-            backwards = __all_path_to_bindings(*src_idx, offset, length->second,
-                                               cutoff, bindings, sinks, true);
+            backwards =
+                __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
+                                       bindings, sinks, true, with_endings);
         }
         if (round_scale_) {
             for (auto &r : forwards) {
@@ -1738,13 +1758,13 @@ struct DiGraph
     }
 
     std::vector<Path>
-    __all_path_to_bindings(int64_t source,                      //
-                           std::optional<double> source_offset, //
-                           double source_length,
-                           double cutoff,                //
-                           const Bindings &bindings,     //
-                           const Sinks *sinks = nullptr, //
-                           bool reverse = false) const
+    __all_path_to_bindings__(int64_t source,                      //
+                             std::optional<double> source_offset, //
+                             double source_length,                //
+                             double cutoff,                       //
+                             const Bindings &bindings,            //
+                             const Sinks *sinks,                  //
+                             bool reverse) const
     {
         auto &node2bindings = bindings.node2bindings;
         if (source_offset) {
@@ -1884,6 +1904,91 @@ struct DiGraph
         std::sort(
             paths.begin(), paths.end(),
             [](const auto &p1, const auto &p2) { return p1.dist < p2.dist; });
+        return paths;
+    }
+
+    std::vector<Path>
+    __all_path_to_bindings(int64_t source,                      //
+                           std::optional<double> source_offset, //
+                           double source_length,                //
+                           double cutoff,                       //
+                           const Bindings &bindings,            //
+                           const Sinks *sinks,                  //
+                           bool reverse,                        //
+                           bool with_endings) const
+    {
+        auto paths =
+            __all_path_to_bindings__(source, source_offset, source_length, //
+                                     cutoff, bindings, sinks, reverse);
+        if (!with_endings) {
+            return paths;
+        }
+        std::vector<Path> ending_paths;
+        if (!reverse) {
+            auto all_paths = __all_paths(source, cutoff, source_offset,
+                                         lengths_, nexts_, sinks);
+            for (auto &path : all_paths) {
+                bool keep = true;
+                for (auto &p : paths) {
+                    // keep if path not starts with any of paths
+                    if (starts_with(path.nodes, p.nodes)) {
+                        keep = false;
+                        break;
+                    }
+                }
+                if (keep) {
+                    if (round_scale_) {
+                        path.round(*round_scale_);
+                    }
+                    int64_t tail = path.nodes.back();
+                    double off = *path.end_offset;
+                    py::object obj = py::none();
+                    path.binding =
+                        std::make_tuple(tail, std::make_tuple(off, off, obj));
+                    ending_paths.push_back(path);
+                }
+            }
+        } else {
+            if (source_offset) {
+                source_offset = CLIP(0.0, *source_offset, source_length);
+                source_offset = source_length - *source_offset;
+            }
+            auto all_paths = __all_paths(source, cutoff, source_offset,
+                                         lengths_, prevs_, sinks);
+            for (auto &p : all_paths) {
+                if (p.start_offset) {
+                    p.start_offset =
+                        lengths_.at(p.nodes.front()) - *p.start_offset;
+                }
+                if (p.end_offset) {
+                    p.end_offset = lengths_.at(p.nodes.back()) - *p.end_offset;
+                }
+                std::reverse(p.nodes.begin(), p.nodes.end());
+                std::swap(p.start_offset, p.end_offset);
+            }
+            for (auto &path : all_paths) {
+                bool keep = true;
+                for (auto &p : paths) {
+                    // keep if path not ends with any of paths
+                    if (ends_with(path.nodes, p.nodes)) {
+                        keep = false;
+                        break;
+                    }
+                }
+                if (keep) {
+                    if (round_scale_) {
+                        path.round(*round_scale_);
+                    }
+                    int64_t head = path.nodes.front();
+                    double off = *path.start_offset;
+                    py::object obj = py::none();
+                    path.binding =
+                        std::make_tuple(head, std::make_tuple(off, off, obj));
+                    ending_paths.push_back(path);
+                }
+            }
+        }
+        paths.insert(paths.end(), ending_paths.begin(), ending_paths.end());
         return paths;
     }
 };
@@ -3170,8 +3275,9 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                //
              "bindings"_a,              //
              "offset"_a = std::nullopt, //
-             "direction"_a = 0,
-             "sinks"_a = nullptr, //
+             "direction"_a = 0,         //
+             "sinks"_a = nullptr,       //
+             "with_endings"_a = false,  //
              py::call_guard<py::gil_scoped_release>())
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
