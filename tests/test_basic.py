@@ -1134,6 +1134,24 @@ def test_all_paths_to_bindings():
     assert len(backwards) == 2
     assert len(forwards) == 0
 
+    _, forwards = G.all_paths_to_bindings(
+        "w1",
+        cutoff=4.0,
+        offset=9.0,
+        bindings=bindings,
+    )
+    assert len(forwards) == 1
+    _, forwards = G.all_paths_to_bindings(
+        "w1",
+        cutoff=4.0,
+        offset=9.0,
+        bindings=bindings,
+        with_ending=True,
+    )
+    assert len(forwards) == 2
+    # shit
+    print()
+
 
 def test_shortest_zigzag_path():
     G = graph1()
@@ -1507,3 +1525,6 @@ def test_endpoints():
     endpoints = G.encode_endpoints(endpoints)
     assert isinstance(endpoints, Endpoints)
     assert endpoints.is_wgs84
+
+
+test_all_paths_to_bindings()

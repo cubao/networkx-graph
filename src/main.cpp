@@ -887,7 +887,8 @@ struct DiGraph
                           const Bindings &bindings,          //
                           std::optional<double> offset = {}, //
                           int direction = 0,                 //
-                          const Sinks *sinks = nullptr) const
+                          const Sinks *sinks = nullptr,      //
+                          bool with_ending = false) const
     {
         if (bindings.graph != this) {
             return {};
@@ -908,13 +909,15 @@ struct DiGraph
         }
         std::vector<Path> forwards;
         if (direction >= 0) {
-            forwards = __all_path_to_bindings(*src_idx, offset, length->second,
-                                              cutoff, bindings, sinks);
+            forwards =
+                __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
+                                       bindings, sinks, false, with_ending);
         }
         std::vector<Path> backwards;
         if (direction <= 0) {
-            backwards = __all_path_to_bindings(*src_idx, offset, length->second,
-                                               cutoff, bindings, sinks, true);
+            backwards =
+                __all_path_to_bindings(*src_idx, offset, length->second, cutoff,
+                                       bindings, sinks, true, with_ending);
         }
         if (round_scale_) {
             for (auto &r : forwards) {
@@ -1744,7 +1747,8 @@ struct DiGraph
                            double cutoff,                //
                            const Bindings &bindings,     //
                            const Sinks *sinks = nullptr, //
-                           bool reverse = false) const
+                           bool reverse = false,         //
+                           bool with_ending = false) const
     {
         auto &node2bindings = bindings.node2bindings;
         if (source_offset) {
@@ -3170,8 +3174,9 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                //
              "bindings"_a,              //
              "offset"_a = std::nullopt, //
-             "direction"_a = 0,
-             "sinks"_a = nullptr, //
+             "direction"_a = 0,         //
+             "sinks"_a = nullptr,       //
+             "with_ending"_a = false,   //
              py::call_guard<py::gil_scoped_release>())
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
