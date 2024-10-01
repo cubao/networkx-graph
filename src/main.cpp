@@ -2246,35 +2246,45 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         .def(py::init<const std::map<std::string, int64_t>>(), "index"_a)
         .def("contains",
-             py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a)
+             py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a,
+             "Check if the Indexer contains the given integer ID")
         .def("contains",
              py::overload_cast<const std::string &>(&Indexer::contains,
                                                     py::const_),
-             "id"_a)
+             "id"_a,
+             "Check if the Indexer contains the given string ID")
         .def("get_id", py::overload_cast<int64_t>(&Indexer::get_id, py::const_),
-             "id"_a)
+             "id"_a,
+             "Get the string ID corresponding to the given integer ID")
         .def("get_id",
              py::overload_cast<const std::string &>(&Indexer::get_id,
                                                     py::const_),
-             "id"_a)
+             "id"_a,
+             "Get the integer ID corresponding to the given string ID")
         //
-        .def("id", py::overload_cast<int64_t>(&Indexer::id), "id"_a)
-        .def("id", py::overload_cast<const std::string &>(&Indexer::id), "id"_a)
+        .def("id", py::overload_cast<int64_t>(&Indexer::id), "id"_a,
+             "Get or create an integer ID for the given integer")
+        .def("id", py::overload_cast<const std::string &>(&Indexer::id), "id"_a,
+             "Get or create an integer ID for the given string")
         .def("index",
              py::overload_cast<const std::string &, int64_t>(&Indexer::index),
-             "str_id"_a, "int_id"_a)
+             "str_id"_a, "int_id"_a,
+             "Add a new string-integer ID pair to the Indexer")
         .def("index",
              py::overload_cast<const std::map<std::string, int64_t> &>(
                  &Indexer::index),
-             "index"_a)
-        .def("index", py::overload_cast<>(&Indexer::index, py::const_))
+             "index"_a,
+             "Add multiple string-integer ID pairs to the Indexer")
+        .def("index", py::overload_cast<>(&Indexer::index, py::const_),
+             "Get the current index mapping")
         //
         ;
 
     py::class_<Node>(m, "Node", py::module_local(), py::dynamic_attr()) //
         .def(py::init<>())
         .def_property_readonly("length",
-                               [](const Node &self) { return self.length; })
+                               [](const Node &self) { return self.length; },
+                               "Get the length of the node")
         .def(
             "__getitem__",
             [](const Node &self, const std::string &attr_name) -> py::object {
@@ -2288,7 +2298,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
+            "attr_name"_a,
+            "Get an attribute of the Node by name")
         .def("__setitem__",
              [](Node &self, const std::string &attr_name,
                 py::object obj) -> py::object {
@@ -2297,7 +2308,8 @@ PYBIND11_MODULE(_core, m)
                  }
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
-             })
+             },
+             "Set an attribute of the Node by name")
         .def("to_dict",
              [](const Node &self) {
                  py::dict ret;
@@ -2307,7 +2319,8 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the Node to a dictionary")
         //
         ;
 
@@ -2323,13 +2336,15 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
+            "attr_name"_a,
+            "Get an attribute of the Edge by name")
         .def("__setitem__",
              [](Edge &self, const std::string &attr_name,
                 py::object obj) -> py::object {
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
-             })
+             },
+             "Set an attribute of the Edge by name")
         .def("to_dict",
              [](const Edge &self) {
                  py::dict ret;
@@ -2338,7 +2353,8 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the Edge to a dictionary")
         //
         ;
 
@@ -2406,22 +2422,27 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),                   //
             "start_offset"_a = std::nullopt, //
             "end_offset"_a = std::nullopt,   //
-            "binding"_a = std::nullopt)
+            "binding"_a = std::nullopt,
+            "Build a Path object from a list of nodes and optional parameters")
 
         .def_property_readonly(
             "graph", [](const Path &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Path")
         .def_property_readonly("dist",
-                               [](const Path &self) { return self.dist; })
+                               [](const Path &self) { return self.dist; },
+                               "Get the total distance of the Path")
         .def_property_readonly(
             "nodes",
-            [](const Path &self) { return self.graph->__node_ids(self.nodes); })
+            [](const Path &self) { return self.graph->__node_ids(self.nodes); },
+            "Get the list of node IDs in the Path")
         .def_property_readonly("_signature",
                                [](const Path &self) {
                                    return py::make_tuple(self.nodes,
                                                          self.start_offset,
                                                          self.end_offset);
-                               })
+                               },
+                               "Get the internal signature of the Path")
         .def_property_readonly(
             "start",
             [](const Path &self)
@@ -2429,14 +2450,16 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(
                     self.graph->__node_id(self.nodes.front()),
                     self.start_offset);
-            })
+            },
+            "Get the start node and offset of the Path")
         .def_property_readonly(
             "end",
             [](const Path &self)
                 -> std::tuple<std::string, std::optional<double>> {
                 return std::make_tuple(self.graph->__node_id(self.nodes.back()),
                                        self.end_offset);
-            })
+            },
+            "Get the end node and offset of the Path")
         .def_property_readonly(
             "binding",
             [](const Path &self)
@@ -2447,7 +2470,8 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple( //
                     self.graph->__node_id(std::get<0>(*self.binding)),
                     std::get<1>(*self.binding));
-            })
+            },
+            "Get the binding information of the Path, if any")
         .def(
             "__getitem__",
             [](const Path &self, const std::string &attr_name) -> py::object {
@@ -2485,7 +2509,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
+            "attr_name"_a,
+            "Get an attribute of the Path by name")
         .def("__setitem__",
              [](Path &self, const std::string &attr_name,
                 py::object obj) -> py::object {
@@ -2498,7 +2523,8 @@ PYBIND11_MODULE(_core, m)
                  }
                  py::cast(self).attr(attr_name.c_str()) = obj;
                  return obj;
-             })
+             },
+             "Set an attribute of the Path by name")
         .def("to_dict",
              [](const Path &self) {
                  py::dict ret;
@@ -2522,7 +2548,8 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the Path to a dictionary")
         //
         .def(
             "search_for_seqs",
@@ -2539,7 +2566,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return idx2paths;
             },
-            "sequences"_a, "quick_return"_a = true)
+            "sequences"_a, "quick_return"_a = true,
+            "Search for sequences within the Path")
         .def(
             "along",
             [](const Path &self,
@@ -2552,7 +2580,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return std::make_tuple(nid, off);
             },
-            "offset"_a)
+            "offset"_a,
+            "Get the node and offset along the Path at a given distance")
         .def(
             "slice",
             [](const Path &self, double start, double end) -> Path {
@@ -2596,7 +2625,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return p;
             },
-            "start"_a, "end"_a)
+            "start"_a, "end"_a,
+            "Create a new Path that is a slice of the current Path")
         //
         ;
 
@@ -2605,16 +2635,20 @@ PYBIND11_MODULE(_core, m)
                                  py::dynamic_attr()) //
         //
         .def_property_readonly(
-            "graph", [](const ZigzagPath &self) { return self.graph; })
+            "graph", [](const ZigzagPath &self) { return self.graph; },
+            "Get the DiGraph object associated with this ZigzagPath")
         .def_property_readonly("dist",
-                               [](const ZigzagPath &self) { return self.dist; })
+                               [](const ZigzagPath &self) { return self.dist; },
+                               "Get the total distance of the ZigzagPath")
         .def_property_readonly("nodes",
                                [](const ZigzagPath &self) {
                                    return self.graph->__node_ids(self.nodes);
-                               })
+                               },
+                               "Get the list of node IDs in the ZigzagPath")
         .def_property_readonly(
             "directions",
-            [](const ZigzagPath &self) { return self.directions; })
+            [](const ZigzagPath &self) { return self.directions; },
+            "Get the list of directions for each node in the ZigzagPath")
         .def("to_dict",
              [](const ZigzagPath &self) {
                  py::dict ret;
@@ -2634,14 +2668,16 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the ZigzagPath to a dictionary")
         //
         ;
 
     py::class_<Sinks>(m, "Sinks", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Sinks &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Sinks object")
         //
         .def("__call__",
              [](const Sinks &self) {
@@ -2650,7 +2686,8 @@ PYBIND11_MODULE(_core, m)
                      ret.emplace(self.graph->__node_id(n));
                  }
                  return ret;
-             })
+             },
+             "Get the set of sink nodes")
         //
         ;
 
@@ -2658,7 +2695,8 @@ PYBIND11_MODULE(_core, m)
                          py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Bindings &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Bindings object")
         .def("__call__",
              [](const Bindings &self) {
                  std::map<std::string, std::vector<Binding>> ret;
@@ -2667,7 +2705,8 @@ PYBIND11_MODULE(_core, m)
                                  pair.second);
                  }
                  return ret;
-             })
+             },
+             "Get the map of node IDs to their bindings")
         //
         ;
 
@@ -2675,7 +2714,8 @@ PYBIND11_MODULE(_core, m)
                           py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Sequences &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Sequences object")
         //
         ;
 
@@ -2683,10 +2723,12 @@ PYBIND11_MODULE(_core, m)
                           py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Endpoints &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Endpoints object")
         .def_property_readonly(
             "is_wgs84", [](const Endpoints &self) { return self.is_wgs84; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Check if the coordinates are in WGS84 format")
         //
         ;
 
@@ -2695,23 +2737,29 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
              "source_road"_a, "target_road"_a, //
              "source_next"_a, "target_prev"_a, //
-             "cost"_a)
+             "cost"_a,
+             "Initialize a UbodtRecord with source road, target road, source next, target previous, and cost")
         .def(py::self < py::self)
         .def(py::self == py::self)
         .def_property_readonly(
             "source_road",
-            [](const UbodtRecord &self) { return self.source_road; })
+            [](const UbodtRecord &self) { return self.source_road; },
+            "Get the source road ID")
         .def_property_readonly(
             "target_road",
-            [](const UbodtRecord &self) { return self.target_road; })
+            [](const UbodtRecord &self) { return self.target_road; },
+            "Get the target road ID")
         .def_property_readonly(
             "source_next",
-            [](const UbodtRecord &self) { return self.source_next; })
+            [](const UbodtRecord &self) { return self.source_next; },
+            "Get the next source road ID")
         .def_property_readonly(
             "target_prev",
-            [](const UbodtRecord &self) { return self.target_prev; })
+            [](const UbodtRecord &self) { return self.target_prev; },
+            "Get the previous target road ID")
         .def_property_readonly(
-            "cost", [](const UbodtRecord &self) { return self.cost; })
+            "cost", [](const UbodtRecord &self) { return self.cost; },
+            "Get the cost associated with this record")
         //
         ;
 
@@ -2736,7 +2784,8 @@ PYBIND11_MODULE(_core, m)
                      }
                  }
                  return ret;
-             })
+             },
+             "Get the map of previous nodes in the shortest path")
         .def("dists",
              [](const ShortestPathGenerator &self) {
                  std::unordered_map<std::string, double> ret;
@@ -2751,9 +2800,11 @@ PYBIND11_MODULE(_core, m)
                      }
                  }
                  return ret;
-             })
+             },
+             "Get the map of distances to each node in the shortest path")
         .def("cutoff",
-             [](const ShortestPathGenerator &self) { return self.cutoff; })
+             [](const ShortestPathGenerator &self) { return self.cutoff; },
+             "Get the cutoff distance for the shortest path")
         .def("source",
              [](const ShortestPathGenerator &self) {
                  auto ret = std::optional<
@@ -2766,7 +2817,8 @@ PYBIND11_MODULE(_core, m)
                      }
                  }
                  return ret;
-             })
+             },
+             "Get the source node and offset for the shortest path")
         .def("target",
              [](const ShortestPathGenerator &self) {
                  auto ret = std::optional<
@@ -2779,7 +2831,8 @@ PYBIND11_MODULE(_core, m)
                      }
                  }
                  return ret;
-             })
+             },
+             "Get the target node and offset for the shortest path")
         .def("destinations",
              [](const ShortestPathGenerator &self)
                  -> std::vector<std::tuple<double, std::string>> {
@@ -2795,7 +2848,8 @@ PYBIND11_MODULE(_core, m)
                  }
                  std::sort(ret.begin(), ret.end());
                  return ret;
-             })
+             },
+             "Get the sorted list of destinations and their distances")
         .def("paths",
              [](const ShortestPathGenerator &self) -> std::vector<Path> {
                  if (!self.ready()) {
