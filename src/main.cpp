@@ -2568,6 +2568,42 @@ PYBIND11_MODULE(_core, m)
             "sequences"_a, "quick_return"_a = true,
             "Search for sequences within the Path")
         .def(
+            "locate",
+            [](const Path &self, const std::tuple<std::string, double> &ref,
+               double eps) -> std::optional<double> {
+                if (!self.start_offset || !self.end_offset) {
+                    throw std::logic_error("you must call `path.locate` on path with start/end offset");
+                }
+                auto nid = std::get<0>(ref);
+
+                auto off = std::get<1>(ref);
+                double acc = 0.0;
+                if (self.nodes.front() == nid) {
+                    double left = *self.start_offset;
+                    double right = self.lengths_.at(nid);
+                    if (off < left - eps || off > right + eps) {
+                        return {};
+                    }
+                    off = CLIP(0.0, off, right);
+                    return off - left;
+                } else {
+                    acc += self.lengths_.at(self.nodes.front()) - *self.start_offset;
+                }
+                for (size_t i = 1; i < self.nodes.size(); ++i) {
+                    auto cur = self.nodes.at(i);
+                    auto len = self.lengths_.at(cur);
+                    if (cur != nid) {
+                        acc += len;
+                        continue;
+                    }
+                    off = CLIP(0.0, off, len);
+                    return acc + off;
+                }
+                return {};
+            },
+            "ref"_a, "eps"_a = 1e-2,
+            "Locate ref:=(node_id, offset) in the Path")
+        .def(
             "along",
             [](const Path &self,
                double offset) -> std::tuple<std::string, double> {
