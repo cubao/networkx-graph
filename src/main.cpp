@@ -2577,11 +2577,11 @@ PYBIND11_MODULE(_core, m)
                 ret.reserve(self.nodes.size());
                 ret.push_back(0.0);
                 double acc =
-                    self.lengths_.at(self.nodes.front()) - *self.start_offset;
+                    self.graph->length(self.nodes.front()) - *self.start_offset;
                 for (size_t i = 1; i < self.nodes.size(); ++i) {
                     ret.push_back(acc);
                     auto cur = self.nodes.at(i);
-                    auto len = self.lengths_.at(cur);
+                    auto len = self.graph->length(cur);
                     acc += len;
                 }
                 return ret;
@@ -2595,7 +2595,7 @@ PYBIND11_MODULE(_core, m)
                     throw std::logic_error("you must call `path.locate` on "
                                            "path with start/end offset");
                 }
-                auto node_id = self.__node_id(std::get<0>(ref));
+                auto node_id = self.graph->__node_id(std::get<0>(ref));
                 if (!node_id) {
                     return {};
                 }
@@ -2604,22 +2604,25 @@ PYBIND11_MODULE(_core, m)
                 double acc = 0.0;
                 if (self.nodes.front() == nid) {
                     double left = *self.start_offset;
-                    double right = self.lengths_.at(nid);
+                    double right = self.graph->length(nid);
                     if (off < left - eps || off > right + eps) {
                         return {};
                     }
                     off = CLIP(0.0, off, right);
                     return off - left;
                 } else {
-                    acc += self.lengths_.at(self.nodes.front()) -
+                    acc += self.graph->length(self.nodes.front()) -
                            *self.start_offset;
                 }
                 for (size_t i = 1; i < self.nodes.size(); ++i) {
                     auto cur = self.nodes.at(i);
-                    auto len = self.lengths_.at(cur);
+                    auto len = self.graph->length(cur);
                     if (cur != nid) {
                         acc += len;
                         continue;
+                    }
+                    if (i == self.nodes.size() - 1) {
+                        len = *self.end_offset;
                     }
                     if (off < -eps || off > len + eps) {
                         return {};
