@@ -143,3 +143,4 @@ _skbuild/
 .pyodide-xbuildenv/
 tests/graph.py
 core.*
+stubs
