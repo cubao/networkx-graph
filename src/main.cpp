@@ -2938,7 +2938,8 @@ PYBIND11_MODULE(_core, m)
                                return p1.dist > p2.dist;
                            });
                  return paths;
-             })
+             },
+             "Get all shortest paths from the source to all reachable nodes within the cutoff distance")
         .def("path",
              [](const ShortestPathGenerator &self,
                 const std::string &node) -> std::optional<Path> {
@@ -2976,7 +2977,9 @@ PYBIND11_MODULE(_core, m)
                      path.round(*scale);
                  }
                  return path;
-             })
+             },
+             "Get the shortest path to a specific node",
+             py::arg("node"))
         .def("to_dict",
              [](const ShortestPathGenerator &self) {
                  py::dict ret;
@@ -3004,7 +3007,8 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the ShortestPathGenerator object to a dictionary")
         //
         ;
 
@@ -3015,7 +3019,8 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         //
         .def("cutoff",
-             [](const ZigzagPathGenerator &self) { return self.cutoff; })
+             [](const ZigzagPathGenerator &self) { return self.cutoff; },
+             "Get the cutoff distance for the zigzag path")
         .def("source",
              [](const ZigzagPathGenerator &self) {
                  std::optional<std::string> source;
@@ -3023,7 +3028,8 @@ PYBIND11_MODULE(_core, m)
                      source = self.graph->__node_id(*self.source);
                  }
                  return source;
-             })
+             },
+             "Get the source node for the zigzag path")
         .def("prevs",
              [](const ZigzagPathGenerator &self) {
                  using State = std::tuple<std::string, int>;
@@ -3040,7 +3046,8 @@ PYBIND11_MODULE(_core, m)
                                                  std::get<1>(kv.second)));
                  }
                  return ret;
-             })
+             },
+             "Get the previous nodes in the zigzag path")
         .def("dists",
              [](const ZigzagPathGenerator &self) {
                  using State = std::tuple<std::string, int>;
@@ -3055,7 +3062,8 @@ PYBIND11_MODULE(_core, m)
                                  ROUND(kv.second, self.graph->round_scale()));
                  }
                  return ret;
-             })
+             },
+             "Get the distances to each node in the zigzag path")
         .def("destinations",
              [](const ZigzagPathGenerator &self)
                  -> std::vector<std::tuple<double, std::string>> {
@@ -3082,7 +3090,8 @@ PYBIND11_MODULE(_core, m)
                                return std::get<0>(n1) < std::get<0>(n2);
                            });
                  return ret;
-             })
+             },
+             "Get the destinations and their distances in the zigzag path")
         .def("paths",
              [](const ZigzagPathGenerator &self) -> std::vector<ZigzagPath> {
                  if (!self.ready()) {
@@ -3113,7 +3122,8 @@ PYBIND11_MODULE(_core, m)
                                return p1.dist > p2.dist;
                            });
                  return paths;
-             })
+             },
+             "Get all zigzag paths")
         .def("path",
              [](const ZigzagPathGenerator &self,
                 const std::string &node) -> std::optional<ZigzagPath> {
@@ -3142,7 +3152,9 @@ PYBIND11_MODULE(_core, m)
                      return path1->dist < path2->dist ? path1 : path2;
                  }
                  return path1 ? path1 : path2;
-             })
+             },
+             "Get the zigzag path to a specific node",
+             py::arg("node"))
         .def("to_dict",
              [](const ZigzagPathGenerator &self) {
                  py::dict ret;
@@ -3156,7 +3168,8 @@ PYBIND11_MODULE(_core, m)
                      ret[k] = kv[k];
                  }
                  return ret;
-             })
+             },
+             "Convert the ZigzagPathGenerator object to a dictionary")
         //
         ;
 
@@ -3164,39 +3177,55 @@ PYBIND11_MODULE(_core, m)
                         py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
         //
-        .def_property_readonly("round_n", &DiGraph::round_n)
-        .def_property_readonly("round_scale", &DiGraph::round_scale)
+        .def_property_readonly("round_n", &DiGraph::round_n,
+                               "Get the number of decimal places to round to")
+        .def_property_readonly("round_scale", &DiGraph::round_scale,
+                               "Get the scale factor for rounding")
         //
         .def("add_node", &DiGraph::add_node, "id"_a, py::kw_only(), "length"_a,
-             rvp::reference_internal)
+             rvp::reference_internal,
+             "Add a node to the graph")
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
-             rvp::reference_internal)
+             rvp::reference_internal,
+             "Add an edge between two nodes in the graph")
         //
-        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next)
-        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev)
+        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next,
+                               "Get siblings under the next node")
+        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev,
+                               "Get siblings under the previous node")
         .def_property_readonly("nodes", &DiGraph::nodes,
-                               rvp::reference_internal)
+                               rvp::reference_internal,
+                               "Get all nodes in the graph")
         .def_property_readonly("edges", &DiGraph::edges,
-                               rvp::reference_internal)
+                               rvp::reference_internal,
+                               "Get all edges in the graph")
         //
         .def_property_readonly("indexer",
                                py::overload_cast<>(&DiGraph::indexer),
-                               rvp::reference_internal)
+                               rvp::reference_internal,
+                               "Get the indexer for the graph")
         //
-        .def("predecessors", &DiGraph::predecessors, "id"_a)
-        .def("successors", &DiGraph::successors, "id"_a)
+        .def("predecessors", &DiGraph::predecessors, "id"_a,
+             "Get predecessors of a node")
+        .def("successors", &DiGraph::successors, "id"_a,
+             "Get successors of a node")
         //
-        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
-        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
-        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a,
+             "Encode sink nodes")
+        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a,
+             "Encode bindings")
+        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a,
+             "Encode sequences")
         .def("encode_endpoints", &DiGraph::encode_endpoints, "endpoints"_a,
-             py::kw_only(), "is_wgs84"_a = true)
+             py::kw_only(), "is_wgs84"_a = true,
+             "Encode endpoints")
         .def("encode_ubodt", &DiGraph::encode_ubodt, //
              "source_road"_a,                        //
              "target_road"_a,                        //
              "source_next"_a,                        //
              "target_prev"_a,                        //
-             "cost"_a)
+             "cost"_a,
+             "Encode UBODT (Upper Bounded Origin Destination Table)")
         // shortest paths
         .def(
             "shortest_path",
@@ -3221,7 +3250,8 @@ PYBIND11_MODULE(_core, m)
             "target_offset"_a = std::nullopt, //
             "sinks"_a = nullptr,              //
             "endpoints"_a = nullptr,          //
-            py::call_guard<py::gil_scoped_release>())
+            py::call_guard<py::gil_scoped_release>(),
+            "Find the shortest path between two nodes")
         .def(
             "shortest_paths_from",
             [](const DiGraph &self, const std::string &source, //
@@ -3235,7 +3265,8 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr,       //
-            py::call_guard<py::gil_scoped_release>())
+            py::call_guard<py::gil_scoped_release>(),
+            "Find shortest paths from a source node to all reachable nodes")
         .def(
             "shortest_paths_to",
             [](const DiGraph &self, const std::string &target, //
@@ -3247,7 +3278,9 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),             //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
+            "sinks"_a = nullptr,
+            py::call_guard<py::gil_scoped_release>(),
+            "Find shortest paths to a target node from all reachable nodes")
         // zigzag path
         .def(
             "shortest_zigzag_path",
@@ -3263,7 +3296,8 @@ PYBIND11_MODULE(_core, m)
             "target"_a,    //
             py::kw_only(), //
             "cutoff"_a,    //
-            "direction"_a = 0)
+            "direction"_a = 0,
+            "Find the shortest zigzag path between two nodes")
         .def(
             "shortest_zigzag_path",
             [](const DiGraph &self,       //
@@ -3278,7 +3312,8 @@ PYBIND11_MODULE(_core, m)
             "source"_a,    //
             py::kw_only(), //
             "cutoff"_a,    //
-            "direction"_a = 0)
+            "direction"_a = 0,
+            "Find the shortest zigzag paths from a source node")
         // all paths
         .def("all_paths_from", &DiGraph::all_paths_from, //
              "source"_a,                                 //
@@ -3286,14 +3321,16 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                                 //
              "offset"_a = std::nullopt,                  //
              "sinks"_a = nullptr,                        //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths from a source node")
         .def("all_paths_to", &DiGraph::all_paths_to, //
              "target"_a,                             //
              py::kw_only(),                          //
              "cutoff"_a,                             //
              "offset"_a = std::nullopt,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths to a target node")
         .def("all_paths", &DiGraph::all_paths,
              "source"_a,                       //
              "target"_a,                       //
@@ -3302,7 +3339,8 @@ PYBIND11_MODULE(_core, m)
              "source_offset"_a = std::nullopt, //
              "target_offset"_a = std::nullopt, //
              "sinks"_a = nullptr,              //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths between two nodes")
         // shortest path to bindings
         .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
              "source"_a,                //
@@ -3312,7 +3350,8 @@ PYBIND11_MODULE(_core, m)
              "offset"_a = std::nullopt, //
              "direction"_a = 0,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find the shortest path to bindings")
         .def("distance_to_bindings", &DiGraph::distance_to_bindings,
              "source"_a,                //
              py::kw_only(),             //
@@ -3321,7 +3360,8 @@ PYBIND11_MODULE(_core, m)
              "offset"_a = std::nullopt, //
              "direction"_a = 0,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Calculate distances to bindings")
         // all paths to bindings
         .def("all_paths_to_bindings", &DiGraph::all_paths_to_bindings,
              "source"_a,                //
@@ -3332,71 +3372,20 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,         //
              "sinks"_a = nullptr,       //
              "with_endings"_a = false,  //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths to bindings")
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
                                                  py::const_),
              "thresh"_a, py::kw_only(), //
              "pool_size"_a = 1,         //
-             "nodes_thresh"_a = 100)
+             "nodes_thresh"_a = 100,
+             "Build UBODT (Upper Bounded Origin Destination Table)")
         .def("build_ubodt",
              py::overload_cast<int64_t, double>(&DiGraph::build_ubodt,
                                                 py::const_),
-             "source"_a, "thresh"_a)
-        //
-        ;
-
-    py::class_<ShortestPathWithUbodt>(m, "ShortestPathWithUbodt",
-                                      py::module_local(),
-                                      py::dynamic_attr()) //
-        .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
-             "graph"_a, "ubodt"_a)
-        .def(py::init<const DiGraph *, double, int, int>(), //
-             "graph"_a, "thresh"_a, py::kw_only(),          //
-             "pool_size"_a = 1,                             //
-             "nodes_thresh"_a = 100)
-        .def(py::init<const DiGraph *, const std::string &>(), //
-             "graph"_a, "path"_a)
-        //
-        .def(
-            "load_ubodt",
-            [](ShortestPathWithUbodt &self, const std::string &path) {
-                return self.load_ubodt(path);
-            },
-            "path"_a)
-        .def(
-            "load_ubodt",
-            [](ShortestPathWithUbodt &self,
-               const std::vector<UbodtRecord> &rows) {
-                return self.load_ubodt(rows);
-            },
-            "rows"_a)
-        .def(
-            "dump_ubodt",
-            [](const ShortestPathWithUbodt &self) { return self.dump_ubodt(); })
-        .def("dump_ubodt",
-             [](const ShortestPathWithUbodt &self, const std::string &path) {
-                 return self.dump_ubodt(path);
-             })
-        .def("size", &ShortestPathWithUbodt::size)
-        //
-        .def_static("Load_Ubodt", &ShortestPathWithUbodt::Load_Ubodt, //
-                    "path"_a)
-        .def_static("Dump_Ubodt", &ShortestPathWithUbodt::Dump_Ubodt, //
-                    "ubodt"_a, "path"_a)
-        //
-        .def("by_source", &ShortestPathWithUbodt::by_source, //
-             "source"_a, "cutoff"_a = std::nullopt)
-        .def("by_target", &ShortestPathWithUbodt::by_target, //
-             "target"_a, "cutoff"_a = std::nullopt)
-        .def("path",
-             py::overload_cast<const std::string &, const std::string &>(
-                 &ShortestPathWithUbodt::path, py::const_),
-             "source"_a, "target"_a)
-        .def("dist",
-             py::overload_cast<const std::string &, const std::string &>(
-                 &ShortestPathWithUbodt::dist, py::const_),
-             "source"_a, "target"_a)
+             "source"_a, "thresh"_a,
+             "Build UBODT (Upper Bounded Origin Destination Table) from a specific source")
         //
         ;
 
