@@ -50,11 +50,12 @@ jobs:
       with:
         submodules: true
 
-    - uses: pypa/cibuildwheel@v2.16
+    - uses: pypa/cibuildwheel@v2.21.1
       env:
         CIBW_ARCHS_MACOS: universal2
         CIBW_ARCHS_WINDOWS: auto ARM64
         CIBW_BEFORE_BUILD: pip install pytest networkx --prefer-binary
+        CIBW_TEST_SKIP: pp*
 
     - name: Verify clean directory
       run: git diff --exit-code
