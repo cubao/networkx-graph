@@ -15,7 +15,7 @@ reset_submodules:
 	git submodule update --init --recursive
 
 clean:
-	rm -rf build *.egg-info dist
+	rm -rf build *.egg-info dist stubs
 force_clean:
 	docker run --rm -v `pwd`:`pwd` -w `pwd` -it alpine/make make clean
 
@@ -65,6 +65,10 @@ python_sdist:
 	$(PYTHON) -m pip sdist . --verbose
 python_test: pytest
 .PHONY: build
+
+restub:
+	pybind11-stubgen networkx_graph._core -o stubs
+	cp stubs/networkx_graph/_core.pyi src/networkx_graph
 
 # conda create -y -n py36 python=3.6
 # conda create -y -n py37 python=3.7

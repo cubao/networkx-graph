@@ -2246,35 +2246,41 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<>())
         .def(py::init<const std::map<std::string, int64_t>>(), "index"_a)
         .def("contains",
-             py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a)
+             py::overload_cast<int64_t>(&Indexer::contains, py::const_), "id"_a,
+             "Check if the Indexer contains the given integer ID")
         .def("contains",
              py::overload_cast<const std::string &>(&Indexer::contains,
                                                     py::const_),
-             "id"_a)
+             "id"_a, "Check if the Indexer contains the given string ID")
         .def("get_id", py::overload_cast<int64_t>(&Indexer::get_id, py::const_),
-             "id"_a)
+             "id"_a, "Get the string ID corresponding to the given integer ID")
         .def("get_id",
              py::overload_cast<const std::string &>(&Indexer::get_id,
                                                     py::const_),
-             "id"_a)
+             "id"_a, "Get the integer ID corresponding to the given string ID")
         //
-        .def("id", py::overload_cast<int64_t>(&Indexer::id), "id"_a)
-        .def("id", py::overload_cast<const std::string &>(&Indexer::id), "id"_a)
+        .def("id", py::overload_cast<int64_t>(&Indexer::id), "id"_a,
+             "Get or create an integer ID for the given integer")
+        .def("id", py::overload_cast<const std::string &>(&Indexer::id), "id"_a,
+             "Get or create an integer ID for the given string")
         .def("index",
              py::overload_cast<const std::string &, int64_t>(&Indexer::index),
-             "str_id"_a, "int_id"_a)
+             "str_id"_a, "int_id"_a,
+             "Add a new string-integer ID pair to the Indexer")
         .def("index",
              py::overload_cast<const std::map<std::string, int64_t> &>(
                  &Indexer::index),
-             "index"_a)
-        .def("index", py::overload_cast<>(&Indexer::index, py::const_))
+             "index"_a, "Add multiple string-integer ID pairs to the Indexer")
+        .def("index", py::overload_cast<>(&Indexer::index, py::const_),
+             "Get the current index mapping")
         //
         ;
 
     py::class_<Node>(m, "Node", py::module_local(), py::dynamic_attr()) //
         .def(py::init<>())
-        .def_property_readonly("length",
-                               [](const Node &self) { return self.length; })
+        .def_property_readonly(
+            "length", [](const Node &self) { return self.length; },
+            "Get the length of the node")
         .def(
             "__getitem__",
             [](const Node &self, const std::string &attr_name) -> py::object {
@@ -2288,26 +2294,30 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
-        .def("__setitem__",
-             [](Node &self, const std::string &attr_name,
-                py::object obj) -> py::object {
-                 if (attr_name == "length") {
-                     throw py::key_error("length is readonly");
-                 }
-                 py::cast(self).attr(attr_name.c_str()) = obj;
-                 return obj;
-             })
-        .def("to_dict",
-             [](const Node &self) {
-                 py::dict ret;
-                 ret["length"] = self.length;
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+            "attr_name"_a, "Get an attribute of the Node by name")
+        .def(
+            "__setitem__",
+            [](Node &self, const std::string &attr_name,
+               py::object obj) -> py::object {
+                if (attr_name == "length") {
+                    throw py::key_error("length is readonly");
+                }
+                py::cast(self).attr(attr_name.c_str()) = obj;
+                return obj;
+            },
+            "Set an attribute of the Node by name")
+        .def(
+            "to_dict",
+            [](const Node &self) {
+                py::dict ret;
+                ret["length"] = self.length;
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the Node to a dictionary")
         //
         ;
 
@@ -2323,22 +2333,26 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
-        .def("__setitem__",
-             [](Edge &self, const std::string &attr_name,
-                py::object obj) -> py::object {
-                 py::cast(self).attr(attr_name.c_str()) = obj;
-                 return obj;
-             })
-        .def("to_dict",
-             [](const Edge &self) {
-                 py::dict ret;
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+            "attr_name"_a, "Get an attribute of the Edge by name")
+        .def(
+            "__setitem__",
+            [](Edge &self, const std::string &attr_name,
+               py::object obj) -> py::object {
+                py::cast(self).attr(attr_name.c_str()) = obj;
+                return obj;
+            },
+            "Set an attribute of the Edge by name")
+        .def(
+            "to_dict",
+            [](const Edge &self) {
+                py::dict ret;
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the Edge to a dictionary")
         //
         ;
 
@@ -2406,22 +2420,27 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),                   //
             "start_offset"_a = std::nullopt, //
             "end_offset"_a = std::nullopt,   //
-            "binding"_a = std::nullopt)
+            "binding"_a = std::nullopt,
+            "Build a Path object from a list of nodes and optional parameters")
 
         .def_property_readonly(
             "graph", [](const Path &self) { return self.graph; },
-            rvp::reference_internal)
-        .def_property_readonly("dist",
-                               [](const Path &self) { return self.dist; })
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Path")
+        .def_property_readonly(
+            "dist", [](const Path &self) { return self.dist; },
+            "Get the total distance of the Path")
         .def_property_readonly(
             "nodes",
-            [](const Path &self) { return self.graph->__node_ids(self.nodes); })
-        .def_property_readonly("_signature",
-                               [](const Path &self) {
-                                   return py::make_tuple(self.nodes,
-                                                         self.start_offset,
-                                                         self.end_offset);
-                               })
+            [](const Path &self) { return self.graph->__node_ids(self.nodes); },
+            "Get the list of node IDs in the Path")
+        .def_property_readonly(
+            "_signature",
+            [](const Path &self) {
+                return py::make_tuple(self.nodes, self.start_offset,
+                                      self.end_offset);
+            },
+            "Get the internal signature of the Path")
         .def_property_readonly(
             "start",
             [](const Path &self)
@@ -2429,14 +2448,16 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple(
                     self.graph->__node_id(self.nodes.front()),
                     self.start_offset);
-            })
+            },
+            "Get the start node and offset of the Path")
         .def_property_readonly(
             "end",
             [](const Path &self)
                 -> std::tuple<std::string, std::optional<double>> {
                 return std::make_tuple(self.graph->__node_id(self.nodes.back()),
                                        self.end_offset);
-            })
+            },
+            "Get the end node and offset of the Path")
         .def_property_readonly(
             "binding",
             [](const Path &self)
@@ -2447,7 +2468,8 @@ PYBIND11_MODULE(_core, m)
                 return std::make_tuple( //
                     self.graph->__node_id(std::get<0>(*self.binding)),
                     std::get<1>(*self.binding));
-            })
+            },
+            "Get the binding information of the Path, if any")
         .def(
             "__getitem__",
             [](const Path &self, const std::string &attr_name) -> py::object {
@@ -2485,44 +2507,48 @@ PYBIND11_MODULE(_core, m)
                 }
                 return py_obj.attr(attr_name.c_str());
             },
-            "attr_name"_a)
-        .def("__setitem__",
-             [](Path &self, const std::string &attr_name,
-                py::object obj) -> py::object {
-                 if (attr_name == "graph" || attr_name == "dist" ||
-                     attr_name == "nodes" || attr_name == "_signature" ||
-                     attr_name == "start" || attr_name == "end" ||
-                     attr_name == "binding") {
-                     throw py::key_error(
-                         fmt::format("{} is readonly", attr_name));
-                 }
-                 py::cast(self).attr(attr_name.c_str()) = obj;
-                 return obj;
-             })
-        .def("to_dict",
-             [](const Path &self) {
-                 py::dict ret;
-                 ret["dist"] = self.dist;
-                 py::list nodes;
-                 for (auto &node : self.graph->__node_ids(self.nodes)) {
-                     nodes.append(node);
-                 }
-                 ret["nodes"] = nodes;
-                 auto start = self.graph->__node_id(self.nodes.front());
-                 ret["start"] = py::make_tuple(start, self.start_offset);
-                 auto end = self.graph->__node_id(self.nodes.back());
-                 ret["end"] = py::make_tuple(end, self.end_offset);
-                 if (self.binding) {
-                     ret["binding"] = std::make_tuple( //
-                         self.graph->__node_id(std::get<0>(*self.binding)),
-                         std::get<1>(*self.binding));
-                 }
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+            "attr_name"_a, "Get an attribute of the Path by name")
+        .def(
+            "__setitem__",
+            [](Path &self, const std::string &attr_name,
+               py::object obj) -> py::object {
+                if (attr_name == "graph" || attr_name == "dist" ||
+                    attr_name == "nodes" || attr_name == "_signature" ||
+                    attr_name == "start" || attr_name == "end" ||
+                    attr_name == "binding") {
+                    throw py::key_error(
+                        fmt::format("{} is readonly", attr_name));
+                }
+                py::cast(self).attr(attr_name.c_str()) = obj;
+                return obj;
+            },
+            "Set an attribute of the Path by name")
+        .def(
+            "to_dict",
+            [](const Path &self) {
+                py::dict ret;
+                ret["dist"] = self.dist;
+                py::list nodes;
+                for (auto &node : self.graph->__node_ids(self.nodes)) {
+                    nodes.append(node);
+                }
+                ret["nodes"] = nodes;
+                auto start = self.graph->__node_id(self.nodes.front());
+                ret["start"] = py::make_tuple(start, self.start_offset);
+                auto end = self.graph->__node_id(self.nodes.back());
+                ret["end"] = py::make_tuple(end, self.end_offset);
+                if (self.binding) {
+                    ret["binding"] = std::make_tuple( //
+                        self.graph->__node_id(std::get<0>(*self.binding)),
+                        std::get<1>(*self.binding));
+                }
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the Path to a dictionary")
         //
         .def(
             "search_for_seqs",
@@ -2539,7 +2565,76 @@ PYBIND11_MODULE(_core, m)
                 }
                 return idx2paths;
             },
-            "sequences"_a, "quick_return"_a = true)
+            "sequences"_a, "quick_return"_a = true,
+            "Search for sequences within the Path")
+        .def(
+            "offsets",
+            [](const Path &self) -> std::vector<double> {
+                if (!self.start_offset || !self.end_offset) {
+                    throw std::logic_error("path has no start/end offset");
+                }
+                std::vector<double> ret;
+                ret.reserve(self.nodes.size());
+                ret.push_back(-*self.start_offset);
+                double acc =
+                    self.graph->length(self.nodes.front()) - *self.start_offset;
+                for (size_t i = 1; i < self.nodes.size(); ++i) {
+                    ret.push_back(acc);
+                    auto cur = self.nodes.at(i);
+                    auto len = self.graph->length(cur);
+                    acc += len;
+                }
+                return ret;
+            },
+            "Get offsets of each node in the Path")
+        .def(
+            "locate",
+            [](const Path &self, const std::tuple<std::string, double> &ref,
+               double eps) -> std::optional<double> {
+                if (!self.start_offset || !self.end_offset) {
+                    throw std::logic_error("you must call `path.locate` on "
+                                           "path with start/end offset");
+                }
+                auto node_id = self.graph->__node_id(std::get<0>(ref));
+                if (!node_id) {
+                    return {};
+                }
+                auto nid = *node_id;
+                auto off = std::get<1>(ref);
+                double acc = 0.0;
+                if (self.nodes.front() == nid) {
+                    double left = *self.start_offset;
+                    double right = self.graph->length(nid);
+                    if (off < left - eps || off > right + eps) {
+                        return {};
+                    }
+                    off = CLIP(left, off, right);
+                    return off - left;
+                } else {
+                    acc += self.graph->length(self.nodes.front()) -
+                           *self.start_offset;
+                }
+                for (size_t i = 1; i < self.nodes.size(); ++i) {
+                    auto cur = self.nodes.at(i);
+                    auto len = self.graph->length(cur);
+                    if (cur != nid) {
+                        acc += len;
+                        continue;
+                    }
+                    if (i == self.nodes.size() - 1) {
+                        len = *self.end_offset;
+                    }
+                    if (off < -eps || off > len + eps) {
+                        return {};
+                    }
+                    off = CLIP(0.0, off, len);
+                    return acc + off;
+                }
+                return {};
+            },
+            "ref"_a, "eps"_a = 1e-2,
+            "Locate ref:=(node_id, offset) in the Path, return offset along "
+            "path")
         .def(
             "along",
             [](const Path &self,
@@ -2552,7 +2647,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return std::make_tuple(nid, off);
             },
-            "offset"_a)
+            "offset"_a,
+            "Get the node and offset along the Path at a given distance")
         .def(
             "slice",
             [](const Path &self, double start, double end) -> Path {
@@ -2596,7 +2692,8 @@ PYBIND11_MODULE(_core, m)
                 }
                 return p;
             },
-            "start"_a, "end"_a)
+            "start"_a, "end"_a,
+            "Create a new Path that is a slice of the current Path")
         //
         ;
 
@@ -2605,52 +2702,62 @@ PYBIND11_MODULE(_core, m)
                                  py::dynamic_attr()) //
         //
         .def_property_readonly(
-            "graph", [](const ZigzagPath &self) { return self.graph; })
-        .def_property_readonly("dist",
-                               [](const ZigzagPath &self) { return self.dist; })
-        .def_property_readonly("nodes",
-                               [](const ZigzagPath &self) {
-                                   return self.graph->__node_ids(self.nodes);
-                               })
+            "graph", [](const ZigzagPath &self) { return self.graph; },
+            "Get the DiGraph object associated with this ZigzagPath")
+        .def_property_readonly(
+            "dist", [](const ZigzagPath &self) { return self.dist; },
+            "Get the total distance of the ZigzagPath")
+        .def_property_readonly(
+            "nodes",
+            [](const ZigzagPath &self) {
+                return self.graph->__node_ids(self.nodes);
+            },
+            "Get the list of node IDs in the ZigzagPath")
         .def_property_readonly(
             "directions",
-            [](const ZigzagPath &self) { return self.directions; })
-        .def("to_dict",
-             [](const ZigzagPath &self) {
-                 py::dict ret;
-                 ret["dist"] = self.dist;
-                 py::list nodes;
-                 for (auto &node : self.graph->__node_ids(self.nodes)) {
-                     nodes.append(node);
-                 }
-                 ret["nodes"] = nodes;
-                 py::list dirs;
-                 for (auto d : self.directions) {
-                     dirs.append(d);
-                 }
-                 ret["directions"] = dirs;
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+            [](const ZigzagPath &self) { return self.directions; },
+            "Get the list of directions for each node in the ZigzagPath")
+        .def(
+            "to_dict",
+            [](const ZigzagPath &self) {
+                py::dict ret;
+                ret["dist"] = self.dist;
+                py::list nodes;
+                for (auto &node : self.graph->__node_ids(self.nodes)) {
+                    nodes.append(node);
+                }
+                ret["nodes"] = nodes;
+                py::list dirs;
+                for (auto d : self.directions) {
+                    dirs.append(d);
+                }
+                ret["directions"] = dirs;
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the ZigzagPath to a dictionary")
         //
         ;
 
     py::class_<Sinks>(m, "Sinks", py::module_local(), py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Sinks &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Sinks object")
         //
-        .def("__call__",
-             [](const Sinks &self) {
-                 std::set<std::string> ret;
-                 for (auto &n : self.nodes) {
-                     ret.emplace(self.graph->__node_id(n));
-                 }
-                 return ret;
-             })
+        .def(
+            "__call__",
+            [](const Sinks &self) {
+                std::set<std::string> ret;
+                for (auto &n : self.nodes) {
+                    ret.emplace(self.graph->__node_id(n));
+                }
+                return ret;
+            },
+            "Get the set of sink nodes")
         //
         ;
 
@@ -2658,16 +2765,18 @@ PYBIND11_MODULE(_core, m)
                          py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Bindings &self) { return self.graph; },
-            rvp::reference_internal)
-        .def("__call__",
-             [](const Bindings &self) {
-                 std::map<std::string, std::vector<Binding>> ret;
-                 for (auto &pair : self.node2bindings) {
-                     ret.emplace(self.graph->__node_id(pair.first),
-                                 pair.second);
-                 }
-                 return ret;
-             })
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Bindings object")
+        .def(
+            "__call__",
+            [](const Bindings &self) {
+                std::map<std::string, std::vector<Binding>> ret;
+                for (auto &pair : self.node2bindings) {
+                    ret.emplace(self.graph->__node_id(pair.first), pair.second);
+                }
+                return ret;
+            },
+            "Get the map of node IDs to their bindings")
         //
         ;
 
@@ -2675,7 +2784,8 @@ PYBIND11_MODULE(_core, m)
                           py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Sequences &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Sequences object")
         //
         ;
 
@@ -2683,10 +2793,12 @@ PYBIND11_MODULE(_core, m)
                           py::dynamic_attr()) //
         .def_property_readonly(
             "graph", [](const Endpoints &self) { return self.graph; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Get the DiGraph object associated with this Endpoints object")
         .def_property_readonly(
             "is_wgs84", [](const Endpoints &self) { return self.is_wgs84; },
-            rvp::reference_internal)
+            rvp::reference_internal,
+            "Check if the coordinates are in WGS84 format")
         //
         ;
 
@@ -2695,23 +2807,30 @@ PYBIND11_MODULE(_core, m)
         .def(py::init<int64_t, int64_t, int64_t, int64_t, double>(),
              "source_road"_a, "target_road"_a, //
              "source_next"_a, "target_prev"_a, //
-             "cost"_a)
+             "cost"_a,
+             "Initialize a UbodtRecord with source road, target road, source "
+             "next, target previous, and cost")
         .def(py::self < py::self)
         .def(py::self == py::self)
         .def_property_readonly(
             "source_road",
-            [](const UbodtRecord &self) { return self.source_road; })
+            [](const UbodtRecord &self) { return self.source_road; },
+            "Get the source road ID")
         .def_property_readonly(
             "target_road",
-            [](const UbodtRecord &self) { return self.target_road; })
+            [](const UbodtRecord &self) { return self.target_road; },
+            "Get the target road ID")
         .def_property_readonly(
             "source_next",
-            [](const UbodtRecord &self) { return self.source_next; })
+            [](const UbodtRecord &self) { return self.source_next; },
+            "Get the next source road ID")
         .def_property_readonly(
             "target_prev",
-            [](const UbodtRecord &self) { return self.target_prev; })
+            [](const UbodtRecord &self) { return self.target_prev; },
+            "Get the previous target road ID")
         .def_property_readonly(
-            "cost", [](const UbodtRecord &self) { return self.cost; })
+            "cost", [](const UbodtRecord &self) { return self.cost; },
+            "Get the cost associated with this record")
         //
         ;
 
@@ -2721,236 +2840,255 @@ PYBIND11_MODULE(_core, m)
                                                           //
         .def(py::init<>())
         //
-        .def("prevs",
-             [](const ShortestPathGenerator &self) {
-                 std::unordered_map<std::string, std::string> ret;
-                 if (!self.ready()) {
-                     return ret;
-                 }
-                 auto &indexer = self.graph->indexer();
-                 for (auto &pair : self.prevs) {
-                     auto k = indexer.get_id(pair.first);
-                     auto v = indexer.get_id(pair.second);
-                     if (k && v) {
-                         ret.emplace(std::move(*k), std::move(*v));
-                     }
-                 }
-                 return ret;
-             })
-        .def("dists",
-             [](const ShortestPathGenerator &self) {
-                 std::unordered_map<std::string, double> ret;
-                 if (!self.ready()) {
-                     return ret;
-                 }
-                 auto &indexer = self.graph->indexer();
-                 for (auto &pair : self.dists) {
-                     auto k = indexer.get_id(pair.first);
-                     if (k) {
-                         ret.emplace(std::move(*k), pair.second);
-                     }
-                 }
-                 return ret;
-             })
-        .def("cutoff",
-             [](const ShortestPathGenerator &self) { return self.cutoff; })
-        .def("source",
-             [](const ShortestPathGenerator &self) {
-                 auto ret = std::optional<
-                     std::tuple<std::string, std::optional<double>>>();
-                 if (self.ready() && self.source) {
-                     auto k = self.graph->indexer().get_id(
-                         std::get<0>(*self.source));
-                     if (k) {
-                         ret = std::make_tuple(*k, std::get<1>(*self.source));
-                     }
-                 }
-                 return ret;
-             })
-        .def("target",
-             [](const ShortestPathGenerator &self) {
-                 auto ret = std::optional<
-                     std::tuple<std::string, std::optional<double>>>();
-                 if (self.ready() && self.target) {
-                     auto k = self.graph->indexer().get_id(
-                         std::get<0>(*self.target));
-                     if (k) {
-                         ret = std::make_tuple(*k, std::get<1>(*self.target));
-                     }
-                 }
-                 return ret;
-             })
-        .def("destinations",
-             [](const ShortestPathGenerator &self)
-                 -> std::vector<std::tuple<double, std::string>> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 auto ret = std::vector<std::tuple<double, std::string>>{};
-                 ret.reserve(self.dists.size());
-                 auto &indexer = self.graph->indexer();
-                 for (auto &pair : self.dists) {
-                     ret.emplace_back(
-                         std::make_tuple(pair.second, indexer.id(pair.first)));
-                 }
-                 std::sort(ret.begin(), ret.end());
-                 return ret;
-             })
-        .def("paths",
-             [](const ShortestPathGenerator &self) -> std::vector<Path> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 auto scale = self.graph->round_scale();
-                 auto paths = std::vector<Path>();
-                 if (self.prevs.empty()) {
-                     if (self.source && std::get<1>(*self.source)) {
-                         auto node = std::get<0>(*self.source);
-                         double length = self.graph->length(node);
-                         auto start_offset =
-                             CLIP(0.0, *std::get<1>(*self.source), length);
-                         auto end_offset =
-                             CLIP(0.0, start_offset + self.cutoff, length);
-                         if (start_offset < end_offset) {
-                             auto path = Path(self.graph);
-                             path.dist = end_offset - start_offset;
-                             path.nodes.push_back(node);
-                             path.start_offset = start_offset;
-                             path.end_offset = end_offset;
-                             if (scale) {
-                                 path.round(*scale);
-                             }
-                             paths.push_back(std::move(path));
-                         }
-                     } else if (self.target && std::get<1>(*self.target)) {
-                         auto node = std::get<0>(*self.target);
-                         double length = self.graph->length(node);
-                         auto end_offset =
-                             CLIP(0.0, *std::get<1>(*self.target), length);
-                         auto start_offset =
-                             CLIP(0.0, end_offset - self.cutoff, length);
-                         if (start_offset < end_offset) {
-                             auto path = Path(self.graph);
-                             path.dist = end_offset - start_offset;
-                             path.nodes.push_back(node);
-                             path.start_offset = start_offset;
-                             path.end_offset = end_offset;
-                             if (scale) {
-                                 path.round(*scale);
-                             }
-                             paths.push_back(std::move(path));
-                         }
-                     }
-                     return paths;
-                 }
-                 unordered_set<int64_t> ends;
-                 for (auto &pair : self.prevs) {
-                     ends.insert(pair.first);
-                 }
-                 for (auto &pair : self.prevs) {
-                     ends.erase(pair.second);
-                 }
-                 paths.reserve(ends.size());
+        .def(
+            "prevs",
+            [](const ShortestPathGenerator &self) {
+                std::unordered_map<std::string, std::string> ret;
+                if (!self.ready()) {
+                    return ret;
+                }
+                auto &indexer = self.graph->indexer();
+                for (auto &pair : self.prevs) {
+                    auto k = indexer.get_id(pair.first);
+                    auto v = indexer.get_id(pair.second);
+                    if (k && v) {
+                        ret.emplace(std::move(*k), std::move(*v));
+                    }
+                }
+                return ret;
+            },
+            "Get the map of previous nodes in the shortest path")
+        .def(
+            "dists",
+            [](const ShortestPathGenerator &self) {
+                std::unordered_map<std::string, double> ret;
+                if (!self.ready()) {
+                    return ret;
+                }
+                auto &indexer = self.graph->indexer();
+                for (auto &pair : self.dists) {
+                    auto k = indexer.get_id(pair.first);
+                    if (k) {
+                        ret.emplace(std::move(*k), pair.second);
+                    }
+                }
+                return ret;
+            },
+            "Get the map of distances to each node in the shortest path")
+        .def(
+            "cutoff",
+            [](const ShortestPathGenerator &self) { return self.cutoff; },
+            "Get the cutoff distance for the shortest path")
+        .def(
+            "source",
+            [](const ShortestPathGenerator &self) {
+                auto ret = std::optional<
+                    std::tuple<std::string, std::optional<double>>>();
+                if (self.ready() && self.source) {
+                    auto k =
+                        self.graph->indexer().get_id(std::get<0>(*self.source));
+                    if (k) {
+                        ret = std::make_tuple(*k, std::get<1>(*self.source));
+                    }
+                }
+                return ret;
+            },
+            "Get the source node and offset for the shortest path")
+        .def(
+            "target",
+            [](const ShortestPathGenerator &self) {
+                auto ret = std::optional<
+                    std::tuple<std::string, std::optional<double>>>();
+                if (self.ready() && self.target) {
+                    auto k =
+                        self.graph->indexer().get_id(std::get<0>(*self.target));
+                    if (k) {
+                        ret = std::make_tuple(*k, std::get<1>(*self.target));
+                    }
+                }
+                return ret;
+            },
+            "Get the target node and offset for the shortest path")
+        .def(
+            "destinations",
+            [](const ShortestPathGenerator &self)
+                -> std::vector<std::tuple<double, std::string>> {
+                if (!self.ready()) {
+                    return {};
+                }
+                auto ret = std::vector<std::tuple<double, std::string>>{};
+                ret.reserve(self.dists.size());
+                auto &indexer = self.graph->indexer();
+                for (auto &pair : self.dists) {
+                    ret.emplace_back(
+                        std::make_tuple(pair.second, indexer.id(pair.first)));
+                }
+                std::sort(ret.begin(), ret.end());
+                return ret;
+            },
+            "Get the sorted list of destinations and their distances")
+        .def(
+            "paths",
+            [](const ShortestPathGenerator &self) -> std::vector<Path> {
+                if (!self.ready()) {
+                    return {};
+                }
+                auto scale = self.graph->round_scale();
+                auto paths = std::vector<Path>();
+                if (self.prevs.empty()) {
+                    if (self.source && std::get<1>(*self.source)) {
+                        auto node = std::get<0>(*self.source);
+                        double length = self.graph->length(node);
+                        auto start_offset =
+                            CLIP(0.0, *std::get<1>(*self.source), length);
+                        auto end_offset =
+                            CLIP(0.0, start_offset + self.cutoff, length);
+                        if (start_offset < end_offset) {
+                            auto path = Path(self.graph);
+                            path.dist = end_offset - start_offset;
+                            path.nodes.push_back(node);
+                            path.start_offset = start_offset;
+                            path.end_offset = end_offset;
+                            if (scale) {
+                                path.round(*scale);
+                            }
+                            paths.push_back(std::move(path));
+                        }
+                    } else if (self.target && std::get<1>(*self.target)) {
+                        auto node = std::get<0>(*self.target);
+                        double length = self.graph->length(node);
+                        auto end_offset =
+                            CLIP(0.0, *std::get<1>(*self.target), length);
+                        auto start_offset =
+                            CLIP(0.0, end_offset - self.cutoff, length);
+                        if (start_offset < end_offset) {
+                            auto path = Path(self.graph);
+                            path.dist = end_offset - start_offset;
+                            path.nodes.push_back(node);
+                            path.start_offset = start_offset;
+                            path.end_offset = end_offset;
+                            if (scale) {
+                                path.round(*scale);
+                            }
+                            paths.push_back(std::move(path));
+                        }
+                    }
+                    return paths;
+                }
+                unordered_set<int64_t> ends;
+                for (auto &pair : self.prevs) {
+                    ends.insert(pair.first);
+                }
+                for (auto &pair : self.prevs) {
+                    ends.erase(pair.second);
+                }
+                paths.reserve(ends.size());
 
-                 const int64_t source = self.source ? std::get<0>(*self.source)
-                                                    : std::get<0>(*self.target);
-                 for (auto end : ends) {
-                     double length = self.graph->length(end);
-                     auto path = Path(self.graph);
-                     double dist = self.dists.at(end);
-                     path.dist = std::min(self.cutoff, dist + length);
-                     while (end != source) {
-                         path.nodes.push_back(end);
-                         end = self.prevs.at(end);
-                     }
-                     path.nodes.push_back(end);
-                     if (self.source) {
-                         path.start_offset = std::get<1>(*self.source);
-                         std::reverse(path.nodes.begin(), path.nodes.end());
-                         double offset = self.cutoff - dist;
-                         path.end_offset = CLIP(0.0, offset, length);
-                     } else {
-                         double offset = length - (self.cutoff - dist);
-                         path.start_offset = CLIP(0.0, offset, length);
-                         path.end_offset = std::get<1>(*self.target);
-                     }
-                     if (scale) {
-                         path.round(*scale);
-                     }
-                     paths.push_back(std::move(path));
-                 }
-                 std::sort(paths.begin(), paths.end(),
-                           [](const auto &p1, const auto &p2) {
-                               return p1.dist > p2.dist;
-                           });
-                 return paths;
-             })
-        .def("path",
-             [](const ShortestPathGenerator &self,
-                const std::string &node) -> std::optional<Path> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 auto node_idx = self.graph->__node_id(node);
-                 if (!node_idx || !self.prevs.count(*node_idx)) {
-                     return {};
-                 }
-                 const int64_t source = self.source ? std::get<0>(*self.source)
-                                                    : std::get<0>(*self.target);
-                 auto end = *node_idx;
-                 double length = self.graph->length(end);
-                 auto path = Path(self.graph);
-                 double dist = self.dists.at(end);
-                 path.dist = std::min(self.cutoff, dist + length);
-                 while (end != source) {
-                     path.nodes.push_back(end);
-                     end = self.prevs.at(end);
-                 }
-                 path.nodes.push_back(end);
-                 if (self.source) {
-                     path.start_offset = std::get<1>(*self.source);
-                     std::reverse(path.nodes.begin(), path.nodes.end());
-                     double offset = self.cutoff - dist;
-                     path.end_offset = CLIP(0.0, offset, length);
-                 } else {
-                     double offset = length - (self.cutoff - dist);
-                     path.start_offset = CLIP(0.0, offset, length);
-                     path.end_offset = std::get<1>(*self.target);
-                 }
-                 auto scale = self.graph->round_scale();
-                 if (scale) {
-                     path.round(*scale);
-                 }
-                 return path;
-             })
-        .def("to_dict",
-             [](const ShortestPathGenerator &self) {
-                 py::dict ret;
-                 if (self.ready()) {
-                     ret["cutoff"] = self.cutoff;
-                     if (self.source) {
-                         auto k = self.graph->indexer().get_id(
-                             std::get<0>(*self.source));
-                         if (k) {
-                             ret["source"] =
-                                 std::make_tuple(*k, std::get<1>(*self.source));
-                         }
-                     } else {
-                         auto k = self.graph->indexer().get_id(
-                             std::get<0>(*self.target));
-                         if (k) {
-                             ret["target"] =
-                                 std::make_tuple(*k, std::get<1>(*self.target));
-                         }
-                     }
-                     // TODO, prevs, dists
-                 }
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+                const int64_t source = self.source ? std::get<0>(*self.source)
+                                                   : std::get<0>(*self.target);
+                for (auto end : ends) {
+                    double length = self.graph->length(end);
+                    auto path = Path(self.graph);
+                    double dist = self.dists.at(end);
+                    path.dist = std::min(self.cutoff, dist + length);
+                    while (end != source) {
+                        path.nodes.push_back(end);
+                        end = self.prevs.at(end);
+                    }
+                    path.nodes.push_back(end);
+                    if (self.source) {
+                        path.start_offset = std::get<1>(*self.source);
+                        std::reverse(path.nodes.begin(), path.nodes.end());
+                        double offset = self.cutoff - dist;
+                        path.end_offset = CLIP(0.0, offset, length);
+                    } else {
+                        double offset = length - (self.cutoff - dist);
+                        path.start_offset = CLIP(0.0, offset, length);
+                        path.end_offset = std::get<1>(*self.target);
+                    }
+                    if (scale) {
+                        path.round(*scale);
+                    }
+                    paths.push_back(std::move(path));
+                }
+                std::sort(paths.begin(), paths.end(),
+                          [](const auto &p1, const auto &p2) {
+                              return p1.dist > p2.dist;
+                          });
+                return paths;
+            },
+            "Get all shortest paths from the source to all reachable nodes "
+            "within the cutoff distance")
+        .def(
+            "path",
+            [](const ShortestPathGenerator &self,
+               const std::string &node) -> std::optional<Path> {
+                if (!self.ready()) {
+                    return {};
+                }
+                auto node_idx = self.graph->__node_id(node);
+                if (!node_idx || !self.prevs.count(*node_idx)) {
+                    return {};
+                }
+                const int64_t source = self.source ? std::get<0>(*self.source)
+                                                   : std::get<0>(*self.target);
+                auto end = *node_idx;
+                double length = self.graph->length(end);
+                auto path = Path(self.graph);
+                double dist = self.dists.at(end);
+                path.dist = std::min(self.cutoff, dist + length);
+                while (end != source) {
+                    path.nodes.push_back(end);
+                    end = self.prevs.at(end);
+                }
+                path.nodes.push_back(end);
+                if (self.source) {
+                    path.start_offset = std::get<1>(*self.source);
+                    std::reverse(path.nodes.begin(), path.nodes.end());
+                    double offset = self.cutoff - dist;
+                    path.end_offset = CLIP(0.0, offset, length);
+                } else {
+                    double offset = length - (self.cutoff - dist);
+                    path.start_offset = CLIP(0.0, offset, length);
+                    path.end_offset = std::get<1>(*self.target);
+                }
+                auto scale = self.graph->round_scale();
+                if (scale) {
+                    path.round(*scale);
+                }
+                return path;
+            },
+            "Get the shortest path to a specific node", py::arg("node"))
+        .def(
+            "to_dict",
+            [](const ShortestPathGenerator &self) {
+                py::dict ret;
+                if (self.ready()) {
+                    ret["cutoff"] = self.cutoff;
+                    if (self.source) {
+                        auto k = self.graph->indexer().get_id(
+                            std::get<0>(*self.source));
+                        if (k) {
+                            ret["source"] =
+                                std::make_tuple(*k, std::get<1>(*self.source));
+                        }
+                    } else {
+                        auto k = self.graph->indexer().get_id(
+                            std::get<0>(*self.target));
+                        if (k) {
+                            ret["target"] =
+                                std::make_tuple(*k, std::get<1>(*self.target));
+                        }
+                    }
+                    // TODO, prevs, dists
+                }
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the ShortestPathGenerator object to a dictionary")
         //
         ;
 
@@ -2960,149 +3098,165 @@ PYBIND11_MODULE(_core, m)
                                                         //
         .def(py::init<>())
         //
-        .def("cutoff",
-             [](const ZigzagPathGenerator &self) { return self.cutoff; })
-        .def("source",
-             [](const ZigzagPathGenerator &self) {
-                 std::optional<std::string> source;
-                 if (self.ready()) {
-                     source = self.graph->__node_id(*self.source);
-                 }
-                 return source;
-             })
-        .def("prevs",
-             [](const ZigzagPathGenerator &self) {
-                 using State = std::tuple<std::string, int>;
-                 std::unordered_map<State, State> ret;
-                 if (!self.ready()) {
-                     return ret;
-                 }
-                 for (auto &kv : self.prevs) {
-                     ret.emplace(std::make_tuple(self.graph->__node_id(
-                                                     std::get<0>(kv.first)),
-                                                 std::get<1>(kv.first)),
-                                 std::make_tuple(self.graph->__node_id(
-                                                     std::get<0>(kv.second)),
-                                                 std::get<1>(kv.second)));
-                 }
-                 return ret;
-             })
-        .def("dists",
-             [](const ZigzagPathGenerator &self) {
-                 using State = std::tuple<std::string, int>;
-                 std::unordered_map<State, double> ret;
-                 if (!self.ready()) {
-                     return ret;
-                 }
-                 for (auto &kv : self.dists) {
-                     ret.emplace(std::make_tuple(self.graph->__node_id(
-                                                     std::get<0>(kv.first)),
-                                                 std::get<1>(kv.first)),
-                                 ROUND(kv.second, self.graph->round_scale()));
-                 }
-                 return ret;
-             })
-        .def("destinations",
-             [](const ZigzagPathGenerator &self)
-                 -> std::vector<std::tuple<double, std::string>> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 auto node2dist = std::unordered_map<std::string, double>{};
-                 for (auto &kv : self.dists) {
-                     auto node = self.graph->__node_id(std::get<0>(kv.first));
-                     double dist = kv.second;
-                     auto itr = node2dist.find(node);
-                     if (itr == node2dist.end() || dist < itr->second) {
-                         node2dist[node] = dist;
-                     }
-                 }
-                 auto ret = std::vector<std::tuple<double, std::string>>{};
-                 ret.reserve(node2dist.size());
-                 for (auto &kv : node2dist) {
-                     ret.push_back(
-                         std::make_tuple(std::get<1>(kv), std::get<0>(kv)));
-                 }
-                 std::sort(ret.begin(), ret.end(),
-                           [](const auto &n1, const auto &n2) {
-                               return std::get<0>(n1) < std::get<0>(n2);
-                           });
-                 return ret;
-             })
-        .def("paths",
-             [](const ZigzagPathGenerator &self) -> std::vector<ZigzagPath> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 std::unordered_map<int64_t, ZigzagPath> node2path;
-                 for (auto &kv : self.prevs) {
-                     auto path = ZigzagPathGenerator::Path(
-                         kv.first, *self.source, self.graph, self.prevs,
-                         self.dists);
-                     if (!path) {
-                         continue;
-                     }
-                     auto dst = path->nodes.back();
-                     auto itr = node2path.find(dst);
-                     if (itr == node2path.end() ||
-                         path->dist < itr->second.dist) {
-                         node2path[dst] = std::move(*path);
-                     }
-                 }
-                 auto paths = std::vector<ZigzagPath>{};
-                 paths.reserve(node2path.size());
-                 for (auto &kv : node2path) {
-                     paths.push_back(kv.second);
-                 }
-                 std::sort(paths.begin(), paths.end(),
-                           [](const auto &p1, const auto &p2) {
-                               return p1.dist > p2.dist;
-                           });
-                 return paths;
-             })
-        .def("path",
-             [](const ZigzagPathGenerator &self,
-                const std::string &node) -> std::optional<ZigzagPath> {
-                 if (!self.ready()) {
-                     return {};
-                 }
-                 auto node_idx = self.graph->__node_id(node);
-                 if (!node_idx) {
-                     return {};
-                 }
-                 std::optional<ZigzagPath> path1;
-                 auto state1 = std::make_tuple(*node_idx, 1);
-                 if (self.prevs.count(state1)) {
-                     path1 = ZigzagPathGenerator::Path(state1, *self.source,
-                                                       self.graph, //
-                                                       self.prevs, self.dists);
-                 }
-                 auto state2 = std::make_tuple(*node_idx, -1);
-                 std::optional<ZigzagPath> path2;
-                 if (self.prevs.count(state2)) {
-                     path2 = ZigzagPathGenerator::Path(state2, *self.source,
-                                                       self.graph, //
-                                                       self.prevs, self.dists);
-                 }
-                 if (path1 && path2) {
-                     return path1->dist < path2->dist ? path1 : path2;
-                 }
-                 return path1 ? path1 : path2;
-             })
-        .def("to_dict",
-             [](const ZigzagPathGenerator &self) {
-                 py::dict ret;
-                 if (self.ready()) {
-                     ret["cutoff"] = self.cutoff;
-                     ret["source"] = self.graph->__node_id(*self.source);
-                     // TODO, prevs, dists
-                 }
-                 auto kv = py::cast(self).attr("__dict__");
-                 for (const py::handle &k : kv) {
-                     ret[k] = kv[k];
-                 }
-                 return ret;
-             })
+        .def(
+            "cutoff",
+            [](const ZigzagPathGenerator &self) { return self.cutoff; },
+            "Get the cutoff distance for the zigzag path")
+        .def(
+            "source",
+            [](const ZigzagPathGenerator &self) {
+                std::optional<std::string> source;
+                if (self.ready()) {
+                    source = self.graph->__node_id(*self.source);
+                }
+                return source;
+            },
+            "Get the source node for the zigzag path")
+        .def(
+            "prevs",
+            [](const ZigzagPathGenerator &self) {
+                using State = std::tuple<std::string, int>;
+                std::unordered_map<State, State> ret;
+                if (!self.ready()) {
+                    return ret;
+                }
+                for (auto &kv : self.prevs) {
+                    ret.emplace(std::make_tuple(self.graph->__node_id(
+                                                    std::get<0>(kv.first)),
+                                                std::get<1>(kv.first)),
+                                std::make_tuple(self.graph->__node_id(
+                                                    std::get<0>(kv.second)),
+                                                std::get<1>(kv.second)));
+                }
+                return ret;
+            },
+            "Get the previous nodes in the zigzag path")
+        .def(
+            "dists",
+            [](const ZigzagPathGenerator &self) {
+                using State = std::tuple<std::string, int>;
+                std::unordered_map<State, double> ret;
+                if (!self.ready()) {
+                    return ret;
+                }
+                for (auto &kv : self.dists) {
+                    ret.emplace(std::make_tuple(self.graph->__node_id(
+                                                    std::get<0>(kv.first)),
+                                                std::get<1>(kv.first)),
+                                ROUND(kv.second, self.graph->round_scale()));
+                }
+                return ret;
+            },
+            "Get the distances to each node in the zigzag path")
+        .def(
+            "destinations",
+            [](const ZigzagPathGenerator &self)
+                -> std::vector<std::tuple<double, std::string>> {
+                if (!self.ready()) {
+                    return {};
+                }
+                auto node2dist = std::unordered_map<std::string, double>{};
+                for (auto &kv : self.dists) {
+                    auto node = self.graph->__node_id(std::get<0>(kv.first));
+                    double dist = kv.second;
+                    auto itr = node2dist.find(node);
+                    if (itr == node2dist.end() || dist < itr->second) {
+                        node2dist[node] = dist;
+                    }
+                }
+                auto ret = std::vector<std::tuple<double, std::string>>{};
+                ret.reserve(node2dist.size());
+                for (auto &kv : node2dist) {
+                    ret.push_back(
+                        std::make_tuple(std::get<1>(kv), std::get<0>(kv)));
+                }
+                std::sort(ret.begin(), ret.end(),
+                          [](const auto &n1, const auto &n2) {
+                              return std::get<0>(n1) < std::get<0>(n2);
+                          });
+                return ret;
+            },
+            "Get the destinations and their distances in the zigzag path")
+        .def(
+            "paths",
+            [](const ZigzagPathGenerator &self) -> std::vector<ZigzagPath> {
+                if (!self.ready()) {
+                    return {};
+                }
+                std::unordered_map<int64_t, ZigzagPath> node2path;
+                for (auto &kv : self.prevs) {
+                    auto path = ZigzagPathGenerator::Path(
+                        kv.first, *self.source, self.graph, self.prevs,
+                        self.dists);
+                    if (!path) {
+                        continue;
+                    }
+                    auto dst = path->nodes.back();
+                    auto itr = node2path.find(dst);
+                    if (itr == node2path.end() ||
+                        path->dist < itr->second.dist) {
+                        node2path[dst] = std::move(*path);
+                    }
+                }
+                auto paths = std::vector<ZigzagPath>{};
+                paths.reserve(node2path.size());
+                for (auto &kv : node2path) {
+                    paths.push_back(kv.second);
+                }
+                std::sort(paths.begin(), paths.end(),
+                          [](const auto &p1, const auto &p2) {
+                              return p1.dist > p2.dist;
+                          });
+                return paths;
+            },
+            "Get all zigzag paths")
+        .def(
+            "path",
+            [](const ZigzagPathGenerator &self,
+               const std::string &node) -> std::optional<ZigzagPath> {
+                if (!self.ready()) {
+                    return {};
+                }
+                auto node_idx = self.graph->__node_id(node);
+                if (!node_idx) {
+                    return {};
+                }
+                std::optional<ZigzagPath> path1;
+                auto state1 = std::make_tuple(*node_idx, 1);
+                if (self.prevs.count(state1)) {
+                    path1 = ZigzagPathGenerator::Path(state1, *self.source,
+                                                      self.graph, //
+                                                      self.prevs, self.dists);
+                }
+                auto state2 = std::make_tuple(*node_idx, -1);
+                std::optional<ZigzagPath> path2;
+                if (self.prevs.count(state2)) {
+                    path2 = ZigzagPathGenerator::Path(state2, *self.source,
+                                                      self.graph, //
+                                                      self.prevs, self.dists);
+                }
+                if (path1 && path2) {
+                    return path1->dist < path2->dist ? path1 : path2;
+                }
+                return path1 ? path1 : path2;
+            },
+            "Get the zigzag path to a specific node", py::arg("node"))
+        .def(
+            "to_dict",
+            [](const ZigzagPathGenerator &self) {
+                py::dict ret;
+                if (self.ready()) {
+                    ret["cutoff"] = self.cutoff;
+                    ret["source"] = self.graph->__node_id(*self.source);
+                    // TODO, prevs, dists
+                }
+                auto kv = py::cast(self).attr("__dict__");
+                for (const py::handle &k : kv) {
+                    ret[k] = kv[k];
+                }
+                return ret;
+            },
+            "Convert the ZigzagPathGenerator object to a dictionary")
         //
         ;
 
@@ -3110,39 +3264,51 @@ PYBIND11_MODULE(_core, m)
                         py::dynamic_attr()) //
         .def(py::init<std::optional<int8_t>>(), "round_n"_a = 3)
         //
-        .def_property_readonly("round_n", &DiGraph::round_n)
-        .def_property_readonly("round_scale", &DiGraph::round_scale)
+        .def_property_readonly("round_n", &DiGraph::round_n,
+                               "Get the number of decimal places to round to")
+        .def_property_readonly("round_scale", &DiGraph::round_scale,
+                               "Get the scale factor for rounding")
         //
         .def("add_node", &DiGraph::add_node, "id"_a, py::kw_only(), "length"_a,
-             rvp::reference_internal)
+             rvp::reference_internal, "Add a node to the graph")
         .def("add_edge", &DiGraph::add_edge, "node0"_a, "node1"_a,
-             rvp::reference_internal)
+             rvp::reference_internal,
+             "Add an edge between two nodes in the graph")
         //
-        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next)
-        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev)
+        .def_property_readonly("sibs_under_next", &DiGraph::sibs_under_next,
+                               "Get siblings under the next node")
+        .def_property_readonly("sibs_under_prev", &DiGraph::sibs_under_prev,
+                               "Get siblings under the previous node")
         .def_property_readonly("nodes", &DiGraph::nodes,
-                               rvp::reference_internal)
+                               rvp::reference_internal,
+                               "Get all nodes in the graph")
         .def_property_readonly("edges", &DiGraph::edges,
-                               rvp::reference_internal)
+                               rvp::reference_internal,
+                               "Get all edges in the graph")
         //
-        .def_property_readonly("indexer",
-                               py::overload_cast<>(&DiGraph::indexer),
-                               rvp::reference_internal)
+        .def_property_readonly(
+            "indexer", py::overload_cast<>(&DiGraph::indexer),
+            rvp::reference_internal, "Get the indexer for the graph")
         //
-        .def("predecessors", &DiGraph::predecessors, "id"_a)
-        .def("successors", &DiGraph::successors, "id"_a)
+        .def("predecessors", &DiGraph::predecessors, "id"_a,
+             "Get predecessors of a node")
+        .def("successors", &DiGraph::successors, "id"_a,
+             "Get successors of a node")
         //
-        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a)
-        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a)
-        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a)
+        .def("encode_sinks", &DiGraph::encode_sinks, "sinks"_a,
+             "Encode sink nodes")
+        .def("encode_bindings", &DiGraph::encode_bindings, "bindings"_a,
+             "Encode bindings")
+        .def("encode_sequences", &DiGraph::encode_sequences, "sequences"_a,
+             "Encode sequences")
         .def("encode_endpoints", &DiGraph::encode_endpoints, "endpoints"_a,
-             py::kw_only(), "is_wgs84"_a = true)
+             py::kw_only(), "is_wgs84"_a = true, "Encode endpoints")
         .def("encode_ubodt", &DiGraph::encode_ubodt, //
              "source_road"_a,                        //
              "target_road"_a,                        //
              "source_next"_a,                        //
              "target_prev"_a,                        //
-             "cost"_a)
+             "cost"_a, "Encode UBODT (Upper Bounded Origin Destination Table)")
         // shortest paths
         .def(
             "shortest_path",
@@ -3167,7 +3333,8 @@ PYBIND11_MODULE(_core, m)
             "target_offset"_a = std::nullopt, //
             "sinks"_a = nullptr,              //
             "endpoints"_a = nullptr,          //
-            py::call_guard<py::gil_scoped_release>())
+            py::call_guard<py::gil_scoped_release>(),
+            "Find the shortest path between two nodes")
         .def(
             "shortest_paths_from",
             [](const DiGraph &self, const std::string &source, //
@@ -3181,7 +3348,8 @@ PYBIND11_MODULE(_core, m)
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
             "sinks"_a = nullptr,       //
-            py::call_guard<py::gil_scoped_release>())
+            py::call_guard<py::gil_scoped_release>(),
+            "Find shortest paths from a source node to all reachable nodes")
         .def(
             "shortest_paths_to",
             [](const DiGraph &self, const std::string &target, //
@@ -3193,7 +3361,8 @@ PYBIND11_MODULE(_core, m)
             py::kw_only(),             //
             "cutoff"_a,                //
             "offset"_a = std::nullopt, //
-            "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>())
+            "sinks"_a = nullptr, py::call_guard<py::gil_scoped_release>(),
+            "Find shortest paths to a target node from all reachable nodes")
         // zigzag path
         .def(
             "shortest_zigzag_path",
@@ -3209,7 +3378,8 @@ PYBIND11_MODULE(_core, m)
             "target"_a,    //
             py::kw_only(), //
             "cutoff"_a,    //
-            "direction"_a = 0)
+            "direction"_a = 0,
+            "Find the shortest zigzag path between two nodes")
         .def(
             "shortest_zigzag_path",
             [](const DiGraph &self,       //
@@ -3224,7 +3394,8 @@ PYBIND11_MODULE(_core, m)
             "source"_a,    //
             py::kw_only(), //
             "cutoff"_a,    //
-            "direction"_a = 0)
+            "direction"_a = 0,
+            "Find the shortest zigzag paths from a source node")
         // all paths
         .def("all_paths_from", &DiGraph::all_paths_from, //
              "source"_a,                                 //
@@ -3232,14 +3403,16 @@ PYBIND11_MODULE(_core, m)
              "cutoff"_a,                                 //
              "offset"_a = std::nullopt,                  //
              "sinks"_a = nullptr,                        //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths from a source node")
         .def("all_paths_to", &DiGraph::all_paths_to, //
              "target"_a,                             //
              py::kw_only(),                          //
              "cutoff"_a,                             //
              "offset"_a = std::nullopt,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths to a target node")
         .def("all_paths", &DiGraph::all_paths,
              "source"_a,                       //
              "target"_a,                       //
@@ -3248,7 +3421,8 @@ PYBIND11_MODULE(_core, m)
              "source_offset"_a = std::nullopt, //
              "target_offset"_a = std::nullopt, //
              "sinks"_a = nullptr,              //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths between two nodes")
         // shortest path to bindings
         .def("shortest_path_to_bindings", &DiGraph::shortest_path_to_bindings,
              "source"_a,                //
@@ -3258,7 +3432,8 @@ PYBIND11_MODULE(_core, m)
              "offset"_a = std::nullopt, //
              "direction"_a = 0,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find the shortest path to bindings")
         .def("distance_to_bindings", &DiGraph::distance_to_bindings,
              "source"_a,                //
              py::kw_only(),             //
@@ -3267,7 +3442,8 @@ PYBIND11_MODULE(_core, m)
              "offset"_a = std::nullopt, //
              "direction"_a = 0,
              "sinks"_a = nullptr, //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Calculate distances to bindings")
         // all paths to bindings
         .def("all_paths_to_bindings", &DiGraph::all_paths_to_bindings,
              "source"_a,                //
@@ -3278,71 +3454,87 @@ PYBIND11_MODULE(_core, m)
              "direction"_a = 0,         //
              "sinks"_a = nullptr,       //
              "with_endings"_a = false,  //
-             py::call_guard<py::gil_scoped_release>())
+             py::call_guard<py::gil_scoped_release>(),
+             "Find all paths to bindings")
         .def("build_ubodt",
              py::overload_cast<double, int, int>(&DiGraph::build_ubodt,
                                                  py::const_),
              "thresh"_a, py::kw_only(), //
              "pool_size"_a = 1,         //
-             "nodes_thresh"_a = 100)
+             "nodes_thresh"_a = 100,
+             "Build UBODT (Upper Bounded Origin Destination Table)")
         .def("build_ubodt",
              py::overload_cast<int64_t, double>(&DiGraph::build_ubodt,
                                                 py::const_),
-             "source"_a, "thresh"_a)
+             "source"_a, "thresh"_a,
+             "Build UBODT (Upper Bounded Origin Destination Table) from a "
+             "specific source")
         //
         ;
 
     py::class_<ShortestPathWithUbodt>(m, "ShortestPathWithUbodt",
                                       py::module_local(),
                                       py::dynamic_attr()) //
-        .def(py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
-             "graph"_a, "ubodt"_a)
+        .def(
+            py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
+            "graph"_a, "ubodt"_a,
+            "Initialize ShortestPathWithUbodt with a DiGraph and UBODT records")
         .def(py::init<const DiGraph *, double, int, int>(), //
              "graph"_a, "thresh"_a, py::kw_only(),          //
              "pool_size"_a = 1,                             //
-             "nodes_thresh"_a = 100)
+             "nodes_thresh"_a = 100,
+             "Initialize ShortestPathWithUbodt with a DiGraph and build UBODT")
         .def(py::init<const DiGraph *, const std::string &>(), //
-             "graph"_a, "path"_a)
+             "graph"_a, "path"_a,
+             "Initialize ShortestPathWithUbodt with a DiGraph and UBODT file "
+             "path")
         //
         .def(
             "load_ubodt",
             [](ShortestPathWithUbodt &self, const std::string &path) {
                 return self.load_ubodt(path);
             },
-            "path"_a)
+            "path"_a, "Load UBODT from a file path")
         .def(
             "load_ubodt",
             [](ShortestPathWithUbodt &self,
                const std::vector<UbodtRecord> &rows) {
                 return self.load_ubodt(rows);
             },
-            "rows"_a)
+            "rows"_a, "Load UBODT from a vector of UbodtRecord")
         .def(
             "dump_ubodt",
-            [](const ShortestPathWithUbodt &self) { return self.dump_ubodt(); })
-        .def("dump_ubodt",
-             [](const ShortestPathWithUbodt &self, const std::string &path) {
-                 return self.dump_ubodt(path);
-             })
-        .def("size", &ShortestPathWithUbodt::size)
+            [](const ShortestPathWithUbodt &self) { return self.dump_ubodt(); },
+            "Dump UBODT to a vector of UbodtRecord")
+        .def(
+            "dump_ubodt",
+            [](const ShortestPathWithUbodt &self, const std::string &path) {
+                return self.dump_ubodt(path);
+            },
+            "path"_a, "Dump UBODT to a file")
+        .def("size", &ShortestPathWithUbodt::size, "Get the size of the UBODT")
         //
         .def_static("Load_Ubodt", &ShortestPathWithUbodt::Load_Ubodt, //
-                    "path"_a)
+                    "path"_a, "Load UBODT from a file path (static method)")
         .def_static("Dump_Ubodt", &ShortestPathWithUbodt::Dump_Ubodt, //
-                    "ubodt"_a, "path"_a)
+                    "ubodt"_a, "path"_a, "Dump UBODT to a file (static method)")
         //
         .def("by_source", &ShortestPathWithUbodt::by_source, //
-             "source"_a, "cutoff"_a = std::nullopt)
+             "source"_a, "cutoff"_a = std::nullopt,
+             "Get paths from a source node")
         .def("by_target", &ShortestPathWithUbodt::by_target, //
-             "target"_a, "cutoff"_a = std::nullopt)
+             "target"_a, "cutoff"_a = std::nullopt,
+             "Get paths to a target node")
         .def("path",
              py::overload_cast<const std::string &, const std::string &>(
                  &ShortestPathWithUbodt::path, py::const_),
-             "source"_a, "target"_a)
+             "source"_a, "target"_a,
+             "Get the shortest path between source and target nodes")
         .def("dist",
              py::overload_cast<const std::string &, const std::string &>(
                  &ShortestPathWithUbodt::dist, py::const_),
-             "source"_a, "target"_a)
+             "source"_a, "target"_a,
+             "Get the distance between source and target nodes")
         //
         ;
 

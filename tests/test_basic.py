@@ -32,7 +32,7 @@ def calculate_md5(filename, block_size=4096):
 
 
 def test_version():
-    assert m.__version__ == "0.2.4"
+    assert m.__version__ == "0.2.5"
 
 
 def test_add():
@@ -324,6 +324,24 @@ def test_digraph_shortest_paths():
         "start": ("w3", 10.0),
         "end": ("w4", 20.0),
     }
+
+    subpath = path.slice(5, 25)
+    assert subpath.to_dict() == {
+        "dist": 20.0,
+        "nodes": ["w3", "w4"],
+        "start": ("w3", 5.0),
+        "end": ("w4", 15.0),
+    }
+    assert subpath.offsets() == [-5.0, 5.0]
+    w3 = G.nodes["w3"]
+    assert w3.length == 10.0
+    w4 = G.nodes["w4"]
+    assert w4.length == 20.0
+    assert subpath.locate(("w3", 10.0)) == 5.0
+    assert subpath.locate(("w4", 10.0)) == 15.0
+    assert subpath.locate(("w3", 4.98)) is None
+    assert subpath.locate(("w3", 4.99)) == 0.0
+    assert subpath.locate(("w4", 30.0)) is None
 
     assert path.slice(-1, 0).to_dict() == {
         "dist": 0.0,
