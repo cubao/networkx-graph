@@ -711,4 +711,4 @@ def subtract(arg0: int, arg1: int) -> int:
     Some other explanation about the subtract function.
     """
 
-__version__: str = "0.2.4"
+__version__: str = "0.2.5"
