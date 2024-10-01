@@ -3404,6 +3404,72 @@ PYBIND11_MODULE(_core, m)
         //
         ;
 
+    py::class_<ShortestPathWithUbodt>(m, "ShortestPathWithUbodt",
+                                      py::module_local(),
+                                      py::dynamic_attr()) //
+        .def(
+            py::init<const DiGraph *, const std::vector<UbodtRecord> &>(),
+            "graph"_a, "ubodt"_a,
+            "Initialize ShortestPathWithUbodt with a DiGraph and UBODT records")
+        .def(py::init<const DiGraph *, double, int, int>(), //
+             "graph"_a, "thresh"_a, py::kw_only(),          //
+             "pool_size"_a = 1,                             //
+             "nodes_thresh"_a = 100,
+             "Initialize ShortestPathWithUbodt with a DiGraph and build UBODT")
+        .def(py::init<const DiGraph *, const std::string &>(), //
+             "graph"_a, "path"_a,
+             "Initialize ShortestPathWithUbodt with a DiGraph and UBODT file "
+             "path")
+        //
+        .def(
+            "load_ubodt",
+            [](ShortestPathWithUbodt &self, const std::string &path) {
+                return self.load_ubodt(path);
+            },
+            "path"_a, "Load UBODT from a file path")
+        .def(
+            "load_ubodt",
+            [](ShortestPathWithUbodt &self,
+               const std::vector<UbodtRecord> &rows) {
+                return self.load_ubodt(rows);
+            },
+            "rows"_a, "Load UBODT from a vector of UbodtRecord")
+        .def(
+            "dump_ubodt",
+            [](const ShortestPathWithUbodt &self) { return self.dump_ubodt(); },
+            "Dump UBODT to a vector of UbodtRecord")
+        .def(
+            "dump_ubodt",
+            [](const ShortestPathWithUbodt &self, const std::string &path) {
+                return self.dump_ubodt(path);
+            },
+            "path"_a, "Dump UBODT to a file")
+        .def("size", &ShortestPathWithUbodt::size, "Get the size of the UBODT")
+        //
+        .def_static("Load_Ubodt", &ShortestPathWithUbodt::Load_Ubodt, //
+                    "path"_a, "Load UBODT from a file path (static method)")
+        .def_static("Dump_Ubodt", &ShortestPathWithUbodt::Dump_Ubodt, //
+                    "ubodt"_a, "path"_a, "Dump UBODT to a file (static method)")
+        //
+        .def("by_source", &ShortestPathWithUbodt::by_source, //
+             "source"_a, "cutoff"_a = std::nullopt,
+             "Get paths from a source node")
+        .def("by_target", &ShortestPathWithUbodt::by_target, //
+             "target"_a, "cutoff"_a = std::nullopt,
+             "Get paths to a target node")
+        .def("path",
+             py::overload_cast<const std::string &, const std::string &>(
+                 &ShortestPathWithUbodt::path, py::const_),
+             "source"_a, "target"_a,
+             "Get the shortest path between source and target nodes")
+        .def("dist",
+             py::overload_cast<const std::string &, const std::string &>(
+                 &ShortestPathWithUbodt::dist, py::const_),
+             "source"_a, "target"_a,
+             "Get the distance between source and target nodes")
+        //
+        ;
+
 #ifdef VERSION_INFO
     m.attr("__version__") = MACRO_STRINGIFY(VERSION_INFO);
 #else
