@@ -2575,7 +2575,7 @@ PYBIND11_MODULE(_core, m)
                 }
                 std::vector<double> ret;
                 ret.reserve(self.nodes.size());
-                ret.push_back(0.0);
+                ret.push_back(-*self.start_offset);
                 double acc =
                     self.graph->length(self.nodes.front()) - *self.start_offset;
                 for (size_t i = 1; i < self.nodes.size(); ++i) {
@@ -2608,7 +2608,7 @@ PYBIND11_MODULE(_core, m)
                     if (off < left - eps || off > right + eps) {
                         return {};
                     }
-                    off = CLIP(0.0, off, right);
+                    off = CLIP(left, off, right);
                     return off - left;
                 } else {
                     acc += self.graph->length(self.nodes.front()) -
