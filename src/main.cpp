@@ -2568,14 +2568,38 @@ PYBIND11_MODULE(_core, m)
             "sequences"_a, "quick_return"_a = true,
             "Search for sequences within the Path")
         .def(
+            "offsets",
+            [](const Path &self) -> std::vector<double> {
+                if (!self.start_offset || !self.end_offset) {
+                    throw std::logic_error("path has no start/end offset");
+                }
+                std::vector<double> ret;
+                ret.reserve(self.nodes.size());
+                ret.push_back(0.0);
+                double acc =
+                    self.lengths_.at(self.nodes.front()) - *self.start_offset;
+                for (size_t i = 1; i < self.nodes.size(); ++i) {
+                    ret.push_back(acc);
+                    auto cur = self.nodes.at(i);
+                    auto len = self.lengths_.at(cur);
+                    acc += len;
+                }
+                return ret;
+            },
+            "Get offsets of each node in the Path")
+        .def(
             "locate",
             [](const Path &self, const std::tuple<std::string, double> &ref,
                double eps) -> std::optional<double> {
                 if (!self.start_offset || !self.end_offset) {
-                    throw std::logic_error("you must call `path.locate` on path with start/end offset");
+                    throw std::logic_error("you must call `path.locate` on "
+                                           "path with start/end offset");
                 }
-                auto nid = std::get<0>(ref);
-
+                auto node_id = self.__node_id(std::get<0>(ref));
+                if (!node_id) {
+                    return {};
+                }
+                auto nid = *node_id;
                 auto off = std::get<1>(ref);
                 double acc = 0.0;
                 if (self.nodes.front() == nid) {
@@ -2587,7 +2611,8 @@ PYBIND11_MODULE(_core, m)
                     off = CLIP(0.0, off, right);
                     return off - left;
                 } else {
-                    acc += self.lengths_.at(self.nodes.front()) - *self.start_offset;
+                    acc += self.lengths_.at(self.nodes.front()) -
+                           *self.start_offset;
                 }
                 for (size_t i = 1; i < self.nodes.size(); ++i) {
                     auto cur = self.nodes.at(i);
@@ -2596,13 +2621,17 @@ PYBIND11_MODULE(_core, m)
                         acc += len;
                         continue;
                     }
+                    if (off < -eps || off > len + eps) {
+                        return {};
+                    }
                     off = CLIP(0.0, off, len);
                     return acc + off;
                 }
                 return {};
             },
             "ref"_a, "eps"_a = 1e-2,
-            "Locate ref:=(node_id, offset) in the Path")
+            "Locate ref:=(node_id, offset) in the Path, return offset along "
+            "path")
         .def(
             "along",
             [](const Path &self,
