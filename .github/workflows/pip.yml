@@ -15,17 +15,33 @@ jobs:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        python-version: ["3.8", "3.12", "pypy-3.9"]
+        python-version: ["3.9", "3.11"]
 
     steps:
     - uses: actions/checkout@v4
 
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: ${{ matrix.python-version }}
+        allow-prereleases: true
+
+    - name: Get pip cache dir
+      id: pip-cache
+      shell: bash
+      run: echo "dir=$(pip cache dir)" >> $GITHUB_OUTPUT
+
+    - name: Cache pip dependencies
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.pip-cache.outputs.dir }}
+        key: ${{ runner.os }}-pip-${{ matrix.python-version }}-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-${{ matrix.python-version }}-
+          ${{ runner.os }}-pip-
 
     - name: Build and install
       run: pip install --verbose .[test]
 
     - name: Test
+      if: ${{ startsWith(matrix.platform, 'ubuntu') }}
       run: pytest

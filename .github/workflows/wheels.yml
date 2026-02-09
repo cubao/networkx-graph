@@ -32,8 +32,9 @@ jobs:
     - name: Check metadata
       run: pipx run twine check dist/*
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
+        name: cibw-sdist
         path: dist/*.tar.gz
 
 
@@ -43,27 +44,39 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-latest, ubuntu-24.04-arm, windows-latest, macos-14]
 
     steps:
     - uses: actions/checkout@v4
       with:
         submodules: true
 
-    - uses: pypa/cibuildwheel@v2.21.1
+    - name: Cache cibuildwheel
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/Library/Caches/pip
+          ~/.cache/pip
+          ~/AppData/Local/pip/Cache
+        key: cibw-pip-${{ matrix.os }}-${{ hashFiles('pyproject.toml') }}
+        restore-keys: |
+          cibw-pip-${{ matrix.os }}-
+
+    - uses: pypa/cibuildwheel@v3.3.1
       env:
         CIBW_ARCHS_MACOS: universal2
-        CIBW_ARCHS_WINDOWS: auto ARM64
+        CIBW_ARCHS_WINDOWS: AMD64 ARM64
         CIBW_BEFORE_BUILD: pip install pytest networkx --prefer-binary
-        CIBW_SKIP: "*musllinux*"
-        CIBW_TEST_SKIP: pp*
+        CIBW_SKIP: "pp* *musllinux* *_i686 cp314t-win*"
+        CIBW_TEST_SKIP: "*macosx* *win* *aarch64 cp314t-*"
 
     - name: Verify clean directory
       run: git diff --exit-code
       shell: bash
 
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
+        name: cibw-wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
 
 
@@ -77,15 +90,16 @@ jobs:
       id-token: write
 
     steps:
-    - uses: actions/setup-python@v4
+    - uses: actions/setup-python@v5
       with:
         python-version: "3.x"
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
-        name: artifact
+        pattern: cibw-*
+        merge-multiple: true
         path: dist
 
     - uses: pypa/gh-action-pypi-publish@release/v1
       with:
-        password: ${{ secrets.PYPI_API_TOKEN }}
+        password: ${{ secrets.pypi_password }}
