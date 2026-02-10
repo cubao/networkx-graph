@@ -18,7 +18,7 @@ import typing
 
 import pybind11_stubgen.typing_ext
 
-__all__ = [
+__all__: list[str] = [
     "Bindings",
     "DiGraph",
     "Edge",
@@ -711,4 +711,4 @@ def subtract(arg0: int, arg1: int) -> int:
     Some other explanation about the subtract function.
     """
 
-__version__: str = "0.2.5"
+__version__: str = "0.2.6"

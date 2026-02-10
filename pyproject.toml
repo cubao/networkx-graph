@@ -5,8 +5,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "networkx_graph"
-version = "0.2.5"
-url = "https://github.com/cubao/networkx-graph"
+version = "0.2.6"
 description = "Some customized graph algorithms"
 readme = "README.md"
 authors = [
@@ -23,7 +22,12 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
+
+[project.urls]
+Homepage = "https://github.com/cubao/networkx-graph"
 
 [project.optional-dependencies]
 test = ["pytest"]
