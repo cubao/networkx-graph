@@ -17,8 +17,6 @@ from ._core import (
     ZigzagPathGenerator,
     __doc__,
     __version__,
-    add,
-    subtract,
 )
 from ._core import DiGraph as DiGraphImpl
 
@@ -46,8 +44,6 @@ class DiGraph(DiGraphImpl):
 __all__ = [
     "__doc__",
     "__version__",
-    "add",
-    "subtract",
     "Node",
     "Edge",
     "Path",
