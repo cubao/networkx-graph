@@ -8,9 +8,6 @@
         .. autosummary::
            :toctree: _generate
 
-           add
-           subtract
-
 """
 from __future__ import annotations
 
@@ -33,8 +30,6 @@ __all__: list[str] = [
     "UbodtRecord",
     "ZigzagPath",
     "ZigzagPathGenerator",
-    "add",
-    "subtract",
 ]
 
 class Bindings:
@@ -697,18 +692,4 @@ class ZigzagPathGenerator:
         Convert the ZigzagPathGenerator object to a dictionary
         """
 
-def add(arg0: int, arg1: int) -> int:
-    """
-    Add two numbers
-
-    Some other explanation about the add function.
-    """
-
-def subtract(arg0: int, arg1: int) -> int:
-    """
-    Subtract two numbers
-
-    Some other explanation about the subtract function.
-    """
-
-__version__: str = "0.2.6"
+__version__: str = "0.2.7"
