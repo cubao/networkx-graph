@@ -7,12 +7,31 @@
 
         .. autosummary::
            :toctree: _generate
-    
+
 """
 from __future__ import annotations
-import pybind11_stubgen.typing_ext
+
 import typing
-__all__: list[str] = ['Bindings', 'DiGraph', 'Edge', 'Endpoints', 'Indexer', 'Node', 'Path', 'Sequences', 'ShortestPathGenerator', 'ShortestPathWithUbodt', 'Sinks', 'UbodtRecord', 'ZigzagPath', 'ZigzagPathGenerator']
+
+import pybind11_stubgen.typing_ext
+
+__all__: list[str] = [
+    "Bindings",
+    "DiGraph",
+    "Edge",
+    "Endpoints",
+    "Indexer",
+    "Node",
+    "Path",
+    "Sequences",
+    "ShortestPathGenerator",
+    "ShortestPathWithUbodt",
+    "Sinks",
+    "UbodtRecord",
+    "ZigzagPath",
+    "ZigzagPathGenerator",
+]
+
 class Bindings:
     def __call__(self) -> dict[str, list[tuple[float, float, typing.Any]]]:
         """
@@ -23,9 +42,9 @@ class Bindings:
         """
         Get the DiGraph object associated with this Bindings object
         """
+
 class DiGraph:
-    def __init__(self, round_n: int | None = 3) -> None:
-        ...
+    def __init__(self, round_n: int | None = 3) -> None: ...
     def add_edge(self, node0: str, node1: str) -> Edge:
         """
         Add an edge between two nodes in the graph
@@ -34,24 +53,59 @@ class DiGraph:
         """
         Add a node to the graph
         """
-    def all_paths(self, source: str, target: str, *, cutoff: float, source_offset: float | None = None, target_offset: float | None = None, sinks: Sinks = None) -> list[Path]:
+    def all_paths(
+        self,
+        source: str,
+        target: str,
+        *,
+        cutoff: float,
+        source_offset: float | None = None,
+        target_offset: float | None = None,
+        sinks: Sinks = None,
+    ) -> list[Path]:
         """
         Find all paths between two nodes
         """
-    def all_paths_from(self, source: str, *, cutoff: float, offset: float | None = None, sinks: Sinks = None) -> list[Path]:
+    def all_paths_from(
+        self,
+        source: str,
+        *,
+        cutoff: float,
+        offset: float | None = None,
+        sinks: Sinks = None,
+    ) -> list[Path]:
         """
         Find all paths from a source node
         """
-    def all_paths_to(self, target: str, *, cutoff: float, offset: float | None = None, sinks: Sinks = None) -> list[Path]:
+    def all_paths_to(
+        self,
+        target: str,
+        *,
+        cutoff: float,
+        offset: float | None = None,
+        sinks: Sinks = None,
+    ) -> list[Path]:
         """
         Find all paths to a target node
         """
-    def all_paths_to_bindings(self, source: str, *, cutoff: float, bindings: Bindings, offset: float | None = None, direction: int = 0, sinks: Sinks = None, with_endings: bool = False) -> tuple[list[Path], list[Path]]:
+    def all_paths_to_bindings(
+        self,
+        source: str,
+        *,
+        cutoff: float,
+        bindings: Bindings,
+        offset: float | None = None,
+        direction: int = 0,
+        sinks: Sinks = None,
+        with_endings: bool = False,
+    ) -> tuple[list[Path], list[Path]]:
         """
         Find all paths to bindings
         """
     @typing.overload
-    def build_ubodt(self, thresh: float, *, pool_size: int = 1, nodes_thresh: int = 100) -> list[UbodtRecord]:
+    def build_ubodt(
+        self, thresh: float, *, pool_size: int = 1, nodes_thresh: int = 100
+    ) -> list[UbodtRecord]:
         """
         Build UBODT (Upper Bounded Origin Destination Table)
         """
@@ -60,15 +114,37 @@ class DiGraph:
         """
         Build UBODT (Upper Bounded Origin Destination Table) from a specific source
         """
-    def distance_to_bindings(self, source: str, *, cutoff: float, bindings: Bindings, offset: float | None = None, direction: int = 0, sinks: Sinks = None) -> tuple[float | None, float | None]:
+    def distance_to_bindings(
+        self,
+        source: str,
+        *,
+        cutoff: float,
+        bindings: Bindings,
+        offset: float | None = None,
+        direction: int = 0,
+        sinks: Sinks = None,
+    ) -> tuple[float | None, float | None]:
         """
         Calculate distances to bindings
         """
-    def encode_bindings(self, bindings: dict[str, list[tuple[float, float, typing.Any]]]) -> Bindings:
+    def encode_bindings(
+        self, bindings: dict[str, list[tuple[float, float, typing.Any]]]
+    ) -> Bindings:
         """
         Encode bindings
         """
-    def encode_endpoints(self, endpoints: dict[str, tuple[typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)], typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)]]], *, is_wgs84: bool = True) -> Endpoints:
+    def encode_endpoints(
+        self,
+        endpoints: dict[
+            str,
+            tuple[
+                typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)],
+                typing.Annotated[list[float], pybind11_stubgen.typing_ext.FixedSize(3)],
+            ],
+        ],
+        *,
+        is_wgs84: bool = True,
+    ) -> Endpoints:
         """
         Encode endpoints
         """
@@ -80,7 +156,14 @@ class DiGraph:
         """
         Encode sink nodes
         """
-    def encode_ubodt(self, source_road: str, target_road: str, source_next: str, target_prev: str, cost: float) -> UbodtRecord | None:
+    def encode_ubodt(
+        self,
+        source_road: str,
+        target_road: str,
+        source_next: str,
+        target_prev: str,
+        cost: float,
+    ) -> UbodtRecord | None:
         """
         Encode UBODT (Upper Bounded Origin Destination Table)
         """
@@ -88,29 +171,66 @@ class DiGraph:
         """
         Get predecessors of a node
         """
-    def shortest_path(self, source: str, target: str, *, cutoff: float, source_offset: float | None = None, target_offset: float | None = None, sinks: Sinks = None, endpoints: Endpoints = None) -> Path | None:
+    def shortest_path(
+        self,
+        source: str,
+        target: str,
+        *,
+        cutoff: float,
+        source_offset: float | None = None,
+        target_offset: float | None = None,
+        sinks: Sinks = None,
+        endpoints: Endpoints = None,
+    ) -> Path | None:
         """
         Find the shortest path between two nodes
         """
-    def shortest_path_to_bindings(self, source: str, *, cutoff: float, bindings: Bindings, offset: float | None = None, direction: int = 0, sinks: Sinks = None) -> tuple[Path | None, Path | None]:
+    def shortest_path_to_bindings(
+        self,
+        source: str,
+        *,
+        cutoff: float,
+        bindings: Bindings,
+        offset: float | None = None,
+        direction: int = 0,
+        sinks: Sinks = None,
+    ) -> tuple[Path | None, Path | None]:
         """
         Find the shortest path to bindings
         """
-    def shortest_paths_from(self, source: str, *, cutoff: float, offset: float | None = None, sinks: Sinks = None) -> ShortestPathGenerator:
+    def shortest_paths_from(
+        self,
+        source: str,
+        *,
+        cutoff: float,
+        offset: float | None = None,
+        sinks: Sinks = None,
+    ) -> ShortestPathGenerator:
         """
         Find shortest paths from a source node to all reachable nodes
         """
-    def shortest_paths_to(self, target: str, *, cutoff: float, offset: float | None = None, sinks: Sinks = None) -> ShortestPathGenerator:
+    def shortest_paths_to(
+        self,
+        target: str,
+        *,
+        cutoff: float,
+        offset: float | None = None,
+        sinks: Sinks = None,
+    ) -> ShortestPathGenerator:
         """
         Find shortest paths to a target node from all reachable nodes
         """
     @typing.overload
-    def shortest_zigzag_path(self, source: str, target: str, *, cutoff: float, direction: int = 0) -> ZigzagPath | None:
+    def shortest_zigzag_path(
+        self, source: str, target: str, *, cutoff: float, direction: int = 0
+    ) -> ZigzagPath | None:
         """
         Find the shortest zigzag path between two nodes
         """
     @typing.overload
-    def shortest_zigzag_path(self, source: str, *, cutoff: float, direction: int = 0) -> ZigzagPathGenerator:
+    def shortest_zigzag_path(
+        self, source: str, *, cutoff: float, direction: int = 0
+    ) -> ZigzagPathGenerator:
         """
         Find the shortest zigzag paths from a source node
         """
@@ -153,13 +273,13 @@ class DiGraph:
         """
         Get siblings under the previous node
         """
+
 class Edge:
     def __getitem__(self, attr_name: str) -> typing.Any:
         """
         Get an attribute of the Edge by name
         """
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
     def __setitem__(self, arg0: str, arg1: typing.Any) -> typing.Any:
         """
         Set an attribute of the Edge by name
@@ -168,6 +288,7 @@ class Edge:
         """
         Convert the Edge to a dictionary
         """
+
 class Endpoints:
     @property
     def graph(self) -> ...:
@@ -179,13 +300,12 @@ class Endpoints:
         """
         Check if the coordinates are in WGS84 format
         """
+
 class Indexer:
     @typing.overload
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
     @typing.overload
-    def __init__(self, index: dict[str, int]) -> None:
-        ...
+    def __init__(self, index: dict[str, int]) -> None: ...
     @typing.overload
     def contains(self, id: int) -> bool:
         """
@@ -231,13 +351,13 @@ class Indexer:
         """
         Get the current index mapping
         """
+
 class Node:
     def __getitem__(self, attr_name: str) -> typing.Any:
         """
         Get an attribute of the Node by name
         """
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
     def __setitem__(self, arg0: str, arg1: typing.Any) -> typing.Any:
         """
         Set an attribute of the Node by name
@@ -251,9 +371,17 @@ class Node:
         """
         Get the length of the node
         """
+
 class Path:
     @staticmethod
-    def Build(graph: ..., nodes: list[str], *, start_offset: float | None = None, end_offset: float | None = None, binding: tuple[str, tuple[float, float, typing.Any]] | None = None) -> Path:
+    def Build(
+        graph: ...,
+        nodes: list[str],
+        *,
+        start_offset: float | None = None,
+        end_offset: float | None = None,
+        binding: tuple[str, tuple[float, float, typing.Any]] | None = None,
+    ) -> Path:
         """
         Build a Path object from a list of nodes and optional parameters
         """
@@ -277,7 +405,9 @@ class Path:
         """
         Get offsets of each node in the Path
         """
-    def search_for_seqs(self, sequences: ..., quick_return: bool = True) -> dict[int, list[Path]]:
+    def search_for_seqs(
+        self, sequences: ..., quick_return: bool = True
+    ) -> dict[int, list[Path]]:
         """
         Search for sequences within the Path
         """
@@ -324,15 +454,16 @@ class Path:
         """
         Get the start node and offset of the Path
         """
+
 class Sequences:
     @property
     def graph(self) -> ...:
         """
         Get the DiGraph object associated with this Sequences object
         """
+
 class ShortestPathGenerator:
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
     def cutoff(self) -> float:
         """
         Get the cutoff distance for the shortest path
@@ -369,6 +500,7 @@ class ShortestPathGenerator:
         """
         Convert the ShortestPathGenerator object to a dictionary
         """
+
 class ShortestPathWithUbodt:
     @staticmethod
     def Dump_Ubodt(ubodt: list[UbodtRecord], path: str) -> bool:
@@ -386,7 +518,14 @@ class ShortestPathWithUbodt:
         Initialize ShortestPathWithUbodt with a DiGraph and UBODT records
         """
     @typing.overload
-    def __init__(self, graph: DiGraph, thresh: float, *, pool_size: int = 1, nodes_thresh: int = 100) -> None:
+    def __init__(
+        self,
+        graph: DiGraph,
+        thresh: float,
+        *,
+        pool_size: int = 1,
+        nodes_thresh: int = 100,
+    ) -> None:
         """
         Initialize ShortestPathWithUbodt with a DiGraph and build UBODT
         """
@@ -395,11 +534,15 @@ class ShortestPathWithUbodt:
         """
         Initialize ShortestPathWithUbodt with a DiGraph and UBODT file path
         """
-    def by_source(self, source: str, cutoff: float | None = None) -> list[tuple[float, str]]:
+    def by_source(
+        self, source: str, cutoff: float | None = None
+    ) -> list[tuple[float, str]]:
         """
         Get paths from a source node
         """
-    def by_target(self, target: str, cutoff: float | None = None) -> list[tuple[float, str]]:
+    def by_target(
+        self, target: str, cutoff: float | None = None
+    ) -> list[tuple[float, str]]:
         """
         Get paths to a target node
         """
@@ -435,6 +578,7 @@ class ShortestPathWithUbodt:
         """
         Get the size of the UBODT
         """
+
 class Sinks:
     def __call__(self) -> set[str]:
         """
@@ -445,16 +589,22 @@ class Sinks:
         """
         Get the DiGraph object associated with this Sinks object
         """
+
 class UbodtRecord:
     __hash__: typing.ClassVar[None] = None
-    def __eq__(self, arg0: UbodtRecord) -> bool:
-        ...
-    def __init__(self, source_road: int, target_road: int, source_next: int, target_prev: int, cost: float) -> None:
+    def __eq__(self, arg0: UbodtRecord) -> bool: ...
+    def __init__(
+        self,
+        source_road: int,
+        target_road: int,
+        source_next: int,
+        target_prev: int,
+        cost: float,
+    ) -> None:
         """
         Initialize a UbodtRecord with source road, target road, source next, target previous, and cost
         """
-    def __lt__(self, arg0: UbodtRecord) -> bool:
-        ...
+    def __lt__(self, arg0: UbodtRecord) -> bool: ...
     @property
     def cost(self) -> float:
         """
@@ -480,6 +630,7 @@ class UbodtRecord:
         """
         Get the target road ID
         """
+
 class ZigzagPath(Path):
     def to_dict(self) -> dict:
         """
@@ -505,9 +656,9 @@ class ZigzagPath(Path):
         """
         Get the list of node IDs in the ZigzagPath
         """
+
 class ZigzagPathGenerator:
-    def __init__(self) -> None:
-        ...
+    def __init__(self) -> None: ...
     def cutoff(self) -> float:
         """
         Get the cutoff distance for the zigzag path
@@ -540,4 +691,5 @@ class ZigzagPathGenerator:
         """
         Convert the ZigzagPathGenerator object to a dictionary
         """
-__version__: str = '0.2.7'
+
+__version__: str = "0.2.7"
